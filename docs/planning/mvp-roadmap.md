@@ -1,0 +1,73 @@
+# Tactical Strategy Game Roadmap
+
+Status: proposed planning baseline, 2026-07-20.
+
+## Product outcome
+
+The MVP is a desktop tactical vertical slice in which a player plans actions for four units, an opposing faction executes a deterministic plan, and the player watches one fully explainable round resolve on a small grid map. It must be enjoyable enough for human playtesting and trustworthy enough that every material outcome can be reproduced, inspected, and tested without the Unity presentation.
+
+The MVP proves the engine, not a large campaign or a finished art direction.
+
+## Delivery principles
+
+- Rules first, presentation second: a visual feature cannot introduce untestable outcomes.
+- Each new rule has a stable rule ID, prose specification, inputs/outputs, calculation examples, automated tests, replay fixtures, and a change note.
+- A milestone is not complete until its rules can be exercised headlessly and its player-facing behavior is explainable.
+- Major unresolved game decisions are recorded before implementation; no rule is inferred solely from animation or UI behavior.
+
+## Roadmap
+
+| Phase | Outcome | Rule-engineering exit criteria |
+| --- | --- | --- |
+| 0. Foundation | Deterministic round timeline | Complete: core, event log, checksum, replay serialization, 10 Edit Mode tests. |
+| 1. Spatial movement | Units traverse a grid predictably | Accepted movement-conflict policy; path, speed, reservation, swap, crossing, and invalidation tests; golden replays. |
+| 2. Perception | Factions have bounded information | LOS/visibility algorithms, faction knowledge model, reveal/loss explanations, boundary maps, symmetry/property tests. |
+| 3. Combat kernel | Aim and attacks have explainable results | Weapon profiles, range, cover, hit/damage calculation sheets, seeded rolls, exhaustive boundary tests, calculation breakdown events. |
+| 4. Reactions | Timed interrupts work consistently | Trigger, priority, delay, interruption/resume policy, conflict matrix, deterministic multi-trigger tests. |
+| 5. Scenario loop | A complete tactical encounter exists | Scenario schema, four-versus-four deployment, one objective, deterministic conventional enemy planner, win/loss rules, replay fixtures. |
+| 6. Planning and playback | Humans can play and inspect it | Placeholder map/tokens, order editor, validation feedback, playback controls, event inspector, rule explanation panel. |
+| 7. MVP hardening | Playtest-ready vertical slice | Regression suite, seed corpus, balance harness, telemetry schema, accessibility pass, known-rules manual, playtest protocol. |
+| 8. MVP release candidate | One defensible, replayable prototype build | Clean install/build, scenario acceptance suite, human-playtest findings triaged, documented release notes and rollback build. |
+
+## Phase detail
+
+### Phase 1: Spatial movement
+
+Before code, accept answers to these questions: What is a path? When does a unit enter/leave a tile? Are tiles reserved? Can allies swap? Can enemies cross? What happens when a destination becomes occupied? Does moving rotate facing? How do stance and suppression later modify speed?
+
+Deliverables: movement rulebook chapter, data model, event types, movement visualizer, table-driven unit tests, property tests, and at least ten named golden replays covering conflicts and boundary ticks.
+
+### Phase 2: Perception
+
+Separate objective world state from each faction's knowledge. Start with facing, sight range, opaque blockers, visibility gained/lost events, and remembered contacts. Defer sound, lighting, smoke, and camouflage unless a tested design requires them.
+
+### Phase 3: Combat kernel
+
+Introduce weapon/action definitions as versioned data. Every attack result must carry a human-readable breakdown: base value, modifiers, clamp, seeded roll, and applied result. No hidden random call is permitted.
+
+### Phase 4: Reactions
+
+Reactions are a resolver feature, not a presentation callback. Define trigger evaluation moments, detection prerequisites, reaction delay, tie-break ordering, resource cost, and whether interrupted actions resume. Add a conflict matrix before implementation.
+
+### Phase 5–6: Playable vertical slice
+
+Create one original scenario with placeholder assets, four player units, four enemy units, one objective, basic conventional deterministic AI, planning validation, playback, pause/speed controls, and an inspector that answers “what happened and why?”
+
+### Phase 7–8: Hardening and MVP release
+
+Run scripted simulation batches over the scenario corpus; preserve every regression seed. Conduct structured human playtests separately from mathematical/rule verification. Address rule defects before tuning presentation polish.
+
+## Beyond MVP
+
+1. Campaign layer: persistent units, injuries, original equipment, progression/upgrades, and consequence tracking. Each upgrade must be a data-defined stat transformation with before/after calculations and migration tests.
+2. Content tooling: scenario editor, data validator, replay inspector, and balance dashboard.
+3. Expanded tactical systems: doors, elevation, sound, suppression, morale, objectives, and environmental effects.
+4. Setting packages: historical-inspired content and an **original fantasy** package with original creatures, terminology, abilities, lore, and visual identity.
+5. Optional asynchronous multiplayer, only after simulation/content-version validation is mature.
+6. Mobile adaptation after the desktop tactical loop is proven.
+
+## Reusable-engine boundary
+
+The reusable kernel owns time, grid/world geometry, unit state, command validation, timeline scheduling, events, deterministic randomness, replay, checksums, and generic effect application. A setting package owns definitions and content: actions, weapons, abilities, species/archetypes, equipment, scenarios, UI language, and art.
+
+An original fantasy game can therefore reuse the engine for maps, units, attacks, facing, perception, tactical timing, and strategy while supplying its own original warriors, archers, spellcasters, creatures, abilities, and world. It must not reuse protected names, settings, rule text, monsters, spells, or branding from tabletop products.

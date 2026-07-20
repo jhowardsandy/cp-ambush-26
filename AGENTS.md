@@ -14,6 +14,8 @@ Build an original squad-level tactical strategy game where individual orders res
 6. Add or update behavior-focused tests for every core behavior change.
 7. Keep content data-driven where practical.
 8. Do not copy protected code, names, art, maps, rulebook text, audio, or branding.
+9. For each accepted rule, maintain a rule ID, rulebook statement, calculation examples, automated evidence, replay/acceptance coverage where applicable, and changelog impact in `docs/quality/`.
+10. Human playtesting evaluates experience; it never replaces deterministic rule verification.
 
 ## Source of truth
 

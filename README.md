@@ -28,3 +28,7 @@ Run Edit Mode tests from Unity's Test Runner, or headlessly:
 ## Architecture
 
 `Game.Core` is plain C# and has no Unity or presentation dependency. Unity-facing and editor assemblies depend inward on the core; tests reference the core directly. See [architecture.md](docs/technical-design/architecture.md) and [timeline-resolution.md](docs/technical-design/timeline-resolution.md).
+
+## Rules and quality
+
+The living [rulebook](docs/rulebook/README.md), [verification strategy](docs/quality/rule-verification.md), [traceability matrix](docs/quality/rule-traceability.md), and [MVP roadmap](docs/planning/mvp-roadmap.md) govern future rule changes.
