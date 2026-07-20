@@ -49,6 +49,12 @@ Units may later spend AP to change posture—for example standing, crouching, or
 
 Before acceptance, define posture transition costs/timing, whether a unit may move or fire while changing posture, how multiple cover sources combine, observation versus attack visibility, directional or elevation policy, and the exact calculation/event explanation. The first rule must be deterministic and testable without Unity animation; animation is a consequence of the resolved posture event.
 
+## Proposed overwatch, scoped zones, and reactions
+
+An overwatch order is a constrained intent, not permission to make an additional unrestricted attack. For example, a sniper may need to be prone and scoped, choose a facing/arc or explicit watched zone, and reserve one reaction shot. During the shared timeline, the resolver evaluates a deterministic trigger whenever a qualifying enemy enters, leaves, or becomes visible within that zone. If the trigger is legal, the reaction shot is consumed; after firing, that unit cannot fire another reaction shot in the round unless a separate named rule grants one.
+
+The first accepted reaction design must specify: eligible posture/weapon readiness; zone geometry and facing; which events trigger evaluation; perception/stealth/cover requirements; target-selection and tie-break rules; reaction timing and priority when several units qualify; interruption/resume policy for the moving unit; ammunition/AP reservation and refund policy; and a complete event/replay explanation. "Scoped" and "watching" must be simulation state, not merely an animation or UI label.
+
 ## Equipment, purchases, and progression
 
 Future campaign and match-economy systems may permit purchasing or earning better equipment, abilities, and upgrades. Each change should be a versioned data transformation with:

@@ -23,7 +23,7 @@ The MVP proves the engine, not a large campaign or a finished art direction.
 | 1. Spatial movement | Units traverse a grid predictably | Accepted movement-conflict policy; path, speed, reservation, swap, crossing, and invalidation tests; golden replays. |
 | 2. Perception | Factions have bounded information | LOS/visibility algorithms, faction knowledge model, reveal/loss explanations, boundary maps, symmetry/property tests. |
 | 3. Combat kernel | Aim and attacks have explainable results | Weapon profiles, range, cover, hit/damage calculation sheets, seeded rolls, exhaustive boundary tests, calculation breakdown events. |
-| 4. Reactions | Timed interrupts work consistently | Trigger, priority, delay, interruption/resume policy, conflict matrix, deterministic multi-trigger tests. |
+| 4. Reactions | Timed interrupts work consistently | Trigger, priority, delay, interruption/resume policy, watched-zone/facing policy, reaction-consumption policy, conflict matrix, deterministic multi-trigger tests. |
 | 5. Scenario loop | A complete tactical encounter exists | Scenario/encounter/objective foundation implemented: reusable map/initial-state/content-version/objective data, bounds validation, replay serialization, and eliminate-all-opponents outcome. Add deployment, richer objectives, deterministic conventional enemy planner, and replay fixtures. |
 | 6. Planning and playback | Humans can play and inspect it | First movement/effects sandbox scene and multi-round encounter-state core implemented: placeholder grid/tokens, deterministic resolve/reset controls, event overlay, checksum, and valid-round state carry-forward. Add unit selection, order editing, timeline playback, validation feedback, and inspector. |
 | 7. MVP hardening | Playtest-ready vertical slice | Regression suite, seed corpus, balance harness, telemetry schema, accessibility pass, known-rules manual, playtest protocol. |
@@ -72,7 +72,7 @@ Introduce weapon/action definitions as versioned data. Every attack result must 
 
 ### Phase 4: Reactions
 
-Reactions are a resolver feature, not a presentation callback. Define trigger evaluation moments, detection prerequisites, reaction delay, tie-break ordering, resource cost, and whether interrupted actions resume. Add a conflict matrix before implementation.
+Reactions are a resolver feature, not a presentation callback. Define trigger evaluation moments, detection prerequisites, watched-zone/facing geometry, reaction delay, tie-break ordering, one-shot consumption policy, resource cost, and whether interrupted actions resume. Add a conflict matrix before implementation.
 
 ### Phase 5–6: Playable vertical slice
 
