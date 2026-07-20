@@ -45,7 +45,7 @@ The MVP proves the engine, not a large campaign or a finished art direction.
 
 ## Next stretch: from proof surface to playable vertical slice
 
-1. **Player order authoring:** select a friendly unit, choose a legal move/action, preview its timing/validation, and submit it as the player command bundle.
+1. **Player order authoring:** select a friendly unit, choose a legal move/action, preview its timing/validation, and submit it as the player command bundle. Evolve the current round tick cap into a data-defined per-unit action-point/movement economy only after its costs, refunds, modifiers, and replay explanation are accepted.
 2. **Scenario loop:** expand the two-unit demonstration into an original four-versus-four map with deployment and a simple objective.
 3. **PvE intelligence:** produce deterministic, explainable enemy command bundles from the same state/visibility contract.
 4. **Combat depth:** add data-defined unit and weapon profiles, then seeded accuracy, cover, armor, ammunition, and additional delivery types one accepted rule at a time.

@@ -37,6 +37,12 @@ Units should be content-defined from composable data: base vitality, movement, v
 
 Role tags are candidate data for priority targeting and AI planning; they are not a reason to hard-code a special unit class into the core.
 
+## Proposed round action-point economy
+
+The current sandbox uses a 10-tick round as a technical planning bound; it is not yet a unit-speed rule. The proposed player-facing model is a per-unit action-point (AP) budget that refreshes at the start of each round. A unit's content definition would supply a base AP value, terrain traversal could spend AP per entered tile, and actions such as attacks, healing, reloads, stances, or abilities could spend explicit AP costs. Temporary effects or special abilities may grant, remove, or reserve AP only through named, versioned rules.
+
+Before accepting this rule, define: the relationship between AP and timeline ticks; whether unused AP is lost or carried; exact costs for each action; interruption/refund policy for a failed action; modifier stacking/caps/duration; and the event/replay calculation that explains `starting AP -> spent/reserved/refunded AP -> remaining AP`. This must remain setting-neutral so a rifle, bow, fireball, medical kit, or healing spell follows the same budgeting contract while retaining its own content profile.
+
 ## Equipment, purchases, and progression
 
 Future campaign and match-economy systems may permit purchasing or earning better equipment, abilities, and upgrades. Each change should be a versioned data transformation with:
@@ -65,3 +71,5 @@ PvP will use the same content and command contracts. It must not have a separate
 Future scenarios may include civilians or important people located through a scan/search sequence and rescued through an explicit pickup, escort, or extraction objective. Search information must be represented as objective/faction knowledge, not inferred from presentation.
 
 Campaign and PvE maps may also have deterministic reinforcement schedules, for example “every three completed rounds, spawn this unit group at this point.” A capturable spawn point can alter that schedule only through explicit control rules. Spawning must define stable generated IDs, exact round timing, placement when a spawn tile is blocked, ownership transition, and replay inputs before it is accepted as a game rule.
+
+PvE scenarios may instead begin with a defensive player deployment: players place their units within a defined deployment area before the first resolution round, then hold, search, extract, survive, or repel an opposing force. Deployment zones, valid placement, facing/stance defaults, preparation limits, enemy knowledge, and objective timing must be scenario data and deterministic rules—not presentation-only setup—before defensive scenarios are implemented.
