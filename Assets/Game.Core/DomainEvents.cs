@@ -10,6 +10,8 @@ public enum DomainEventType
 {
     RoundStarted,
     ActionStarted,
+    UnitExitedTile,
+    UnitEnteredTile,
     ActionCompleted,
     ActionFailed,
     RoundCompleted
@@ -22,7 +24,9 @@ public sealed record DomainEvent(
     string FactionId,
     Guid? UnitId = null,
     Guid? ActionId = null,
-    string? Detail = null);
+    string? Detail = null,
+    GridPosition? FromPosition = null,
+    GridPosition? ToPosition = null);
 
 public sealed record SimulationResult(
     GameState FinalState,

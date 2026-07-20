@@ -76,7 +76,7 @@ public sealed class TimelineResolverTests
             new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.North, UnitActivityState.Incapacitated),
             new UnitState(RedUnit, "red", new GridPosition(1, 0), Facing.South, UnitActivityState.Active)
         });
-        var request = Request(state, Bundle("blue", new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, new GridPosition(2, 0))));
+        var request = Request(state, Bundle("blue", new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, new GridPosition(1, 0))));
 
         var result = new TimelineResolver().Resolve(request);
 
@@ -119,6 +119,80 @@ public sealed class TimelineResolverTests
         Assert.That(second.FinalStateChecksum, Is.Not.EqualTo(first.FinalStateChecksum));
     }
 
+    [Test]
+    public void Move_enters_each_cardinal_path_tile_on_its_matching_tick()
+    {
+        var path = new[] { new GridPosition(1, 0), new GridPosition(1, 1), new GridPosition(2, 1) };
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 2, 3, Path: path);
+
+        var state = State(new GridPosition(0, 0), new GridPosition(10, 0));
+        var result = new TimelineResolver().Resolve(Request(state, Bundle("blue", action)));
+
+        var entries = result.Events.Where(e => e.Type == DomainEventType.UnitEnteredTile).ToArray();
+        Assert.That(entries.Select(e => e.Tick), Is.EqualTo(new[] { 3, 4, 5 }));
+        Assert.That(entries.Select(e => e.ToPosition), Is.EqualTo(path));
+        Assert.That(result.FinalState.FindUnit(BlueUnit)!.Position, Is.EqualTo(new GridPosition(2, 1)));
+        Assert.That(result.FinalState.FindUnit(BlueUnit)!.Facing, Is.EqualTo(Facing.North));
+    }
+
+    [Test]
+    public void Diagonal_path_step_is_rejected()
+    {
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(1, 1) });
+
+        var result = new TimelineResolver().Resolve(Request(Bundle("blue", action)));
+
+        Assert.That(result.Diagnostics.Select(d => d.Code), Does.Contain("invalid-movement-step"));
+    }
+
+    [Test]
+    public void Move_duration_must_match_number_of_path_tiles()
+    {
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 3, Path: new[] { new GridPosition(1, 0), new GridPosition(2, 0) });
+
+        var result = new TimelineResolver().Resolve(Request(Bundle("blue", action)));
+
+        Assert.That(result.Diagnostics.Select(d => d.Code), Does.Contain("movement-duration-mismatch"));
+    }
+
+    [Test]
+    public void Simultaneous_contested_destination_fails_all_movers_without_priority()
+    {
+        var blue = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(0, 1) });
+        var red = new TacticalAction(SecondAction, RedUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(0, 1) });
+
+        var result = new TimelineResolver().Resolve(Request(State(new GridPosition(0, 0), new GridPosition(0, 2)), Bundle("blue", blue), Bundle("red", red)));
+
+        Assert.That(result.Events.Where(e => e.Type == DomainEventType.ActionFailed).Select(e => e.ActionId), Is.EquivalentTo(new[] { FirstAction, SecondAction }));
+        Assert.That(result.FinalState.FindUnit(BlueUnit)!.Position, Is.EqualTo(new GridPosition(0, 0)));
+        Assert.That(result.FinalState.FindUnit(RedUnit)!.Position, Is.EqualTo(new GridPosition(0, 2)));
+    }
+
+    [Test]
+    public void Move_into_occupied_tile_fails_even_when_occupant_leaves_on_same_tick()
+    {
+        var blue = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(1, 0) });
+        var red = new TacticalAction(SecondAction, RedUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(2, 0) });
+
+        var result = new TimelineResolver().Resolve(Request(Bundle("blue", blue), Bundle("red", red)));
+
+        Assert.That(result.Events.Where(e => e.ActionId == FirstAction).Select(e => e.Type), Does.Contain(DomainEventType.ActionFailed));
+        Assert.That(result.FinalState.FindUnit(BlueUnit)!.Position, Is.EqualTo(new GridPosition(0, 0)));
+        Assert.That(result.FinalState.FindUnit(RedUnit)!.Position, Is.EqualTo(new GridPosition(2, 0)));
+    }
+
+    [Test]
+    public void Swap_attempt_fails_for_both_units()
+    {
+        var blue = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(1, 0) });
+        var red = new TacticalAction(SecondAction, RedUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(0, 0) });
+
+        var result = new TimelineResolver().Resolve(Request(Bundle("blue", blue), Bundle("red", red)));
+
+        Assert.That(result.Events.Where(e => e.Type == DomainEventType.ActionFailed).Select(e => e.ActionId), Is.EquivalentTo(new[] { FirstAction, SecondAction }));
+        Assert.That(result.FinalState.Units.Select(unit => unit.Position), Is.EquivalentTo(new[] { new GridPosition(0, 0), new GridPosition(1, 0) }));
+    }
+
     private static SimulationRequest Request(params CommandBundle[] bundles) => Request(DefaultState(), bundles);
 
     private static SimulationRequest Request(GameState state, params CommandBundle[] bundles) => new(state, bundles, new RoundConfiguration(), 1234u);
@@ -129,6 +203,12 @@ public sealed class TimelineResolverTests
     {
         new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.North, UnitActivityState.Active),
         new UnitState(RedUnit, "red", new GridPosition(1, 0), Facing.South, UnitActivityState.Active)
+    });
+
+    private static GameState State(GridPosition bluePosition, GridPosition redPosition) => new(new[]
+    {
+        new UnitState(BlueUnit, "blue", bluePosition, Facing.North, UnitActivityState.Active),
+        new UnitState(RedUnit, "red", redPosition, Facing.South, UnitActivityState.Active)
     });
 }
 

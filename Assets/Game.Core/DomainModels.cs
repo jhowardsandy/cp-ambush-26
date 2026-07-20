@@ -13,6 +13,12 @@ public enum TacticalActionType { Wait, Rotate, Move, Aim, Attack }
 
 public sealed record GridPosition(int X, int Y);
 
+public static class GridDistance
+{
+    public static int Manhattan(GridPosition from, GridPosition to) =>
+        Math.Abs(from.X - to.X) + Math.Abs(from.Y - to.Y);
+}
+
 public sealed record UnitState(
     Guid Id,
     string FactionId,
@@ -27,7 +33,8 @@ public sealed record TacticalAction(
     int StartTick,
     int DurationTicks,
     GridPosition? Destination = null,
-    Facing? Facing = null);
+    Facing? Facing = null,
+    IReadOnlyList<GridPosition>? Path = null);
 
 public sealed record CommandBundle(string FactionId, IReadOnlyList<TacticalAction> Actions);
 
