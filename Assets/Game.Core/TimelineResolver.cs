@@ -117,6 +117,12 @@ public sealed class TimelineResolver
     {
         var diagnostics = new List<ValidationDiagnostic>();
         var units = request.InitialState.Units.ToDictionary(unit => unit.Id);
+        if (request.Scenario != null)
+        {
+            diagnostics.AddRange(ScenarioValidator.Validate(request.Scenario));
+            foreach (var unit in request.InitialState.Units.Where(unit => !request.Scenario.Map.Contains(unit.Position)))
+                diagnostics.Add(new("request-unit-out-of-bounds", "Simulation request unit position must be inside the scenario map."));
+        }
         if (request.InitialState.Units.GroupBy(unit => unit.Position).Any(group => group.Count() > 1))
             diagnostics.Add(new("overlapping-initial-positions", "Initial state cannot place more than one unit in a tile."));
 
@@ -134,7 +140,7 @@ public sealed class TimelineResolver
             if (action.StartTick + action.DurationTicks > request.Configuration.TicksPerRound)
                 diagnostics.Add(new("round-overrun", "Action completion must be within the round.", action.ActionId));
             if (action.Type == TacticalActionType.Move)
-                ValidateMovePath(action, unit, diagnostics);
+                ValidateMovePath(action, unit, request.Scenario?.Map, diagnostics);
             if (action.Type == TacticalActionType.Rotate && action.Facing is null)
                 diagnostics.Add(new("missing-facing", "Rotate requires a facing.", action.ActionId));
         }
@@ -155,7 +161,7 @@ public sealed class TimelineResolver
         return diagnostics;
     }
 
-    private static void ValidateMovePath(TacticalAction action, UnitState? unit, ICollection<ValidationDiagnostic> diagnostics)
+    private static void ValidateMovePath(TacticalAction action, UnitState? unit, GridMapDefinition? map, ICollection<ValidationDiagnostic> diagnostics)
     {
         var path = MovementRules.PathFor(action);
         if (path.Count == 0)
@@ -178,6 +184,8 @@ public sealed class TimelineResolver
                 diagnostics.Add(new("invalid-movement-step", "Each movement path step must be exactly one cardinal tile.", action.ActionId));
             if (!visited.Add(position))
                 diagnostics.Add(new("repeated-path-position", "A movement path cannot revisit a tile during one action.", action.ActionId));
+            if (map != null && !map.Contains(position))
+                diagnostics.Add(new("movement-out-of-bounds", "Movement path must remain inside the scenario map.", action.ActionId));
             previous = position;
         }
     }

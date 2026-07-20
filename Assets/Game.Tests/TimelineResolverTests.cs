@@ -193,6 +193,42 @@ public sealed class TimelineResolverTests
         Assert.That(result.FinalState.Units.Select(unit => unit.Position), Is.EquivalentTo(new[] { new GridPosition(0, 0), new GridPosition(1, 0) }));
     }
 
+    [Test]
+    public void Scenario_request_rejects_units_and_movement_outside_its_map()
+    {
+        var scenario = new ScenarioDefinition("test-map", new GridMapDefinition("map-2x2", 2, 2), DefaultState());
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(2, 0) });
+        var request = ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(), 1234u);
+
+        var result = new TimelineResolver().Resolve(request);
+
+        Assert.That(result.Diagnostics.Select(d => d.Code), Does.Contain("movement-out-of-bounds"));
+    }
+
+    [Test]
+    public void Scenario_definition_validates_map_dimensions_and_starting_positions()
+    {
+        var scenario = new ScenarioDefinition("bad-map", new GridMapDefinition("bad", 0, 1), State(new GridPosition(0, 0), new GridPosition(2, 0)));
+
+        var diagnostics = ScenarioValidator.Validate(scenario);
+
+        Assert.That(diagnostics.Select(d => d.Code), Does.Contain("invalid-map-size"));
+        Assert.That(diagnostics.Select(d => d.Code), Does.Contain("unit-out-of-bounds"));
+    }
+
+    [Test]
+    public void Replay_round_trip_preserves_scenario_definition()
+    {
+        var scenario = new ScenarioDefinition("arena", new GridMapDefinition("arena-map", 4, 4), DefaultState(), "content-7");
+        var inputs = ScenarioFactory.CreateRequest(scenario, Array.Empty<CommandBundle>(), new RoundConfiguration(), 44u);
+        var result = new TimelineResolver().Resolve(inputs);
+
+        var decoded = ReplaySerializer.Deserialize(ReplaySerializer.Serialize(new ReplayRecord(inputs, result)));
+
+        Assert.That(decoded.Inputs.Scenario!.Map, Is.EqualTo(scenario.Map));
+        Assert.That(decoded.Inputs.ContentVersion, Is.EqualTo("content-7"));
+    }
+
     private static SimulationRequest Request(params CommandBundle[] bundles) => Request(DefaultState(), bundles);
 
     private static SimulationRequest Request(GameState state, params CommandBundle[] bundles) => new(state, bundles, new RoundConfiguration(), 1234u);

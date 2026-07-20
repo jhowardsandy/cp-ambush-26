@@ -61,7 +61,8 @@ public sealed record SimulationRequest(
     RoundConfiguration Configuration,
     uint RandomSeed,
     string SimulationVersion = "1",
-    string ContentVersion = "1");
+    string ContentVersion = "1",
+    ScenarioDefinition? Scenario = null);
 
 public sealed record ValidationDiagnostic(string Code, string Message, Guid? ActionId = null);
 
