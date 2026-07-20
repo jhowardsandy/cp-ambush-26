@@ -43,6 +43,12 @@ The current sandbox uses a 10-tick round as a technical planning bound; it is no
 
 Before accepting this rule, define: the relationship between AP and timeline ticks; whether unused AP is lost or carried; exact costs for each action; interruption/refund policy for a failed action; modifier stacking/caps/duration; and the event/replay calculation that explains `starting AP -> spent/reserved/refunded AP -> remaining AP`. This must remain setting-neutral so a rifle, bow, fireball, medical kit, or healing spell follows the same budgeting contract while retaining its own content profile.
 
+## Proposed posture, cover, and concealment
+
+Units may later spend AP to change posture—for example standing, crouching, or prone/lying down—and spend AP again to stand. Posture can alter movement, visibility, targetability, cover/concealment interaction, and allowed actions only through explicit content and rule tables. Brush, walls, buildings, terrain height, and other map features should expose generic cover/concealment/elevation properties; military and fantasy content can then use the same engine to express foxholes, hedges, ruins, magical thickets, or barricades.
+
+Before acceptance, define posture transition costs/timing, whether a unit may move or fire while changing posture, how multiple cover sources combine, observation versus attack visibility, directional or elevation policy, and the exact calculation/event explanation. The first rule must be deterministic and testable without Unity animation; animation is a consequence of the resolved posture event.
+
 ## Equipment, purchases, and progression
 
 Future campaign and match-economy systems may permit purchasing or earning better equipment, abilities, and upgrades. Each change should be a versioned data transformation with:

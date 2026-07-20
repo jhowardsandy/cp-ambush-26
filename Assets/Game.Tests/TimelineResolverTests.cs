@@ -603,6 +603,27 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Direct_attack_succeeds_when_target_moves_into_range_before_attack_completes()
+    {
+        var state = State(new GridPosition(0, 0), new GridPosition(4, 0));
+        var scenario = new ScenarioDefinition("approaching-target-attack", new GridMapDefinition("approaching-target-map", 5, 1), state);
+        var attack = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 0, 2, TargetUnitId: RedUnit, AttackProfileId: "short-rifle");
+        var approachMove = new TacticalAction(SecondAction, RedUnit, TacticalActionType.Move, 0, 2, Path: new[] { new GridPosition(3, 0), new GridPosition(2, 0) });
+        var request = ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", attack), Bundle("red", approachMove) }, new RoundConfiguration(3), 1234u,
+            attackProfiles: new[] { new AttackProfile("short-rifle", 1, 3, 5) });
+
+        var result = new TimelineResolver().Resolve(request);
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.FinalState.FindUnit(RedUnit)!.Position, Is.EqualTo(new GridPosition(2, 0)));
+        Assert.That(result.FinalState.FindUnit(RedUnit)!.HitPoints, Is.EqualTo(5));
+        Assert.That(result.Events.Where(@event => @event.ActionId == FirstAction).Select(@event => @event.Type),
+            Is.EqualTo(new[] { DomainEventType.ActionStarted, DomainEventType.AttackResolved, DomainEventType.ActionCompleted }));
+        Assert.That(result.Events.Single(@event => @event.ActionId == FirstAction && @event.Type == DomainEventType.AttackResolved).Detail,
+            Is.EqualTo("attack=short-rifle; distance=2; damage=5; before=10; applied=-5; after=5"));
+    }
+
+    [Test]
     public void Direct_attack_rejects_missing_profile_and_friendly_target()
     {
         var scenario = new ScenarioDefinition("invalid-attack", new GridMapDefinition("invalid-attack-map", 3, 1), DefaultState());
