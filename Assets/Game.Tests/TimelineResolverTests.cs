@@ -414,6 +414,67 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Direct_attack_within_range_and_line_of_sight_damages_and_incapacities_target()
+    {
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East, UnitActivityState.Active),
+            new UnitState(RedUnit, "red", new GridPosition(3, 0), Facing.West, UnitActivityState.Active, HitPoints: 4, MaxHitPoints: 10)
+        });
+        var scenario = new ScenarioDefinition("direct-attack", new GridMapDefinition("direct-attack-map", 5, 1), state);
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 0, 1, TargetUnitId: RedUnit, AttackProfileId: "training-rifle");
+        var request = ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(3), 1234u,
+            attackProfiles: new[] { new AttackProfile("training-rifle", 1, 3, 5) });
+
+        var result = new TimelineResolver().Resolve(request);
+
+        var target = result.FinalState.FindUnit(RedUnit)!;
+        Assert.That(target.HitPoints, Is.EqualTo(0));
+        Assert.That(target.ActivityState, Is.EqualTo(UnitActivityState.Incapacitated));
+        var attack = result.Events.Single(@event => @event.Type == DomainEventType.AttackResolved);
+        Assert.That(attack.UnitId, Is.EqualTo(BlueUnit));
+        Assert.That(attack.TargetUnitId, Is.EqualTo(RedUnit));
+        Assert.That(attack.FromPosition, Is.EqualTo(new GridPosition(0, 0)));
+        Assert.That(attack.ToPosition, Is.EqualTo(new GridPosition(3, 0)));
+        Assert.That(attack.Detail, Is.EqualTo("attack=training-rifle; distance=3; damage=5; before=4; applied=-4; after=0"));
+    }
+
+    [Test]
+    public void Direct_attack_fails_at_resolution_when_line_of_sight_is_blocked()
+    {
+        var state = State(new GridPosition(0, 0), new GridPosition(3, 0));
+        var scenario = new ScenarioDefinition("blocked-attack", new GridMapDefinition("blocked-attack-map", 5, 1, new[]
+        {
+            new TerrainCellDefinition(new GridPosition(1, 0), BlocksLineOfSight: true)
+        }), state);
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 0, 1, TargetUnitId: RedUnit, AttackProfileId: "blocked-rifle");
+        var request = ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(3), 1234u,
+            attackProfiles: new[] { new AttackProfile("blocked-rifle", 1, 4, 5) });
+
+        var result = new TimelineResolver().Resolve(request);
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.FinalState.FindUnit(RedUnit)!.HitPoints, Is.EqualTo(10));
+        Assert.That(result.Events.Where(@event => @event.ActionId == FirstAction).Select(@event => @event.Type),
+            Is.EqualTo(new[] { DomainEventType.ActionStarted, DomainEventType.ActionFailed }));
+        Assert.That(result.Events.Single(@event => @event.Type == DomainEventType.ActionFailed).Detail, Is.EqualTo("Target line of sight is blocked."));
+    }
+
+    [Test]
+    public void Direct_attack_rejects_missing_profile_and_friendly_target()
+    {
+        var scenario = new ScenarioDefinition("invalid-attack", new GridMapDefinition("invalid-attack-map", 3, 1), DefaultState());
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 0, 1, TargetUnitId: BlueUnit, AttackProfileId: "missing");
+        var request = ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(3), 1234u);
+
+        var result = new TimelineResolver().Resolve(request);
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("friendly-attack-target"));
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("unknown-attack-profile-id"));
+    }
+
+    [Test]
     public void Healing_effect_clamps_to_maximum_and_emits_its_calculation()
     {
         var state = new GameState(new[]

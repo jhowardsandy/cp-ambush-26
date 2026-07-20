@@ -13,6 +13,7 @@ public enum DomainEventType
     UnitExitedTile,
     UnitEnteredTile,
     EffectApplied,
+    AttackResolved,
     ActionCompleted,
     ActionFailed,
     RoundCompleted
@@ -29,7 +30,8 @@ public sealed record DomainEvent(
     GridPosition? FromPosition = null,
     GridPosition? ToPosition = null,
     int? HitPointsAfter = null,
-    UnitActivityState? ActivityStateAfter = null);
+    UnitActivityState? ActivityStateAfter = null,
+    Guid? TargetUnitId = null);
 
 public sealed record SimulationResult(
     GameState FinalState,

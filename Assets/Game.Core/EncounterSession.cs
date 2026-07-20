@@ -23,13 +23,14 @@ public static class EncounterResolver
         RoundConfiguration configuration,
         uint randomSeed,
         string simulationVersion = "1",
-        IReadOnlyList<EffectDefinition>? effects = null)
+        IReadOnlyList<EffectDefinition>? effects = null,
+        IReadOnlyList<AttackProfile>? attackProfiles = null)
     {
         if (encounter == null) throw new ArgumentNullException(nameof(encounter));
         if (commandBundles == null) throw new ArgumentNullException(nameof(commandBundles));
 
         var scenario = new ScenarioDefinition(encounter.Definition.Id, encounter.Definition.Map, encounter.CurrentState, encounter.Definition.ContentVersion);
-        var request = ScenarioFactory.CreateRequest(scenario, commandBundles, configuration, randomSeed, simulationVersion, effects);
+        var request = ScenarioFactory.CreateRequest(scenario, commandBundles, configuration, randomSeed, simulationVersion, effects, attackProfiles);
         var resolution = new TimelineResolver().Resolve(request);
         var nextState = resolution.IsValid
             ? encounter with { CurrentState = resolution.FinalState, CompletedRounds = encounter.CompletedRounds + 1 }

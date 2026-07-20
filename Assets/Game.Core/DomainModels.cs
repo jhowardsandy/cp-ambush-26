@@ -38,10 +38,14 @@ public sealed record TacticalAction(
     Facing? Facing = null,
     IReadOnlyList<GridPosition>? Path = null,
     Guid? TargetUnitId = null,
-    string? EffectId = null);
+    string? EffectId = null,
+    string? AttackProfileId = null);
 
 /// <summary>Setting-neutral, versioned vitality change. Positive values heal; negative values damage.</summary>
 public sealed record EffectDefinition(string Id, int VitalityDelta);
+
+/// <summary>Data-defined direct attack with deterministic, guaranteed-hit damage in the first combat slice.</summary>
+public sealed record AttackProfile(string Id, int MinimumRange, int MaximumRange, int Damage, bool RequiresLineOfSight = true);
 
 public sealed record CommandBundle(string FactionId, IReadOnlyList<TacticalAction> Actions);
 
@@ -70,7 +74,8 @@ public sealed record SimulationRequest(
     string SimulationVersion = "1",
     string ContentVersion = "1",
     ScenarioDefinition? Scenario = null,
-    IReadOnlyList<EffectDefinition>? Effects = null);
+    IReadOnlyList<EffectDefinition>? Effects = null,
+    IReadOnlyList<AttackProfile>? AttackProfiles = null);
 
 public sealed record ValidationDiagnostic(string Code, string Message, Guid? ActionId = null);
 

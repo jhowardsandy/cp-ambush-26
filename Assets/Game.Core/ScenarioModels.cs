@@ -42,8 +42,9 @@ public static class ScenarioFactory
         RoundConfiguration configuration,
         uint randomSeed,
         string simulationVersion = "1",
-        IReadOnlyList<EffectDefinition>? effects = null) =>
-        new(scenario.InitialState, commandBundles, configuration, randomSeed, simulationVersion, scenario.ContentVersion, scenario, effects);
+        IReadOnlyList<EffectDefinition>? effects = null,
+        IReadOnlyList<AttackProfile>? attackProfiles = null) =>
+        new(scenario.InitialState, commandBundles, configuration, randomSeed, simulationVersion, scenario.ContentVersion, scenario, effects, attackProfiles);
 }
 
 public static class ScenarioValidator
