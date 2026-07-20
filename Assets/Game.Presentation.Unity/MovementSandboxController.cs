@@ -100,7 +100,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 _scenario.InitialState);
             _eventLines.Clear();
             _planningMessage = _manualPlanningMode
-                ? "Manual planning: select blue, draft one order, then submit it."
+                ? "Manual planning: build a blue path or draft an action, then submit it."
                 : "Encounter reset. Round 1 is ready: scripted movement orders.";
             _eventLines.Add(_planningMessage);
             RenderState(_scenario.InitialState);
@@ -160,7 +160,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (_encounter.Outcome?.IsComplete == true)
                 _eventLines.Add($"OUTCOME: {_encounter.Outcome.Detail}");
             else if (_manualPlanningMode)
-                _eventLines.Add("Manual planning: draft the next blue order.");
+                _eventLines.Add("Manual planning: build the next blue path or draft an action.");
             else _eventLines.Add(_encounter.CompletedRounds < DemonstrationRoundCount
                 ? $"Round {roundNumber} complete. Resolve round {_encounter.CompletedRounds + 1} for fresh orders."
                 : "Three-round encounter demo complete. Reset to begin again.");
@@ -215,16 +215,53 @@ namespace TacticalStrategyGame.Presentation.Unity
                 return;
             }
 
-            var destination = new GridPosition(blue.Position.X + delta.X, blue.Position.Y + delta.Y);
-            if (!_scenario.Map.Contains(destination) || !_scenario.Map.CellAt(destination).IsPassable || _encounter.CurrentState.Units.Any(unit => unit.Position == destination))
+            var existingPath = _draftedAction?.Type == TacticalActionType.Move
+                ? MovementRules.PathFor(_draftedAction).ToList()
+                : new List<GridPosition>();
+            var origin = existingPath.Count > 0 ? existingPath[^1] : blue.Position;
+            var destination = new GridPosition(origin.X + delta.X, origin.Y + delta.Y);
+            if (!_scenario.Map.Contains(destination) || !_scenario.Map.CellAt(destination).IsPassable || _encounter.CurrentState.Units.Any(unit => unit.Position == destination) || existingPath.Contains(destination))
             {
-                _planningMessage = "That move is not currently legal: it is outside the map, blocked, or occupied.";
+                _planningMessage = "That path step is not currently legal: it is outside the map, blocked, occupied, or already in this path.";
                 return;
             }
 
-            var draft = new TacticalAction(Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffff1"), blue.Id, TacticalActionType.Move, 0, 1, Path: new[] { destination });
+            existingPath.Add(destination);
+            var draft = new TacticalAction(Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffff1"), blue.Id, TacticalActionType.Move, 0, 1, Path: existingPath);
             _draftedAction = draft with { DurationTicks = MovementRules.DurationFor(draft, _scenario.Map) };
-            _planningMessage = $"Drafted move to ({destination.X}, {destination.Y}) for {_draftedAction.DurationTicks} tick(s).";
+            if (_draftedAction.DurationTicks > 10)
+            {
+                existingPath.RemoveAt(existingPath.Count - 1);
+                _draftedAction = existingPath.Count == 0
+                    ? null
+                    : draft with { Path = existingPath, DurationTicks = MovementRules.DurationFor(draft with { Path = existingPath }, _scenario.Map) };
+                _planningMessage = "That path exceeds this round's 10-tick movement budget.";
+                return;
+            }
+
+            _planningMessage = $"Drafted {existingPath.Count}-tile path to ({destination.X}, {destination.Y}) for {_draftedAction.DurationTicks}/10 tick(s).";
+        }
+
+        private void UndoPathStep()
+        {
+            if (_draftedAction?.Type != TacticalActionType.Move)
+            {
+                _planningMessage = "There is no drafted movement path to undo.";
+                return;
+            }
+
+            var path = MovementRules.PathFor(_draftedAction).ToList();
+            path.RemoveAt(path.Count - 1);
+            if (path.Count == 0)
+            {
+                _draftedAction = null;
+                _planningMessage = "Movement path cleared.";
+                return;
+            }
+
+            _draftedAction = _draftedAction with { Path = path, DurationTicks = MovementRules.DurationFor(_draftedAction with { Path = path }, _scenario.Map) };
+            var destination = path[^1];
+            _planningMessage = $"Path shortened to {path.Count} tile(s), ending at ({destination.X}, {destination.Y}) for {_draftedAction.DurationTicks}/10 tick(s).";
         }
 
         private void DraftHeal()
@@ -340,7 +377,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void OnGUI()
         {
-            GUI.Box(new Rect(14, 14, 760, 96), "Encounter Sandbox — deterministic movement, effects, and direct fire");
+            GUI.Box(new Rect(14, 14, 850, 96), "Encounter Sandbox — deterministic movement, effects, and direct fire");
             var canResolve = !_isResolving && (_manualPlanningMode ? _draftedAction is not null && _encounter.Outcome?.IsComplete != true : _encounter.CompletedRounds < DemonstrationRoundCount);
             GUI.enabled = canResolve;
             var resolveLabel = _manualPlanningMode
@@ -362,7 +399,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
             if (_manualPlanningMode)
             {
-                GUI.Label(new Rect(414, 46, 330, 20), _planningMessage);
+                GUI.Label(new Rect(414, 46, 430, 20), _planningMessage);
                 GUI.Label(new Rect(24, 76, 150, 20), "Selected unit: BLUE");
                 if (GUI.Button(new Rect(174, 74, 70, 24), "North")) DraftMove(new GridPosition(0, 1));
                 if (GUI.Button(new Rect(249, 74, 70, 24), "South")) DraftMove(new GridPosition(0, -1));
@@ -370,10 +407,12 @@ namespace TacticalStrategyGame.Presentation.Unity
                 if (GUI.Button(new Rect(399, 74, 70, 24), "West")) DraftMove(new GridPosition(-1, 0));
                 if (GUI.Button(new Rect(474, 74, 70, 24), "Heal")) DraftHeal();
                 if (GUI.Button(new Rect(549, 74, 70, 24), "Attack red")) DraftAttack();
-                if (GUI.Button(new Rect(624, 74, 90, 24), "Clear draft"))
+                if (GUI.Button(new Rect(624, 74, 90, 24), "Undo step"))
+                    UndoPathStep();
+                if (GUI.Button(new Rect(719, 74, 110, 24), "Clear draft"))
                 {
                     _draftedAction = null;
-                    _planningMessage = "Draft cleared. Choose a new blue order.";
+                    _planningMessage = "Draft cleared. Build a path or choose a new blue action.";
                 }
             }
 

@@ -8,5 +8,5 @@
 - [~] Milestone 5 combat — guaranteed-hit direct-fire profile with range/LOS, damage, incapacitation, and golden replay implemented; accuracy, cover, armor, ammunition, and alternate delivery remain deferred
 - [ ] Milestone 6 reactions
 - [~] Milestone 7 first scenario — reusable scenario, multi-round two-unit demonstration, and validated 16×12 four-versus-four content fixture implemented; Unity scenario presentation, deployment flow, objective variety, and PvE planner remain deferred
-- [~] Player-authored unit selection and order editing — manual sandbox mode drafts one selected blue unit's move/heal/attack order and submits it through the real encounter resolver; tile selection, multiple units, timelines, and order editing remain deferred
+- [~] Player-authored unit selection and order editing — manual sandbox mode builds one selected blue unit's multi-tile move path (with terrain-derived timing and 10-tick round cap), or drafts heal/attack, then submits it through the real encounter resolver; tile selection, multiple units, move-then-action timelines, and richer order editing remain deferred
 - [ ] Deterministic, explainable PvE enemy planner
