@@ -40,7 +40,8 @@ public sealed record ScenarioDefinition(
     GridMapDefinition Map,
     GameState InitialState,
     string ContentVersion = "1",
-    IReadOnlyList<ObjectiveDefinition>? Objectives = null);
+    IReadOnlyList<ObjectiveDefinition>? Objectives = null,
+    IReadOnlyList<UnitDefinition>? UnitDefinitions = null);
 
 public static class ScenarioFactory
 {
@@ -71,6 +72,32 @@ public static class ScenarioValidator
         {
             if (!scenario.Map.Contains(unit.Position))
                 diagnostics.Add(new("unit-out-of-bounds", "Scenario unit position must be inside its map."));
+        }
+
+        var unitDefinitions = scenario.UnitDefinitions ?? Array.Empty<UnitDefinition>();
+        foreach (var definition in unitDefinitions)
+        {
+            if (String.IsNullOrWhiteSpace(definition.Id))
+                diagnostics.Add(new("missing-unit-definition-id", "Unit definitions require a stable non-empty ID."));
+            if (definition.MaxHitPoints <= 0)
+                diagnostics.Add(new("non-positive-unit-definition-hit-points", "Unit definition maximum hit points must be positive."));
+            if (definition.VisionRange < 0)
+                diagnostics.Add(new("negative-unit-definition-vision", "Unit definition vision range cannot be negative."));
+            if (definition.BaseMovementTicks <= 0)
+                diagnostics.Add(new("non-positive-unit-definition-movement", "Unit definition base movement ticks must be positive."));
+            ValidateIdentifierList(definition.RoleTags, "invalid-unit-role-tag", "Unit role tags must be non-empty and unique.", diagnostics);
+            ValidateIdentifierList(definition.AttackProfileIds, "invalid-unit-attack-profile-id", "Unit attack profile IDs must be non-empty and unique.", diagnostics);
+            ValidateIdentifierList(definition.EffectIds, "invalid-unit-effect-id", "Unit effect IDs must be non-empty and unique.", diagnostics);
+        }
+        if (unitDefinitions.GroupBy(definition => definition.Id, StringComparer.Ordinal).Any(group => group.Count() > 1))
+            diagnostics.Add(new("duplicate-unit-definition-id", "Unit definition IDs must be unique."));
+        foreach (var unit in scenario.InitialState.Units.Where(unit => !String.IsNullOrWhiteSpace(unit.UnitDefinitionId)))
+        {
+            var definition = unitDefinitions.FirstOrDefault(candidate => StringComparer.Ordinal.Equals(candidate.Id, unit.UnitDefinitionId));
+            if (definition == null)
+                diagnostics.Add(new("unknown-unit-definition", "Scenario unit references an unknown unit definition."));
+            else if (unit.MaxHitPoints != definition.MaxHitPoints)
+                diagnostics.Add(new("unit-definition-hit-points-mismatch", "Scenario unit maximum hit points must match its unit definition."));
         }
 
         var terrain = scenario.Map.Terrain ?? Array.Empty<TerrainCellDefinition>();
@@ -116,6 +143,14 @@ public static class ScenarioValidator
             diagnostics.Add(new("duplicate-objective-id", "Objective definition IDs must be unique."));
 
         return diagnostics;
+    }
+
+    private static void ValidateIdentifierList(IReadOnlyList<string>? values, string code, string message, ICollection<ValidationDiagnostic> diagnostics)
+    {
+        if (values == null)
+            return;
+        if (values.Any(String.IsNullOrWhiteSpace) || values.GroupBy(value => value, StringComparer.Ordinal).Any(group => group.Count() > 1))
+            diagnostics.Add(new(code, message));
     }
 }
 

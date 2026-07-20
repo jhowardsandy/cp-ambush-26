@@ -13,6 +13,7 @@
 | SCN-MAP-001 | accepted | `technical-design/content-schema.md` | Scenario map dimension and starting-position validation test | Scenario definition survives replay serialization. |
 | SCN-MAP-002 | accepted | `technical-design/content-schema.md` | Movement-out-of-bounds scenario test | Add map-boundary golden fixture with the fixture harness. |
 | SCN-MAP-003 | accepted | `technical-design/content-schema.md` | Named map-area JSON round-trip and invalid-area validation test | Add an objective scenario replay when capture/search rules are accepted. |
+| SCN-UNIT-001 | accepted | `technical-design/content-schema.md` | Unit-definition creation, JSON content round-trip, and invalid-reference validation tests | Add a unit-catalog scenario replay when weapon/effect capability binding is accepted. |
 | VIS-LOS-001 | accepted | `rulebook/visibility.md` | Blocking and symmetry line-of-sight tests | Add visibility golden fixtures after faction knowledge is introduced. |
 | VIS-RNG-001 | accepted | `rulebook/visibility.md` | Range boundary, opaque blocker, active observer, and friendly-visibility tests | Add a visibility golden replay after snapshots are scheduled into round resolution. |
 | EFF-VIT-001 | accepted | `rulebook/effects-and-vitality.md` | Vitality clamp, incapacity, calculation-event, invalid-content, and replay-serialization tests | `GR-EFF-001` vitality-restoration golden replay. |

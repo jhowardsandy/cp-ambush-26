@@ -26,7 +26,8 @@ public sealed record UnitState(
     Facing Facing,
     UnitActivityState ActivityState,
     int HitPoints = 10,
-    int MaxHitPoints = 10);
+    int MaxHitPoints = 10,
+    string? UnitDefinitionId = null);
 
 public sealed record TacticalAction(
     Guid ActionId,

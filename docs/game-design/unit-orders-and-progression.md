@@ -2,6 +2,8 @@
 
 Status: proposed design directions. Nothing in this document is an accepted simulation rule yet.
 
+Update: the portable `UnitDefinition` catalog foundation is implemented for archetype ID, maximum vitality, vision, base movement timing, role tags, and listed attack/effect IDs. Its listed capability bindings and progression behavior remain proposed.
+
 ## Tactical order language
 
 The player should plan intent, not merely issue one generic attack command. Candidate order families include:

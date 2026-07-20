@@ -341,6 +341,53 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Unit_definition_creates_initial_unit_state_and_round_trips_in_scenario_json()
+    {
+        var definition = new UnitDefinition("scout", 7, 5, 1, new[] { "scout", "light" }, new[] { "carbine" }, new[] { "first-aid" });
+        var unit = definition.CreateInitialState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East);
+        var scenario = new ScenarioDefinition("unit-content", new GridMapDefinition("unit-content-map", 3, 3), new GameState(new[]
+        {
+            unit,
+            new UnitState(RedUnit, "red", new GridPosition(2, 2), Facing.West, UnitActivityState.Active)
+        }), UnitDefinitions: new[] { definition });
+
+        var decoded = ScenarioSerializer.Deserialize(ScenarioSerializer.Serialize(scenario));
+
+        Assert.That(unit.HitPoints, Is.EqualTo(7));
+        Assert.That(unit.MaxHitPoints, Is.EqualTo(7));
+        Assert.That(unit.UnitDefinitionId, Is.EqualTo("scout"));
+        Assert.That(decoded.UnitDefinitions!.Count, Is.EqualTo(1));
+        Assert.That(decoded.UnitDefinitions[0].Id, Is.EqualTo("scout"));
+        Assert.That(decoded.UnitDefinitions[0].MaxHitPoints, Is.EqualTo(7));
+        Assert.That(decoded.UnitDefinitions[0].VisionRange, Is.EqualTo(5));
+        Assert.That(decoded.UnitDefinitions[0].RoleTags, Is.EqualTo(new[] { "scout", "light" }));
+        Assert.That(decoded.UnitDefinitions[0].AttackProfileIds, Is.EqualTo(new[] { "carbine" }));
+        Assert.That(decoded.UnitDefinitions[0].EffectIds, Is.EqualTo(new[] { "first-aid" }));
+        Assert.That(ScenarioValidator.Validate(decoded), Is.Empty);
+    }
+
+    [Test]
+    public void Scenario_rejects_invalid_or_unknown_unit_definition_references()
+    {
+        var invalidDefinition = new UnitDefinition("", 0, -1, 0, new[] { "role", "role" }, new[] { "" });
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.North, UnitActivityState.Active, UnitDefinitionId: "missing"),
+            new UnitState(RedUnit, "red", new GridPosition(1, 0), Facing.South, UnitActivityState.Active)
+        });
+        var scenario = new ScenarioDefinition("invalid-unit-content", new GridMapDefinition("invalid-unit-content-map", 3, 1), state, UnitDefinitions: new[] { invalidDefinition });
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, Array.Empty<CommandBundle>(), new RoundConfiguration(3), 1234u));
+
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("missing-unit-definition-id"));
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("non-positive-unit-definition-hit-points"));
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("negative-unit-definition-vision"));
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("non-positive-unit-definition-movement"));
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("invalid-unit-role-tag"));
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("invalid-unit-attack-profile-id"));
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("unknown-unit-definition"));
+    }
+
+    [Test]
     public void Line_of_sight_is_blocked_by_an_intermediate_terrain_cell()
     {
         var map = new GridMapDefinition("los-map", 5, 1, new[]
