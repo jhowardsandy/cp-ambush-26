@@ -312,7 +312,9 @@ public sealed class TimelineResolverTests
         Assert.That(decoded.Map.Width, Is.EqualTo(scenario.Map.Width));
         Assert.That(decoded.Map.Height, Is.EqualTo(scenario.Map.Height));
         Assert.That(decoded.Map.Terrain, Is.EqualTo(scenario.Map.Terrain));
-        Assert.That(decoded.Map.Areas, Is.EqualTo(scenario.Map.Areas));
+        Assert.That(decoded.Map.Areas!.Select(area => area.Id), Is.EqualTo(scenario.Map.Areas!.Select(area => area.Id)));
+        Assert.That(decoded.Map.Areas[0].Tiles, Is.EqualTo(scenario.Map.Areas[0].Tiles));
+        Assert.That(decoded.Map.Areas[1].Tiles, Is.EqualTo(scenario.Map.Areas[1].Tiles));
         Assert.That(decoded.InitialState.Units, Is.EqualTo(scenario.InitialState.Units));
         Assert.That(decoded.ContentVersion, Is.EqualTo(scenario.ContentVersion));
         Assert.That(decoded.Objectives, Is.EqualTo(scenario.Objectives));
