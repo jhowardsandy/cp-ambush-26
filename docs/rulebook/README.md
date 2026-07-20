@@ -2,6 +2,15 @@
 
 This folder is the living, player-readable rulebook. It describes accepted behavior, not implementation guesses. Each chapter references stable rule IDs and calculation examples; technical implementation details live in `docs/technical-design/`.
 
+## Accepted chapters
+
+1. `movement-and-occupancy.md` — paths, terrain timing, and simultaneous occupancy.
+2. `visibility.md` — objective line of sight and present-time faction visibility.
+3. `effects-and-vitality.md` — deterministic healing/damage vitality effects.
+4. `direct-attacks.md` — guaranteed-hit direct attacks with range and terrain sight.
+5. `encounter-rounds.md` — valid round carry-forward and invalid-plan behavior.
+6. `objectives.md` — eliminate-all-opponents victory and future objective directions.
+
 ## Planned chapters
 
 1. Round structure and timeline
@@ -32,3 +41,5 @@ Change history: …
 ```
 
 No rule reaches `accepted` without explicit examples and automated coverage.
+
+Implemented rule changes are summarized in `docs/quality/rule-changelog.md` and mapped to tests/replays in `docs/quality/rule-traceability.md`.

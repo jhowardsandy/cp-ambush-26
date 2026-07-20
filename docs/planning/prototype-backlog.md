@@ -7,6 +7,6 @@
 - [~] Milestone 4 visibility — objective line of sight and present-time range snapshots implemented; memory, fog of war, and presentation deferred
 - [~] Milestone 5 combat — guaranteed-hit direct-fire profile with range/LOS, damage, incapacitation, and golden replay implemented; accuracy, cover, armor, ammunition, and alternate delivery remain deferred
 - [ ] Milestone 6 reactions
-- [~] Milestone 7 first scenario — reusable scenario and multi-round two-unit demonstration implemented; original four-versus-four encounter, deployment, objective, and PvE planner remain deferred
+- [~] Milestone 7 first scenario — reusable scenario, multi-round two-unit demonstration, and validated 16×12 four-versus-four content fixture implemented; Unity scenario presentation, deployment flow, objective variety, and PvE planner remain deferred
 - [ ] Player-authored unit selection and order editing
 - [ ] Deterministic, explainable PvE enemy planner

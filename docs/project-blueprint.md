@@ -15,6 +15,8 @@ The intent is not to reproduce copyrighted names, art, text, maps, or code. The 
 
 The long-term goal is to build one reusable tactical simulation engine that can support multiple game settings.
 
+> **Implementation status, 2026-07-20:** This blueprint remains the long-term design baseline. Implemented behavior is recorded in the rulebook, technical-design documents, traceability matrix, and [living MVP roadmap](planning/mvp-roadmap.md). Do not infer that all illustrative systems below are implemented.
+
 Initial settings under consideration:
 
 1. A historical or WWII-inspired squad tactical game.
