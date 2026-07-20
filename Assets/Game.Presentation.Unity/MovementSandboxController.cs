@@ -20,7 +20,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         private EncounterState _encounter = null!;
         private SimulationResult? _result;
         private bool _isResolving;
-        private const int DemonstrationRoundCount = 2;
+        private const int DemonstrationRoundCount = 3;
 
         private void Start()
         {
@@ -113,7 +113,8 @@ namespace TacticalStrategyGame.Presentation.Unity
                 CommandsForRound(roundNumber),
                 new RoundConfiguration(10),
                 (uint)(20260720 + roundNumber),
-                effects: new[] { new EffectDefinition("field-med-kit", 5) });
+                effects: new[] { new EffectDefinition("field-med-kit", 5) },
+                attackProfiles: new[] { new AttackProfile("sandbox-rifle", 1, 3, 10) });
 
             _result = round.Resolution;
             _encounter = round.NextState;
@@ -128,10 +129,15 @@ namespace TacticalStrategyGame.Presentation.Unity
                     if (@event.Type == DomainEventType.UnitEnteredTile && @event.UnitId.HasValue && @event.ToPosition != null)
                         _unitViews[@event.UnitId.Value].transform.position = new Vector3(@event.ToPosition.X, 0.3f, @event.ToPosition.Y);
 
-                    if (@event.Type == DomainEventType.EffectApplied && @event.UnitId.HasValue && @event.HitPointsAfter.HasValue && @event.ActivityStateAfter.HasValue)
+                    if (@event.Type == DomainEventType.AttackResolved && @event.FromPosition != null && @event.ToPosition != null)
+                        yield return AnimateProjectile(@event.FromPosition, @event.ToPosition);
+
+                    var affectedUnitId = @event.Type == DomainEventType.AttackResolved ? @event.TargetUnitId : @event.UnitId;
+                    if ((@event.Type == DomainEventType.EffectApplied || @event.Type == DomainEventType.AttackResolved) && affectedUnitId.HasValue && @event.HitPointsAfter.HasValue && @event.ActivityStateAfter.HasValue)
                     {
-                        _displayHitPoints[@event.UnitId.Value] = @event.HitPointsAfter.Value;
-                        _displayActivityStates[@event.UnitId.Value] = @event.ActivityStateAfter.Value;
+                        _displayHitPoints[affectedUnitId.Value] = @event.HitPointsAfter.Value;
+                        _displayActivityStates[affectedUnitId.Value] = @event.ActivityStateAfter.Value;
+                        ApplyActivityAppearance(affectedUnitId.Value, @event.ActivityStateAfter.Value);
                     }
 
                     _eventLines.Add($"t{@event.Tick:00} {@event.Type} {@event.FactionId} {@event.Detail}");
@@ -143,7 +149,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             _eventLines.Add($"Checksum: {_result.FinalStateChecksum}");
             _eventLines.Add(_encounter.CompletedRounds < DemonstrationRoundCount
                 ? $"Round {roundNumber} complete. Resolve round {_encounter.CompletedRounds + 1} for fresh orders."
-                : "Two-round encounter demo complete. Reset to begin again.");
+                : "Three-round encounter demo complete. Red is incapacitated. Reset to begin again.");
             _isResolving = false;
         }
 
@@ -162,12 +168,40 @@ namespace TacticalStrategyGame.Presentation.Unity
                 return new[] { new CommandBundle("blue", new[] { blueMove }), new CommandBundle("red", new[] { redMove }) };
             }
 
-            var blueHeal = new TacticalAction(
-                Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"), blueUnit, TacticalActionType.ApplyEffect, 0, 1,
-                TargetUnitId: blueUnit, EffectId: "field-med-kit");
-            var redWait = new TacticalAction(
-                Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"), redUnit, TacticalActionType.Wait, 0, 1);
-            return new[] { new CommandBundle("blue", new[] { blueHeal }), new CommandBundle("red", new[] { redWait }) };
+            if (roundNumber == 2)
+            {
+                var blueHeal = new TacticalAction(
+                    Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"), blueUnit, TacticalActionType.ApplyEffect, 0, 1,
+                    TargetUnitId: blueUnit, EffectId: "field-med-kit");
+                var redWait = new TacticalAction(
+                    Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"), redUnit, TacticalActionType.Wait, 0, 1);
+                return new[] { new CommandBundle("blue", new[] { blueHeal }), new CommandBundle("red", new[] { redWait }) };
+            }
+
+            var blueAttack = new TacticalAction(
+                Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"), blueUnit, TacticalActionType.Attack, 0, 2,
+                TargetUnitId: redUnit, AttackProfileId: "sandbox-rifle");
+            return new[] { new CommandBundle("blue", new[] { blueAttack }) };
+        }
+
+        private IEnumerator AnimateProjectile(GridPosition from, GridPosition to)
+        {
+            var projectile = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            projectile.name = "Direct attack projectile";
+            projectile.transform.SetParent(transform, false);
+            projectile.transform.localScale = Vector3.one * 0.20f;
+            projectile.GetComponent<Renderer>().material.color = new Color(1.0f, 0.82f, 0.22f);
+
+            var start = new Vector3(from.X, 0.65f, from.Y);
+            var end = new Vector3(to.X, 0.65f, to.Y);
+            const float durationSeconds = 0.35f;
+            for (var elapsed = 0f; elapsed < durationSeconds; elapsed += Time.deltaTime)
+            {
+                projectile.transform.position = Vector3.Lerp(start, end, elapsed / durationSeconds);
+                yield return null;
+            }
+            projectile.transform.position = end;
+            Destroy(projectile);
         }
 
         private void RenderState(GameState state)
@@ -180,7 +214,23 @@ namespace TacticalStrategyGame.Presentation.Unity
                 _displayHitPoints[unit.Id] = unit.HitPoints;
                 _displayMaxHitPoints[unit.Id] = unit.MaxHitPoints;
                 _displayActivityStates[unit.Id] = unit.ActivityState;
+                ApplyActivityAppearance(unit.Id, unit.ActivityState);
             }
+        }
+
+        private void ApplyActivityAppearance(Guid unitId, UnitActivityState activityState)
+        {
+            var renderer = _unitViews[unitId].GetComponent<Renderer>();
+            if (activityState == UnitActivityState.Incapacitated)
+            {
+                renderer.material.color = new Color(0.25f, 0.25f, 0.25f);
+                return;
+            }
+
+            var unit = _scenario.InitialState.FindUnit(unitId)!;
+            renderer.material.color = unit.FactionId == "blue"
+                ? new Color(0.25f, 0.60f, 1.0f)
+                : new Color(1.0f, 0.32f, 0.28f);
         }
 
         private static float FacingAngle(Facing facing) => facing switch
@@ -217,7 +267,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void OnGUI()
         {
-            GUI.Box(new Rect(14, 14, 590, 68), "Encounter Sandbox — deterministic multi-round playback");
+            GUI.Box(new Rect(14, 14, 590, 68), "Encounter Sandbox — deterministic movement, effects, and direct fire");
             var canResolve = !_isResolving && _encounter.CompletedRounds < DemonstrationRoundCount;
             GUI.enabled = canResolve;
             var resolveLabel = _encounter.CompletedRounds < DemonstrationRoundCount
