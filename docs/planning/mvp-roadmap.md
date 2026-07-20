@@ -1,6 +1,6 @@
 # Tactical Strategy Game Roadmap
 
-Status: proposed planning baseline, 2026-07-20.
+Status: living roadmap, reconciled with implemented foundation on 2026-07-20.
 
 ## Product outcome
 
@@ -28,6 +28,29 @@ The MVP proves the engine, not a large campaign or a finished art direction.
 | 6. Planning and playback | Humans can play and inspect it | First movement/effects sandbox scene and multi-round encounter-state core implemented: placeholder grid/tokens, deterministic resolve/reset controls, event overlay, checksum, and valid-round state carry-forward. Add unit selection, order editing, timeline playback, validation feedback, and inspector. |
 | 7. MVP hardening | Playtest-ready vertical slice | Regression suite, seed corpus, balance harness, telemetry schema, accessibility pass, known-rules manual, playtest protocol. |
 | 8. MVP release candidate | One defensible, replayable prototype build | Clean install/build, scenario acceptance suite, human-playtest findings triaged, documented release notes and rollback build. |
+
+## Current implementation position
+
+| Phase | Current position | What remains before the phase outcome is complete |
+| --- | --- | --- |
+| 0. Foundation | **Complete** | Keep compatibility and replay guarantees intact as the core grows. |
+| 1. Spatial movement | **Strong foundation** | Movement modifiers, richer reservations, larger-map performance, and additional golden/property coverage. |
+| 2. Perception | **Foundation implemented** | Per-unit data-defined vision, faction memory, reveal/loss events, fog-of-war presentation, facing/elevation, and concealment. |
+| 3. Combat kernel | **First direct-fire slice implemented** | Data-defined unit/weapon catalogs, seeded accuracy, cover, armor, ammunition, alternate delivery types, and balance coverage. |
+| 4. Reactions | **Not started** | Accepted trigger/priority/interruption policy and deterministic resolver implementation. |
+| 5. Scenario loop | **Foundation implemented** | Four-versus-four original scenario, deployment, objectives, PvE enemy planner, acceptance fixtures, and scenario outcomes. |
+| 6. Planning and playback | **Proof surface implemented** | Unit selection, player-authored order editing, target selection, validation feedback, timeline controls, and inspector. |
+| 7. MVP hardening | **Not started** | Regression corpus, balance harness, telemetry, accessibility, manual, and structured playtests. |
+| 8. MVP release candidate | **Not started** | Build/distribution validation, release notes, and playtest-led defect closure. |
+
+## Next stretch: from proof surface to playable vertical slice
+
+1. **Player order authoring:** select a friendly unit, choose a legal move/action, preview its timing/validation, and submit it as the player command bundle.
+2. **Scenario loop:** expand the two-unit demonstration into an original four-versus-four map with deployment and a simple objective.
+3. **PvE intelligence:** produce deterministic, explainable enemy command bundles from the same state/visibility contract.
+4. **Combat depth:** add data-defined unit and weapon profiles, then seeded accuracy, cover, armor, ammunition, and additional delivery types one accepted rule at a time.
+5. **Perception and reactions:** add memory/fog-of-war presentation, then reaction rules after their conflict policy is accepted.
+6. **Hardening and playtests:** automate scenario batches and begin structured human testing once the authored-order loop is usable.
 
 ## Phase detail
 
