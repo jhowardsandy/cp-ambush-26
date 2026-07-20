@@ -24,6 +24,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         private TacticalAction? _draftedAction;
         private string _planningMessage = string.Empty;
         private const int DemonstrationRoundCount = 3;
+        private static readonly AttackProfile SandboxRifle = new("sandbox-rifle", 1, 3, 10);
 
         private void Start()
         {
@@ -122,7 +123,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 new RoundConfiguration(10),
                 (uint)(20260720 + roundNumber),
                 effects: new[] { new EffectDefinition("field-med-kit", 5) },
-                attackProfiles: new[] { new AttackProfile("sandbox-rifle", 1, 3, 10) });
+                attackProfiles: new[] { SandboxRifle });
 
             _result = round.Resolution;
             _encounter = round.NextState;
@@ -229,6 +230,12 @@ namespace TacticalStrategyGame.Presentation.Unity
         private void DraftHeal()
         {
             var blue = _encounter.CurrentState.Units.Single(unit => unit.FactionId == "blue");
+            if (blue.HitPoints >= blue.MaxHitPoints)
+            {
+                _draftedAction = null;
+                _planningMessage = "Blue is already at full vitality; healing would have no effect.";
+                return;
+            }
             _draftedAction = new TacticalAction(Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffff2"), blue.Id, TacticalActionType.ApplyEffect, 0, 1,
                 TargetUnitId: blue.Id, EffectId: "field-med-kit");
             _planningMessage = "Drafted field-med-kit heal on blue.";
@@ -238,9 +245,16 @@ namespace TacticalStrategyGame.Presentation.Unity
         {
             var blue = _encounter.CurrentState.Units.Single(unit => unit.FactionId == "blue");
             var red = _encounter.CurrentState.Units.Single(unit => unit.FactionId == "red");
+            var preview = AttackRules.Resolve(blue, red, SandboxRifle, _scenario.Map);
+            if (preview.FailureDetail is not null)
+            {
+                _draftedAction = null;
+                _planningMessage = $"Cannot draft attack: {preview.FailureDetail}";
+                return;
+            }
             _draftedAction = new TacticalAction(Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffff3"), blue.Id, TacticalActionType.Attack, 0, 2,
                 TargetUnitId: red.Id, AttackProfileId: "sandbox-rifle");
-            _planningMessage = "Drafted direct attack on red. Range and line of sight will be checked at resolution.";
+            _planningMessage = $"Drafted direct attack on red at distance {preview.Distance}. It will be rechecked at resolution.";
         }
 
         private IEnumerator AnimateProjectile(GridPosition from, GridPosition to)
@@ -356,6 +370,11 @@ namespace TacticalStrategyGame.Presentation.Unity
                 if (GUI.Button(new Rect(399, 74, 70, 24), "West")) DraftMove(new GridPosition(-1, 0));
                 if (GUI.Button(new Rect(474, 74, 70, 24), "Heal")) DraftHeal();
                 if (GUI.Button(new Rect(549, 74, 70, 24), "Attack red")) DraftAttack();
+                if (GUI.Button(new Rect(624, 74, 90, 24), "Clear draft"))
+                {
+                    _draftedAction = null;
+                    _planningMessage = "Draft cleared. Choose a new blue order.";
+                }
             }
 
             var y = 110f;
