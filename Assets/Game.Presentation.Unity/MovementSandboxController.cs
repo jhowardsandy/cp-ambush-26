@@ -20,6 +20,9 @@ namespace TacticalStrategyGame.Presentation.Unity
         private EncounterState _encounter = null!;
         private SimulationResult? _result;
         private bool _isResolving;
+        private bool _manualPlanningMode;
+        private TacticalAction? _draftedAction;
+        private string _planningMessage = string.Empty;
         private const int DemonstrationRoundCount = 3;
 
         private void Start()
@@ -90,17 +93,21 @@ namespace TacticalStrategyGame.Presentation.Unity
             StopAllCoroutines();
             _isResolving = false;
             _result = null;
+            _draftedAction = null;
             _encounter = new EncounterState(
                 new EncounterDefinition(_scenario.Id, _scenario.Map, _scenario.ContentVersion, _scenario.Objectives),
                 _scenario.InitialState);
             _eventLines.Clear();
-            _eventLines.Add("Encounter reset. Round 1 is ready: movement orders.");
+            _planningMessage = _manualPlanningMode
+                ? "Manual planning: select blue, draft one order, then submit it."
+                : "Encounter reset. Round 1 is ready: scripted movement orders.";
+            _eventLines.Add(_planningMessage);
             RenderState(_scenario.InitialState);
         }
 
         private void StartRoundPlayback()
         {
-            if (!_isResolving && _encounter.CompletedRounds < DemonstrationRoundCount)
+            if (!_isResolving && (_manualPlanningMode ? _draftedAction is not null && _encounter.Outcome?.IsComplete != true : _encounter.CompletedRounds < DemonstrationRoundCount))
                 StartCoroutine(ResolveAndPlayback());
         }
 
@@ -111,7 +118,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             var stateBeforeRound = _encounter.CurrentState;
             var round = EncounterResolver.ResolveRound(
                 _encounter,
-                CommandsForRound(roundNumber),
+                _manualPlanningMode ? CommandsForManualRound() : CommandsForRound(roundNumber),
                 new RoundConfiguration(10),
                 (uint)(20260720 + roundNumber),
                 effects: new[] { new EffectDefinition("field-med-kit", 5) },
@@ -119,6 +126,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
             _result = round.Resolution;
             _encounter = round.NextState;
+            _draftedAction = null;
             _eventLines.Clear();
             _eventLines.Add($"Resolving encounter round {roundNumber}.");
             RenderState(stateBeforeRound);
@@ -150,6 +158,8 @@ namespace TacticalStrategyGame.Presentation.Unity
             _eventLines.Add($"Checksum: {_result.FinalStateChecksum}");
             if (_encounter.Outcome?.IsComplete == true)
                 _eventLines.Add($"OUTCOME: {_encounter.Outcome.Detail}");
+            else if (_manualPlanningMode)
+                _eventLines.Add("Manual planning: draft the next blue order.");
             else _eventLines.Add(_encounter.CompletedRounds < DemonstrationRoundCount
                 ? $"Round {roundNumber} complete. Resolve round {_encounter.CompletedRounds + 1} for fresh orders."
                 : "Three-round encounter demo complete. Reset to begin again.");
@@ -185,6 +195,52 @@ namespace TacticalStrategyGame.Presentation.Unity
                 Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"), blueUnit, TacticalActionType.Attack, 0, 2,
                 TargetUnitId: redUnit, AttackProfileId: "sandbox-rifle");
             return new[] { new CommandBundle("blue", new[] { blueAttack }) };
+        }
+
+        private IReadOnlyList<CommandBundle> CommandsForManualRound()
+        {
+            var redUnit = Guid.Parse("22222222-2222-2222-2222-222222222222");
+            var redWait = new TacticalAction(
+                Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffff4"), redUnit, TacticalActionType.Wait, 0, 1);
+            return new[] { new CommandBundle("blue", new[] { _draftedAction! }), new CommandBundle("red", new[] { redWait }) };
+        }
+
+        private void DraftMove(GridPosition delta)
+        {
+            var blue = _encounter.CurrentState.Units.Single(unit => unit.FactionId == "blue");
+            if (blue.ActivityState != UnitActivityState.Active)
+            {
+                _planningMessage = "Blue is incapacitated and cannot receive an order.";
+                return;
+            }
+
+            var destination = new GridPosition(blue.Position.X + delta.X, blue.Position.Y + delta.Y);
+            if (!_scenario.Map.Contains(destination) || !_scenario.Map.CellAt(destination).IsPassable || _encounter.CurrentState.Units.Any(unit => unit.Position == destination))
+            {
+                _planningMessage = "That move is not currently legal: it is outside the map, blocked, or occupied.";
+                return;
+            }
+
+            var draft = new TacticalAction(Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffff1"), blue.Id, TacticalActionType.Move, 0, 1, Path: new[] { destination });
+            _draftedAction = draft with { DurationTicks = MovementRules.DurationFor(draft, _scenario.Map) };
+            _planningMessage = $"Drafted move to ({destination.X}, {destination.Y}) for {_draftedAction.DurationTicks} tick(s).";
+        }
+
+        private void DraftHeal()
+        {
+            var blue = _encounter.CurrentState.Units.Single(unit => unit.FactionId == "blue");
+            _draftedAction = new TacticalAction(Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffff2"), blue.Id, TacticalActionType.ApplyEffect, 0, 1,
+                TargetUnitId: blue.Id, EffectId: "field-med-kit");
+            _planningMessage = "Drafted field-med-kit heal on blue.";
+        }
+
+        private void DraftAttack()
+        {
+            var blue = _encounter.CurrentState.Units.Single(unit => unit.FactionId == "blue");
+            var red = _encounter.CurrentState.Units.Single(unit => unit.FactionId == "red");
+            _draftedAction = new TacticalAction(Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffff3"), blue.Id, TacticalActionType.Attack, 0, 2,
+                TargetUnitId: red.Id, AttackProfileId: "sandbox-rifle");
+            _planningMessage = "Drafted direct attack on red. Range and line of sight will be checked at resolution.";
         }
 
         private IEnumerator AnimateProjectile(GridPosition from, GridPosition to)
@@ -270,19 +326,39 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void OnGUI()
         {
-            GUI.Box(new Rect(14, 14, 590, 68), "Encounter Sandbox — deterministic movement, effects, and direct fire");
-            var canResolve = !_isResolving && _encounter.CompletedRounds < DemonstrationRoundCount;
+            GUI.Box(new Rect(14, 14, 760, 96), "Encounter Sandbox — deterministic movement, effects, and direct fire");
+            var canResolve = !_isResolving && (_manualPlanningMode ? _draftedAction is not null && _encounter.Outcome?.IsComplete != true : _encounter.CompletedRounds < DemonstrationRoundCount);
             GUI.enabled = canResolve;
-            var resolveLabel = _encounter.CompletedRounds < DemonstrationRoundCount
+            var resolveLabel = _manualPlanningMode
+                ? "Submit drafted order"
+                : _encounter.CompletedRounds < DemonstrationRoundCount
                 ? $"Resolve round {_encounter.CompletedRounds + 1}"
                 : "Demo complete";
             if (GUI.Button(new Rect(24, 46, 140, 26), resolveLabel))
                 StartRoundPlayback();
+            GUI.enabled = true;
             if (GUI.Button(new Rect(174, 46, 90, 26), "Reset"))
                 ResetSandbox();
-            GUI.enabled = true;
 
-            var y = 90f;
+            if (GUI.Button(new Rect(274, 46, 130, 26), _manualPlanningMode ? "Scripted demo mode" : "Manual order mode"))
+            {
+                _manualPlanningMode = !_manualPlanningMode;
+                ResetSandbox();
+            }
+
+            if (_manualPlanningMode)
+            {
+                GUI.Label(new Rect(414, 46, 330, 20), _planningMessage);
+                GUI.Label(new Rect(24, 76, 150, 20), "Selected unit: BLUE");
+                if (GUI.Button(new Rect(174, 74, 70, 24), "North")) DraftMove(new GridPosition(0, 1));
+                if (GUI.Button(new Rect(249, 74, 70, 24), "South")) DraftMove(new GridPosition(0, -1));
+                if (GUI.Button(new Rect(324, 74, 70, 24), "East")) DraftMove(new GridPosition(1, 0));
+                if (GUI.Button(new Rect(399, 74, 70, 24), "West")) DraftMove(new GridPosition(-1, 0));
+                if (GUI.Button(new Rect(474, 74, 70, 24), "Heal")) DraftHeal();
+                if (GUI.Button(new Rect(549, 74, 70, 24), "Attack red")) DraftAttack();
+            }
+
+            var y = 110f;
             foreach (var line in _eventLines.Take(13))
             {
                 GUI.Label(new Rect(20, y, 800, 20), line);
