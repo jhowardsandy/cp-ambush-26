@@ -582,6 +582,27 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Direct_attack_fails_when_target_moves_out_of_range_before_attack_completes()
+    {
+        var state = State(new GridPosition(0, 0), new GridPosition(2, 0));
+        var scenario = new ScenarioDefinition("moving-target-attack", new GridMapDefinition("moving-target-map", 5, 1), state);
+        var attack = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 0, 2, TargetUnitId: RedUnit, AttackProfileId: "short-rifle");
+        var escapeMove = new TacticalAction(SecondAction, RedUnit, TacticalActionType.Move, 0, 2, Path: new[] { new GridPosition(3, 0), new GridPosition(4, 0) });
+        var request = ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", attack), Bundle("red", escapeMove) }, new RoundConfiguration(3), 1234u,
+            attackProfiles: new[] { new AttackProfile("short-rifle", 1, 3, 5) });
+
+        var result = new TimelineResolver().Resolve(request);
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.FinalState.FindUnit(RedUnit)!.Position, Is.EqualTo(new GridPosition(4, 0)));
+        Assert.That(result.FinalState.FindUnit(RedUnit)!.HitPoints, Is.EqualTo(10));
+        Assert.That(result.Events.Where(@event => @event.ActionId == FirstAction).Select(@event => @event.Type),
+            Is.EqualTo(new[] { DomainEventType.ActionStarted, DomainEventType.ActionFailed }));
+        Assert.That(result.Events.Single(@event => @event.ActionId == FirstAction && @event.Type == DomainEventType.ActionFailed).Detail,
+            Is.EqualTo("Target distance 4 is outside attack range 1-3."));
+    }
+
+    [Test]
     public void Direct_attack_rejects_missing_profile_and_friendly_target()
     {
         var scenario = new ScenarioDefinition("invalid-attack", new GridMapDefinition("invalid-attack-map", 3, 1), DefaultState());

@@ -16,7 +16,10 @@ Calculation examples:
 | ---: | --- | --- | ---: | ---: | ---: |
 | 3 | 1–3 | clear | 4 | 5 | 0 (incapacitated) |
 | 3 | 1–4 | blocked | 10 | 5 | no change; action fails |
+| 2 when ordered; 4 at completion after target moves | 1–3 | clear | 10 | 5 | no change; action fails |
+
+The third example is an intentional planning outcome, not an invalid submitted plan: both factions committed orders, movement resolved first, and the target had left the legal range by the attack completion tick. This shared-timeline uncertainty is central to the game: a player's intent is resolved against the authoritative battlefield state at that moment, rather than being silently retargeted by the presentation.
 
 Invalid cases: missing/unknown profile, missing/unknown target, friendly target, invalid profile range/damage, or attack without a scenario map reject the submitted plan.
 
-Evidence: `Direct_attack_within_range_and_line_of_sight_damages_and_incapacities_target`, `Direct_attack_fails_at_resolution_when_line_of_sight_is_blocked`, and `Direct_attack_rejects_missing_profile_and_friendly_target`.
+Evidence: `Direct_attack_within_range_and_line_of_sight_damages_and_incapacities_target`, `Direct_attack_fails_at_resolution_when_line_of_sight_is_blocked`, `Direct_attack_fails_when_target_moves_out_of_range_before_attack_completes`, and `Direct_attack_rejects_missing_profile_and_friendly_target`.
