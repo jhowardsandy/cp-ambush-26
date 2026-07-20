@@ -35,4 +35,4 @@ The living [rulebook](docs/rulebook/README.md), [verification strategy](docs/qua
 
 ## Try the movement sandbox
 
-Open `Assets/Scenes/MovementSandbox.unity` in Unity 6.3 LTS and enter Play mode. Press `Space` to resolve the planned round through `Game.Core`; press `R` to reset. The overlay displays the ordered domain events and final checksum. The scene is placeholder presentation only and deliberately exercises the same reusable scenario, movement, event, and replay path used by automated tests.
+Open `Assets/Scenes/MovementSandbox.unity` in Unity 6.3 LTS and enter Play mode. Click **Resolve round** to watch the planned movement advance tick by tick; click **Reset** to start again. `Space` and `R` are equivalent keyboard shortcuts. The overlay displays ordered domain events and the final checksum. The scene is placeholder presentation only and deliberately exercises the same reusable scenario, movement, event, and replay path used by automated tests.

@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using TacticalStrategyGame.Core;
@@ -14,6 +15,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         private readonly List<string> _eventLines = new();
         private ScenarioDefinition _scenario = null!;
         private SimulationResult? _result;
+        private bool _isResolving;
 
         private void Start()
         {
@@ -24,7 +26,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         private void Update()
         {
             if (Input.GetKeyDown(KeyCode.Space))
-                ResolvePlannedRound();
+                StartRoundPlayback();
             if (Input.GetKeyDown(KeyCode.R))
                 ResetSandbox();
         }
@@ -70,14 +72,23 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void ResetSandbox()
         {
+            StopAllCoroutines();
+            _isResolving = false;
             _result = null;
             _eventLines.Clear();
             _eventLines.Add("Sandbox reset. Press Space to resolve the planned round.");
             RenderState(_scenario.InitialState);
         }
 
-        private void ResolvePlannedRound()
+        private void StartRoundPlayback()
         {
+            if (!_isResolving)
+                StartCoroutine(ResolveAndPlayback());
+        }
+
+        private IEnumerator ResolveAndPlayback()
+        {
+            _isResolving = true;
             var blueAction = new TacticalAction(
                 Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
                 Guid.Parse("11111111-1111-1111-1111-111111111111"),
@@ -99,10 +110,24 @@ namespace TacticalStrategyGame.Presentation.Unity
                 20260720u);
 
             _result = new TimelineResolver().Resolve(request);
-            RenderState(_result.FinalState);
             _eventLines.Clear();
-            _eventLines.AddRange(_result.Events.Select(@event => $"t{@event.Tick:00} {@event.Type} {@event.FactionId} {@event.Detail}"));
+            RenderState(_scenario.InitialState);
+
+            foreach (var tickEvents in _result.Events.GroupBy(@event => @event.Tick).OrderBy(group => group.Key))
+            {
+                foreach (var @event in tickEvents)
+                {
+                    if (@event.Type == DomainEventType.UnitEnteredTile && @event.UnitId.HasValue && @event.ToPosition != null)
+                        _unitViews[@event.UnitId.Value].transform.position = new Vector3(@event.ToPosition.X, 0.3f, @event.ToPosition.Y);
+
+                    _eventLines.Add($"t{@event.Tick:00} {@event.Type} {@event.FactionId} {@event.Detail}");
+                }
+
+                yield return new WaitForSeconds(0.55f);
+            }
+
             _eventLines.Add($"Checksum: {_result.FinalStateChecksum}");
+            _isResolving = false;
         }
 
         private void RenderState(GameState state)
@@ -149,8 +174,15 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void OnGUI()
         {
-            GUI.Box(new Rect(14, 14, 550, 38), "Movement Sandbox — Space: resolve planned round | R: reset");
-            var y = 60f;
+            GUI.Box(new Rect(14, 14, 550, 68), "Movement Sandbox — deterministic core playback");
+            GUI.enabled = !_isResolving;
+            if (GUI.Button(new Rect(24, 46, 140, 26), "Resolve round"))
+                StartRoundPlayback();
+            if (GUI.Button(new Rect(174, 46, 90, 26), "Reset"))
+                ResetSandbox();
+            GUI.enabled = true;
+
+            var y = 90f;
             foreach (var line in _eventLines.Take(13))
             {
                 GUI.Label(new Rect(20, y, 800, 20), line);
