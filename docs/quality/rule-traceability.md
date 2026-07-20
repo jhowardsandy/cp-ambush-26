@@ -12,6 +12,7 @@
 | MOV-TRN-001 | accepted | `rulebook/movement-and-occupancy.md` | Terrain timing and impassable-path tests | `GR-MOV-001` terrain-delay golden replay. |
 | SCN-MAP-001 | accepted | `technical-design/content-schema.md` | Scenario map dimension and starting-position validation test | Scenario definition survives replay serialization. |
 | SCN-MAP-002 | accepted | `technical-design/content-schema.md` | Movement-out-of-bounds scenario test | Add map-boundary golden fixture with the fixture harness. |
+| VIS-LOS-001 | accepted | `rulebook/visibility.md` | Blocking and symmetry line-of-sight tests | Add visibility golden fixtures after faction knowledge is introduced. |
 | VIS-* | proposed | Future visibility chapter | Not implemented | Not implemented |
 | ATK-* | proposed | Future combat chapter | Not implemented | Not implemented |
 | UPG-* | deferred | Future progression chapter | Not implemented | Not implemented |

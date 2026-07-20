@@ -10,7 +10,8 @@ namespace TacticalStrategyGame.Core
 public sealed record TerrainCellDefinition(
     GridPosition Position,
     int MovementTicks = 1,
-    bool IsPassable = true);
+    bool IsPassable = true,
+    bool BlocksLineOfSight = false);
 
 /// <summary>Setting-neutral rectangular tactical map definition.</summary>
 public sealed record GridMapDefinition(

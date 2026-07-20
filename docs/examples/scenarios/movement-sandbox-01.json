@@ -8,12 +8,14 @@
       {
         "Position": { "X": 2, "Y": 1 },
         "MovementTicks": 2,
-        "IsPassable": true
+        "IsPassable": true,
+        "BlocksLineOfSight": false
       },
       {
         "Position": { "X": 4, "Y": 3 },
         "MovementTicks": 1,
-        "IsPassable": false
+        "IsPassable": false,
+        "BlocksLineOfSight": true
       }
     ]
   },

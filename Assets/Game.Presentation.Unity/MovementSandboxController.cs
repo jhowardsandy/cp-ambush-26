@@ -38,7 +38,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 new GridMapDefinition("sandbox-grid", 8, 6, new[]
                 {
                     new TerrainCellDefinition(new GridPosition(2, 1), MovementTicks: 2),
-                    new TerrainCellDefinition(new GridPosition(4, 3), IsPassable: false)
+                    new TerrainCellDefinition(new GridPosition(4, 3), IsPassable: false, BlocksLineOfSight: true)
                 }),
                 new GameState(new[]
                 {

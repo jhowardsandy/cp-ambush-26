@@ -309,6 +309,32 @@ public sealed class TimelineResolverTests
         Assert.That(decoded.ContentVersion, Is.EqualTo(scenario.ContentVersion));
     }
 
+    [Test]
+    public void Line_of_sight_is_blocked_by_an_intermediate_terrain_cell()
+    {
+        var map = new GridMapDefinition("los-map", 5, 1, new[]
+        {
+            new TerrainCellDefinition(new GridPosition(2, 0), BlocksLineOfSight: true)
+        });
+
+        Assert.That(VisibilityRules.HasLineOfSight(map, new GridPosition(0, 0), new GridPosition(4, 0)), Is.False);
+        Assert.That(VisibilityRules.HasLineOfSight(map, new GridPosition(0, 0), new GridPosition(1, 0)), Is.True);
+    }
+
+    [Test]
+    public void Line_of_sight_is_symmetric_and_excludes_origin_and_target_as_blockers()
+    {
+        var map = new GridMapDefinition("symmetric-los-map", 5, 5, new[]
+        {
+            new TerrainCellDefinition(new GridPosition(2, 2), BlocksLineOfSight: true)
+        });
+        var origin = new GridPosition(0, 0);
+        var target = new GridPosition(4, 4);
+
+        Assert.That(VisibilityRules.HasLineOfSight(map, origin, target), Is.EqualTo(VisibilityRules.HasLineOfSight(map, target, origin)));
+        Assert.That(VisibilityRules.HasLineOfSight(map, new GridPosition(2, 2), target), Is.True);
+    }
+
     private static SimulationRequest Request(params CommandBundle[] bundles) => Request(DefaultState(), bundles);
 
     private static SimulationRequest Request(GameState state, params CommandBundle[] bundles) => new(state, bundles, new RoundConfiguration(), 1234u);
