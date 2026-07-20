@@ -12,6 +12,9 @@ namespace TacticalStrategyGame.Presentation.Unity
     public sealed class MovementSandboxController : MonoBehaviour
     {
         private readonly Dictionary<Guid, GameObject> _unitViews = new();
+        private readonly Dictionary<Guid, int> _displayHitPoints = new();
+        private readonly Dictionary<Guid, int> _displayMaxHitPoints = new();
+        private readonly Dictionary<Guid, UnitActivityState> _displayActivityStates = new();
         private readonly List<string> _eventLines = new();
         private ScenarioDefinition _scenario = null!;
         private SimulationResult? _result;
@@ -42,7 +45,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 }),
                 new GameState(new[]
                 {
-                    new UnitState(Guid.Parse("11111111-1111-1111-1111-111111111111"), "blue", new GridPosition(1, 1), Facing.East, UnitActivityState.Active),
+                    new UnitState(Guid.Parse("11111111-1111-1111-1111-111111111111"), "blue", new GridPosition(1, 1), Facing.East, UnitActivityState.Active, HitPoints: 8, MaxHitPoints: 10),
                     new UnitState(Guid.Parse("22222222-2222-2222-2222-222222222222"), "red", new GridPosition(6, 4), Facing.West, UnitActivityState.Active)
                 }));
 
@@ -112,11 +115,20 @@ namespace TacticalStrategyGame.Presentation.Unity
                 1,
                 2,
                 Path: new[] { new GridPosition(5, 4), new GridPosition(4, 4) });
+            var blueEffect = new TacticalAction(
+                Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+                Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                TacticalActionType.ApplyEffect,
+                4,
+                1,
+                TargetUnitId: Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                EffectId: "field-med-kit");
             var request = ScenarioFactory.CreateRequest(
                 _scenario,
-                new[] { new CommandBundle("blue", new[] { blueAction }), new CommandBundle("red", new[] { redAction }) },
+                new[] { new CommandBundle("blue", new[] { blueAction, blueEffect }), new CommandBundle("red", new[] { redAction }) },
                 new RoundConfiguration(10),
-                20260720u);
+                20260720u,
+                effects: new[] { new EffectDefinition("field-med-kit", 5) });
 
             _result = new TimelineResolver().Resolve(request);
             _eventLines.Clear();
@@ -128,6 +140,12 @@ namespace TacticalStrategyGame.Presentation.Unity
                 {
                     if (@event.Type == DomainEventType.UnitEnteredTile && @event.UnitId.HasValue && @event.ToPosition != null)
                         _unitViews[@event.UnitId.Value].transform.position = new Vector3(@event.ToPosition.X, 0.3f, @event.ToPosition.Y);
+
+                    if (@event.Type == DomainEventType.EffectApplied && @event.UnitId.HasValue && @event.HitPointsAfter.HasValue && @event.ActivityStateAfter.HasValue)
+                    {
+                        _displayHitPoints[@event.UnitId.Value] = @event.HitPointsAfter.Value;
+                        _displayActivityStates[@event.UnitId.Value] = @event.ActivityStateAfter.Value;
+                    }
 
                     _eventLines.Add($"t{@event.Tick:00} {@event.Type} {@event.FactionId} {@event.Detail}");
                 }
@@ -146,6 +164,9 @@ namespace TacticalStrategyGame.Presentation.Unity
                 var view = _unitViews[unit.Id];
                 view.transform.position = new Vector3(unit.Position.X, 0.3f, unit.Position.Y);
                 view.transform.rotation = Quaternion.Euler(0, FacingAngle(unit.Facing), 0);
+                _displayHitPoints[unit.Id] = unit.HitPoints;
+                _displayMaxHitPoints[unit.Id] = unit.MaxHitPoints;
+                _displayActivityStates[unit.Id] = unit.ActivityState;
             }
         }
 
@@ -183,7 +204,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void OnGUI()
         {
-            GUI.Box(new Rect(14, 14, 550, 68), "Movement Sandbox — deterministic core playback");
+            GUI.Box(new Rect(14, 14, 590, 68), "Movement & Effects Sandbox — deterministic core playback");
             GUI.enabled = !_isResolving;
             if (GUI.Button(new Rect(24, 46, 140, 26), "Resolve round"))
                 StartRoundPlayback();
@@ -196,6 +217,13 @@ namespace TacticalStrategyGame.Presentation.Unity
             {
                 GUI.Label(new Rect(20, y, 800, 20), line);
                 y += 20f;
+            }
+
+            foreach (var unit in _scenario.InitialState.Units)
+            {
+                var screen = Camera.main!.WorldToScreenPoint(_unitViews[unit.Id].transform.position + Vector3.up * 0.65f);
+                var label = $"{unit.FactionId.ToUpperInvariant()} {_displayHitPoints[unit.Id]}/{_displayMaxHitPoints[unit.Id]} {_displayActivityStates[unit.Id]}";
+                GUI.Label(new Rect(screen.x - 70f, Screen.height - screen.y, 180f, 22f), label);
             }
         }
     }

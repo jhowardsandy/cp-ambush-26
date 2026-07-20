@@ -41,8 +41,9 @@ public static class ScenarioFactory
         IReadOnlyList<CommandBundle> commandBundles,
         RoundConfiguration configuration,
         uint randomSeed,
-        string simulationVersion = "1") =>
-        new(scenario.InitialState, commandBundles, configuration, randomSeed, simulationVersion, scenario.ContentVersion, scenario);
+        string simulationVersion = "1",
+        IReadOnlyList<EffectDefinition>? effects = null) =>
+        new(scenario.InitialState, commandBundles, configuration, randomSeed, simulationVersion, scenario.ContentVersion, scenario, effects);
 }
 
 public static class ScenarioValidator

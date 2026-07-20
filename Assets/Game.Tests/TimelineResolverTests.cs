@@ -354,6 +354,8 @@ public sealed class TimelineResolverTests
         Assert.That(effect.Tick, Is.EqualTo(2));
         Assert.That(effect.UnitId, Is.EqualTo(BlueUnit));
         Assert.That(effect.Detail, Is.EqualTo("effect=field-med-kit; before=8; requested=5; applied=2; after=10"));
+        Assert.That(effect.HitPointsAfter, Is.EqualTo(10));
+        Assert.That(effect.ActivityStateAfter, Is.EqualTo(UnitActivityState.Active));
     }
 
     [Test]

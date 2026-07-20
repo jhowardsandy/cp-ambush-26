@@ -6,7 +6,7 @@ Status: accepted.
 
 An `ApplyEffect` order names a stable effect definition and a target unit. At the order's completion tick, the effect's signed vitality value is added to the target's hit points and clamped from zero through that unit's maximum hit points. A positive value restores vitality; a negative value removes it. If a target reaches zero hit points, it becomes incapacitated. Healing does not restore an incapacitated unit to active status; revival is a future explicit rule.
 
-The resolver emits `EffectApplied` before `ActionCompleted`, including the effect ID and the before, requested, applied, and after values. The applied value may differ from the requested value only because of the zero/maximum clamp.
+The resolver emits `EffectApplied` before `ActionCompleted`, including the effect ID and the before, requested, applied, and after values. The event also carries structured post-effect hit points and activity state so presentation can render the authoritative result without interpreting explanation text. The applied value may differ from the requested value only because of the zero/maximum clamp.
 
 Calculation examples:
 

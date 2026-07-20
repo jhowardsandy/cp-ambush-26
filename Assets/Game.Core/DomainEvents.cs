@@ -27,7 +27,9 @@ public sealed record DomainEvent(
     Guid? ActionId = null,
     string? Detail = null,
     GridPosition? FromPosition = null,
-    GridPosition? ToPosition = null);
+    GridPosition? ToPosition = null,
+    int? HitPointsAfter = null,
+    UnitActivityState? ActivityStateAfter = null);
 
 public sealed record SimulationResult(
     GameState FinalState,
