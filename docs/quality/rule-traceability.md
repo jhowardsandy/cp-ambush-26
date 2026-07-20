@@ -13,7 +13,7 @@
 | SCN-MAP-001 | accepted | `technical-design/content-schema.md` | Scenario map dimension and starting-position validation test | Scenario definition survives replay serialization. |
 | SCN-MAP-002 | accepted | `technical-design/content-schema.md` | Movement-out-of-bounds scenario test | Add map-boundary golden fixture with the fixture harness. |
 | VIS-LOS-001 | accepted | `rulebook/visibility.md` | Blocking and symmetry line-of-sight tests | Add visibility golden fixtures after faction knowledge is introduced. |
-| EFF-VIT-001 | accepted | `rulebook/effects-and-vitality.md` | Vitality clamp, incapacity, calculation-event, and invalid-content tests | Add an effect golden replay after target/range policy is accepted. |
+| EFF-VIT-001 | accepted | `rulebook/effects-and-vitality.md` | Vitality clamp, incapacity, calculation-event, invalid-content, and replay-serialization tests | `GR-EFF-001` vitality-restoration golden replay. |
 | VIS-* | proposed | Future visibility chapter | Not implemented | Not implemented |
 | ATK-* | proposed | Future combat chapter | Not implemented | Not implemented |
 | UPG-* | deferred | Future progression chapter | Not implemented | Not implemented |

@@ -286,7 +286,7 @@ public sealed class TimelineResolverTests
             new { Tick = 3, Type = DomainEventType.ActionCompleted, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction },
             new { Tick = 5, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, ActionId = (Guid?)null }
         }));
-        Assert.That(result.FinalStateChecksum, Is.EqualTo("8A641DD03771B4B48B8223499FE694A48199F879F1C69B26F5F1B1167E98907E"));
+        Assert.That(result.FinalStateChecksum, Is.EqualTo("250038CE4E0AAB526AA72283C5CB74F15B8BE237F667F384CDA8FFB4960632E6"));
     }
 
     [Test]
@@ -385,6 +385,44 @@ public sealed class TimelineResolverTests
 
         Assert.That(result.IsValid, Is.False);
         Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("unknown-effect-id"));
+    }
+
+    [Test]
+    public void Effect_content_round_trips_in_a_replay()
+    {
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.ApplyEffect, 0, 1, TargetUnitId: BlueUnit, EffectId: "aid");
+        var inputs = new SimulationRequest(DefaultState(), new[] { Bundle("blue", action) }, new RoundConfiguration(), 1234u,
+            Effects: new[] { new EffectDefinition("aid", 2) });
+        var output = new TimelineResolver().Resolve(inputs);
+
+        var decoded = ReplaySerializer.Deserialize(ReplaySerializer.Serialize(new ReplayRecord(inputs, output)));
+
+        Assert.That(decoded.Inputs.Effects, Is.EqualTo(inputs.Effects));
+    }
+
+    [Test]
+    public void Golden_replay_vitality_effect_has_stable_event_sequence_and_checksum()
+    {
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.North, UnitActivityState.Active, HitPoints: 4, MaxHitPoints: 10),
+            new UnitState(RedUnit, "red", new GridPosition(2, 0), Facing.South, UnitActivityState.Active)
+        });
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.ApplyEffect, 1, 2, TargetUnitId: BlueUnit, EffectId: "golden-aid");
+        var request = new SimulationRequest(state, new[] { Bundle("blue", action) }, new RoundConfiguration(4), 20260720u,
+            SimulationVersion: "golden-1", ContentVersion: "golden-effects-1", Effects: new[] { new EffectDefinition("golden-aid", 3) });
+
+        var result = new TimelineResolver().Resolve(request);
+
+        Assert.That(result.Events.Select(@event => new { @event.Tick, @event.Type, @event.UnitId, @event.ActionId, @event.Detail }), Is.EqualTo(new[]
+        {
+            new { Tick = 0, Type = DomainEventType.RoundStarted, UnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null },
+            new { Tick = 1, Type = DomainEventType.ActionStarted, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction, Detail = (string?)null },
+            new { Tick = 3, Type = DomainEventType.EffectApplied, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction, Detail = "effect=golden-aid; before=4; requested=3; applied=3; after=7" },
+            new { Tick = 3, Type = DomainEventType.ActionCompleted, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction, Detail = (string?)null },
+            new { Tick = 4, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null }
+        }));
+        Assert.That(result.FinalStateChecksum, Is.EqualTo("E54B162B835B2819E70ECDBF2CD68C41039B759F16B1877504EA17123D5EC191"));
     }
 
     private static SimulationRequest Request(params CommandBundle[] bundles) => Request(DefaultState(), bundles);
