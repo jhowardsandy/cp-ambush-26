@@ -10,4 +10,6 @@
 
 `TerrainCellDefinition` is the first generic scenario extension. It supplies a cell position, positive movement-tick cost, and passability. The movement resolver derives timing directly from these fields.
 
+`ScenarioSerializer` reads and writes portable JSON without requiring Unity. The example at `docs/examples/scenarios/movement-sandbox-01.json` demonstrates a reusable map, terrain, units, and content version. Unity scenes may render a scenario, but they are not the authoritative scenario data format.
+
 Walls, doors, elevation, cover, deployment zones, objectives, faction metadata, scripted triggers, and content import/validation tooling are deferred. They must extend the generic scenario model rather than force historical or fantasy assumptions into `Game.Core`.

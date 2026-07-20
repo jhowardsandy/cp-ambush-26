@@ -9,7 +9,7 @@
 | MOV-RES-001 | accepted | `rulebook/movement-and-occupancy.md` | Vacated-tile occupancy test | Add named golden movement fixtures with the fixture harness. |
 | MOV-RES-002 | accepted | `rulebook/movement-and-occupancy.md` | Contested destination test | Add named golden movement fixtures with the fixture harness. |
 | MOV-RES-003 | accepted | `rulebook/movement-and-occupancy.md` | Swap rejection test | Add named golden movement fixtures with the fixture harness. |
-| MOV-TRN-001 | accepted | `rulebook/movement-and-occupancy.md` | Terrain timing and impassable-path tests | Add terrain boundary golden fixtures with the fixture harness. |
+| MOV-TRN-001 | accepted | `rulebook/movement-and-occupancy.md` | Terrain timing and impassable-path tests | `GR-MOV-001` terrain-delay golden replay. |
 | SCN-MAP-001 | accepted | `technical-design/content-schema.md` | Scenario map dimension and starting-position validation test | Scenario definition survives replay serialization. |
 | SCN-MAP-002 | accepted | `technical-design/content-schema.md` | Movement-out-of-bounds scenario test | Add map-boundary golden fixture with the fixture harness. |
 | VIS-* | proposed | Future visibility chapter | Not implemented | Not implemented |

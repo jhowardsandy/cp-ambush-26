@@ -1,0 +1,39 @@
+{
+  "Id": "movement-sandbox-01",
+  "Map": {
+    "Id": "sandbox-grid",
+    "Width": 8,
+    "Height": 6,
+    "Terrain": [
+      {
+        "Position": { "X": 2, "Y": 1 },
+        "MovementTicks": 2,
+        "IsPassable": true
+      },
+      {
+        "Position": { "X": 4, "Y": 3 },
+        "MovementTicks": 1,
+        "IsPassable": false
+      }
+    ]
+  },
+  "InitialState": {
+    "Units": [
+      {
+        "Id": "11111111-1111-1111-1111-111111111111",
+        "FactionId": "blue",
+        "Position": { "X": 1, "Y": 1 },
+        "Facing": 1,
+        "ActivityState": 0
+      },
+      {
+        "Id": "22222222-2222-2222-2222-222222222222",
+        "FactionId": "red",
+        "Position": { "X": 6, "Y": 4 },
+        "Facing": 3,
+        "ActivityState": 0
+      }
+    ]
+  },
+  "ContentVersion": "1"
+}

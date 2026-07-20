@@ -262,6 +262,53 @@ public sealed class TimelineResolverTests
         Assert.That(result.Diagnostics.Select(d => d.Code), Does.Contain("impassable-movement-path"));
     }
 
+    [Test]
+    public void Golden_replay_terrain_delay_has_stable_events_and_checksum()
+    {
+        var map = new GridMapDefinition("golden-terrain-map", 4, 4, new[]
+        {
+            new TerrainCellDefinition(new GridPosition(1, 0), MovementTicks: 2)
+        });
+        var scenario = new ScenarioDefinition("golden-terrain-delay", map, State(new GridPosition(0, 0), new GridPosition(3, 3)), "golden-1");
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 3, Path: new[] { new GridPosition(1, 0), new GridPosition(2, 0) });
+        var request = ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(5), 20260720u, "golden-1");
+
+        var result = new TimelineResolver().Resolve(request);
+
+        Assert.That(result.Events.Select(@event => new { @event.Tick, @event.Type, @event.UnitId, @event.ActionId }), Is.EqualTo(new[]
+        {
+            new { Tick = 0, Type = DomainEventType.RoundStarted, UnitId = (Guid?)null, ActionId = (Guid?)null },
+            new { Tick = 0, Type = DomainEventType.ActionStarted, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction },
+            new { Tick = 2, Type = DomainEventType.UnitExitedTile, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction },
+            new { Tick = 2, Type = DomainEventType.UnitEnteredTile, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction },
+            new { Tick = 3, Type = DomainEventType.UnitExitedTile, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction },
+            new { Tick = 3, Type = DomainEventType.UnitEnteredTile, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction },
+            new { Tick = 3, Type = DomainEventType.ActionCompleted, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction },
+            new { Tick = 5, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, ActionId = (Guid?)null }
+        }));
+        Assert.That(result.FinalStateChecksum, Is.EqualTo("8A641DD03771B4B48B8223499FE694A48199F879F1C69B26F5F1B1167E98907E"));
+    }
+
+    [Test]
+    public void Scenario_json_round_trip_preserves_map_terrain_and_units()
+    {
+        var scenario = new ScenarioDefinition("json-scenario", new GridMapDefinition("json-map", 4, 3, new[]
+        {
+            new TerrainCellDefinition(new GridPosition(1, 1), MovementTicks: 2),
+            new TerrainCellDefinition(new GridPosition(2, 2), IsPassable: false)
+        }), State(new GridPosition(0, 0), new GridPosition(3, 2)), "content-json-1");
+
+        var decoded = ScenarioSerializer.Deserialize(ScenarioSerializer.Serialize(scenario));
+
+        Assert.That(decoded.Id, Is.EqualTo(scenario.Id));
+        Assert.That(decoded.Map.Id, Is.EqualTo(scenario.Map.Id));
+        Assert.That(decoded.Map.Width, Is.EqualTo(scenario.Map.Width));
+        Assert.That(decoded.Map.Height, Is.EqualTo(scenario.Map.Height));
+        Assert.That(decoded.Map.Terrain, Is.EqualTo(scenario.Map.Terrain));
+        Assert.That(decoded.InitialState.Units, Is.EqualTo(scenario.InitialState.Units));
+        Assert.That(decoded.ContentVersion, Is.EqualTo(scenario.ContentVersion));
+    }
+
     private static SimulationRequest Request(params CommandBundle[] bundles) => Request(DefaultState(), bundles);
 
     private static SimulationRequest Request(GameState state, params CommandBundle[] bundles) => new(state, bundles, new RoundConfiguration(), 1234u);
