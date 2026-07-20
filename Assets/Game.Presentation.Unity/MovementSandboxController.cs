@@ -292,7 +292,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 return;
             var startTick = DraftEndTick();
             _draftedActions.Add(new TacticalAction(Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffff2"), blue.Id, TacticalActionType.ApplyEffect, startTick, 1,
-                TargetUnitId: blue.Id, EffectId: "field-med-kit");
+                TargetUnitId: blue.Id, EffectId: "field-med-kit"));
             _planningMessage = $"Drafted field-med-kit heal to resolve at tick {startTick + 1}.";
         }
 
@@ -304,7 +304,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 return;
             var startTick = DraftEndTick();
             _draftedActions.Add(new TacticalAction(Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffff3"), blue.Id, TacticalActionType.Attack, startTick, 2,
-                TargetUnitId: red.Id, AttackProfileId: "sandbox-rifle");
+                TargetUnitId: red.Id, AttackProfileId: "sandbox-rifle"));
             _planningMessage = $"Drafted speculative attack on red to resolve at tick {startTick + 2}; range and sight are checked only then.";
         }
 
