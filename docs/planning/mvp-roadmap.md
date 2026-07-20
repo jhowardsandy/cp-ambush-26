@@ -25,7 +25,7 @@ The MVP proves the engine, not a large campaign or a finished art direction.
 | 3. Combat kernel | Aim and attacks have explainable results | Weapon profiles, range, cover, hit/damage calculation sheets, seeded rolls, exhaustive boundary tests, calculation breakdown events. |
 | 4. Reactions | Timed interrupts work consistently | Trigger, priority, delay, interruption/resume policy, conflict matrix, deterministic multi-trigger tests. |
 | 5. Scenario loop | A complete tactical encounter exists | Scenario foundation implemented: reusable map/initial-state/content-version data, bounds validation, and replay serialization. Add deployment, objectives, deterministic conventional enemy planner, and replay fixtures. |
-| 6. Planning and playback | Humans can play and inspect it | First movement sandbox scene implemented: placeholder grid/tokens, deterministic resolve/reset controls, event overlay, and checksum. Add order editing, timeline playback, validation feedback, and inspector. |
+| 6. Planning and playback | Humans can play and inspect it | First movement/effects sandbox scene and multi-round encounter-state core implemented: placeholder grid/tokens, deterministic resolve/reset controls, event overlay, checksum, and valid-round state carry-forward. Add unit selection, order editing, timeline playback, validation feedback, and inspector. |
 | 7. MVP hardening | Playtest-ready vertical slice | Regression suite, seed corpus, balance harness, telemetry schema, accessibility pass, known-rules manual, playtest protocol. |
 | 8. MVP release candidate | One defensible, replayable prototype build | Clean install/build, scenario acceptance suite, human-playtest findings triaged, documented release notes and rollback build. |
 
@@ -53,6 +53,10 @@ Reactions are a resolver feature, not a presentation callback. Define trigger ev
 
 Create one original scenario with placeholder assets, four player units, four enemy units, one objective, basic conventional deterministic AI, planning validation, playback, pause/speed controls, and an inspector that answers “what happened and why?”
 
+PvE is the first complete game mode: deterministic enemy intelligence generates the opposing faction's command bundle from the same observable state and rule engine available to the player. Its decision inputs, seed, content version, selected orders, and explanation must be replayable.
+
+PvP is a later expansion built on the same round boundary: each human submits orders for a faction, server or peer coordination validates that both submissions are present, then the shared deterministic resolver produces the sole authoritative result. Hidden-information policy, disconnect/reconnect, anti-cheat, synchronization, matchmaking, and networking are explicitly deferred until the single-device PvE loop is proven.
+
 ### Phase 7–8: Hardening and MVP release
 
 Run scripted simulation batches over the scenario corpus; preserve every regression seed. Conduct structured human playtests separately from mathematical/rule verification. Address rule defects before tuning presentation polish.
@@ -63,7 +67,7 @@ Run scripted simulation batches over the scenario corpus; preserve every regress
 2. Content tooling: scenario editor, data validator, replay inspector, and balance dashboard.
 3. Expanded tactical systems: doors, elevation, sound, suppression, morale, objectives, and environmental effects.
 4. Setting packages: historical-inspired content and an **original fantasy** package with original creatures, terminology, abilities, lore, and visual identity.
-5. Optional asynchronous multiplayer, only after simulation/content-version validation is mature.
+5. Optional PvP multiplayer (initially asynchronous or hot-seat, then networked only after simulation/content-version validation is mature). It reuses the command-bundle and shared-resolver contract rather than a separate ruleset.
 6. Mobile adaptation after the desktop tactical loop is proven.
 
 ## Reusable-engine boundary

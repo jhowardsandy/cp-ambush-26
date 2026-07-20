@@ -379,6 +379,41 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Encounter_carries_a_valid_round_result_forward_for_next_round_orders()
+    {
+        var initialState = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.North, UnitActivityState.Active, HitPoints: 8, MaxHitPoints: 10),
+            new UnitState(RedUnit, "red", new GridPosition(3, 0), Facing.South, UnitActivityState.Active)
+        });
+        var encounter = new EncounterState(new EncounterDefinition("round-loop", new GridMapDefinition("round-loop-map", 5, 1), "round-loop-content"), initialState);
+        var move = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(1, 0) });
+
+        var firstRound = EncounterResolver.ResolveRound(encounter, new[] { Bundle("blue", move) }, new RoundConfiguration(3), 1u);
+        var heal = new TacticalAction(SecondAction, BlueUnit, TacticalActionType.ApplyEffect, 0, 1, TargetUnitId: BlueUnit, EffectId: "aid");
+        var secondRound = EncounterResolver.ResolveRound(firstRound.NextState, new[] { Bundle("blue", heal) }, new RoundConfiguration(3), 2u,
+            effects: new[] { new EffectDefinition("aid", 3) });
+
+        Assert.That(firstRound.NextState.CompletedRounds, Is.EqualTo(1));
+        Assert.That(firstRound.NextState.CurrentState.FindUnit(BlueUnit)!.Position, Is.EqualTo(new GridPosition(1, 0)));
+        Assert.That(secondRound.NextState.CompletedRounds, Is.EqualTo(2));
+        Assert.That(secondRound.NextState.CurrentState.FindUnit(BlueUnit)!.Position, Is.EqualTo(new GridPosition(1, 0)));
+        Assert.That(secondRound.NextState.CurrentState.FindUnit(BlueUnit)!.HitPoints, Is.EqualTo(10));
+    }
+
+    [Test]
+    public void Encounter_does_not_advance_when_submitted_orders_are_invalid()
+    {
+        var encounter = new EncounterState(new EncounterDefinition("invalid-round-loop", new GridMapDefinition("invalid-round-loop-map", 3, 1)), DefaultState(), CompletedRounds: 2);
+        var invalidMove = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(2, 0) });
+
+        var result = EncounterResolver.ResolveRound(encounter, new[] { Bundle("blue", invalidMove) }, new RoundConfiguration(3), 3u);
+
+        Assert.That(result.Resolution.IsValid, Is.False);
+        Assert.That(result.NextState, Is.EqualTo(encounter));
+    }
+
+    [Test]
     public void Healing_effect_clamps_to_maximum_and_emits_its_calculation()
     {
         var state = new GameState(new[]
