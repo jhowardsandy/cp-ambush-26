@@ -32,7 +32,8 @@ public sealed record ScenarioDefinition(
     string Id,
     GridMapDefinition Map,
     GameState InitialState,
-    string ContentVersion = "1");
+    string ContentVersion = "1",
+    IReadOnlyList<ObjectiveDefinition>? Objectives = null);
 
 public static class ScenarioFactory
 {
@@ -75,6 +76,19 @@ public static class ScenarioValidator
         }
         if (terrain.GroupBy(cell => cell.Position).Any(group => group.Count() > 1))
             diagnostics.Add(new("duplicate-terrain-cell", "A map cannot define terrain more than once for the same tile."));
+
+        var objectives = scenario.Objectives ?? Array.Empty<ObjectiveDefinition>();
+        foreach (var objective in objectives)
+        {
+            if (String.IsNullOrWhiteSpace(objective.Id))
+                diagnostics.Add(new("missing-objective-id", "Objective definitions require a stable non-empty ID."));
+            if (!Enum.IsDefined(typeof(ObjectiveType), objective.Type))
+                diagnostics.Add(new("unknown-objective-type", "Objective type is not supported by this simulation version."));
+            if (String.IsNullOrWhiteSpace(objective.WinningFactionId) || !scenario.InitialState.Units.Any(unit => StringComparer.Ordinal.Equals(unit.FactionId, objective.WinningFactionId)))
+                diagnostics.Add(new("unknown-objective-faction", "Objective winning faction must exist in the scenario initial state."));
+        }
+        if (objectives.GroupBy(objective => objective.Id, StringComparer.Ordinal).Any(group => group.Count() > 1))
+            diagnostics.Add(new("duplicate-objective-id", "Objective definition IDs must be unique."));
 
         return diagnostics;
     }

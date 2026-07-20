@@ -49,7 +49,8 @@ namespace TacticalStrategyGame.Presentation.Unity
                 {
                     new UnitState(Guid.Parse("11111111-1111-1111-1111-111111111111"), "blue", new GridPosition(1, 1), Facing.East, UnitActivityState.Active, HitPoints: 8, MaxHitPoints: 10),
                     new UnitState(Guid.Parse("22222222-2222-2222-2222-222222222222"), "red", new GridPosition(6, 4), Facing.West, UnitActivityState.Active)
-                }));
+                }),
+                Objectives: new[] { new ObjectiveDefinition("incapacitate-red", ObjectiveType.IncapacitateAllOpposingUnits, "blue") });
 
             for (var x = 0; x < _scenario.Map.Width; x++)
             for (var y = 0; y < _scenario.Map.Height; y++)
@@ -90,7 +91,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             _isResolving = false;
             _result = null;
             _encounter = new EncounterState(
-                new EncounterDefinition(_scenario.Id, _scenario.Map, _scenario.ContentVersion),
+                new EncounterDefinition(_scenario.Id, _scenario.Map, _scenario.ContentVersion, _scenario.Objectives),
                 _scenario.InitialState);
             _eventLines.Clear();
             _eventLines.Add("Encounter reset. Round 1 is ready: movement orders.");
@@ -147,9 +148,11 @@ namespace TacticalStrategyGame.Presentation.Unity
             }
 
             _eventLines.Add($"Checksum: {_result.FinalStateChecksum}");
-            _eventLines.Add(_encounter.CompletedRounds < DemonstrationRoundCount
+            if (_encounter.Outcome?.IsComplete == true)
+                _eventLines.Add($"OUTCOME: {_encounter.Outcome.Detail}");
+            else _eventLines.Add(_encounter.CompletedRounds < DemonstrationRoundCount
                 ? $"Round {roundNumber} complete. Resolve round {_encounter.CompletedRounds + 1} for fresh orders."
-                : "Three-round encounter demo complete. Red is incapacitated. Reset to begin again.");
+                : "Three-round encounter demo complete. Reset to begin again.");
             _isResolving = false;
         }
 

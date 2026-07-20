@@ -296,7 +296,10 @@ public sealed class TimelineResolverTests
         {
             new TerrainCellDefinition(new GridPosition(1, 1), MovementTicks: 2),
             new TerrainCellDefinition(new GridPosition(2, 2), IsPassable: false)
-        }), State(new GridPosition(0, 0), new GridPosition(3, 2)), "content-json-1");
+        }), State(new GridPosition(0, 0), new GridPosition(3, 2)), "content-json-1", new[]
+        {
+            new ObjectiveDefinition("incapacitate-red", ObjectiveType.IncapacitateAllOpposingUnits, "blue")
+        });
 
         var decoded = ScenarioSerializer.Deserialize(ScenarioSerializer.Serialize(scenario));
 
@@ -307,6 +310,7 @@ public sealed class TimelineResolverTests
         Assert.That(decoded.Map.Terrain, Is.EqualTo(scenario.Map.Terrain));
         Assert.That(decoded.InitialState.Units, Is.EqualTo(scenario.InitialState.Units));
         Assert.That(decoded.ContentVersion, Is.EqualTo(scenario.ContentVersion));
+        Assert.That(decoded.Objectives, Is.EqualTo(scenario.Objectives));
     }
 
     [Test]
@@ -498,6 +502,53 @@ public sealed class TimelineResolverTests
             new { Tick = 4, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, TargetUnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null }
         }));
         Assert.That(result.FinalStateChecksum, Is.EqualTo("FE87B99AC3075D4D54718A07FE97DFC0DAC01B3B9C35C42E3E750A267837DDED"));
+    }
+
+    [Test]
+    public void Eliminate_all_opponents_objective_completes_when_last_enemy_is_incapacitated()
+    {
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East, UnitActivityState.Active),
+            new UnitState(RedUnit, "red", new GridPosition(2, 0), Facing.West, UnitActivityState.Active, HitPoints: 3, MaxHitPoints: 10)
+        });
+        var definition = new EncounterDefinition("eliminate-objective", new GridMapDefinition("eliminate-objective-map", 4, 1), Objectives: new[]
+        {
+            new ObjectiveDefinition("incapacitate-red", ObjectiveType.IncapacitateAllOpposingUnits, "blue")
+        });
+        var encounter = new EncounterState(definition, state);
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 0, 1, TargetUnitId: RedUnit, AttackProfileId: "objective-rifle");
+
+        var result = EncounterResolver.ResolveRound(encounter, new[] { Bundle("blue", action) }, new RoundConfiguration(3), 1234u,
+            attackProfiles: new[] { new AttackProfile("objective-rifle", 1, 2, 5) });
+
+        Assert.That(result.NextState.Outcome, Is.EqualTo(new EncounterOutcome(true, "blue", "objective=incapacitate-red; winner=blue; opposing-active-units=0")));
+        Assert.That(result.NextState.CurrentState.FindUnit(RedUnit)!.ActivityState, Is.EqualTo(UnitActivityState.Incapacitated));
+    }
+
+    [Test]
+    public void Eliminate_all_opponents_objective_remains_incomplete_while_an_enemy_is_active()
+    {
+        var state = DefaultState();
+        var outcome = ObjectiveRules.Evaluate(new[]
+        {
+            new ObjectiveDefinition("incapacitate-red", ObjectiveType.IncapacitateAllOpposingUnits, "blue")
+        }, state);
+
+        Assert.That(outcome, Is.EqualTo(new EncounterOutcome(false)));
+    }
+
+    [Test]
+    public void Completed_encounter_cannot_resolve_another_round()
+    {
+        var encounter = new EncounterState(
+            new EncounterDefinition("completed-encounter", new GridMapDefinition("completed-encounter-map", 3, 1)),
+            DefaultState(),
+            CompletedRounds: 3,
+            Outcome: new EncounterOutcome(true, "blue", "test-complete"));
+
+        Assert.That(() => EncounterResolver.ResolveRound(encounter, Array.Empty<CommandBundle>(), new RoundConfiguration(3), 1234u),
+            Throws.InvalidOperationException);
     }
 
     [Test]

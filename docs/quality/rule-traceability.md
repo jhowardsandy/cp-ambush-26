@@ -17,6 +17,7 @@
 | EFF-VIT-001 | accepted | `rulebook/effects-and-vitality.md` | Vitality clamp, incapacity, calculation-event, invalid-content, and replay-serialization tests | `GR-EFF-001` vitality-restoration golden replay. |
 | ENC-LOOP-001 | accepted | `rulebook/encounter-rounds.md` | Valid carry-forward and invalid-plan no-advance tests | Add a two-round golden replay after fixture extraction supports encounter records. |
 | ATK-DIR-001 | accepted | `rulebook/direct-attacks.md` | Legal direct-fire, blocked-resolution, invalid-profile, and friendly-target tests | `GR-ATK-001` guaranteed direct-fire golden replay. |
+| OBJ-ELM-001 | accepted | `rulebook/objectives.md` | Objective completion, incomplete state, completed-encounter protection, and scenario JSON tests | Add a completed-encounter golden replay after encounter fixtures are extracted. |
 | VIS-* | proposed | Future visibility chapter | Not implemented | Not implemented |
 | ATK-* | proposed | Future combat chapter | Not implemented | Not implemented |
 | UPG-* | deferred | Future progression chapter | Not implemented | Not implemented |

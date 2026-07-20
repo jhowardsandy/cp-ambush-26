@@ -57,3 +57,9 @@ Examples include a stronger medical kit, a longer-range optic, protective equipm
 6. Scenario rewards, equipment purchases, and progression after the core encounter loop is trusted.
 
 PvP will use the same content and command contracts. It must not have a separate combat or upgrade calculation path.
+
+## Scenario pressure and rescue directions
+
+Future scenarios may include civilians or important people located through a scan/search sequence and rescued through an explicit pickup, escort, or extraction objective. Search information must be represented as objective/faction knowledge, not inferred from presentation.
+
+Campaign and PvE maps may also have deterministic reinforcement schedules, for example “every three completed rounds, spawn this unit group at this point.” A capturable spawn point can alter that schedule only through explicit control rules. Spawning must define stable generated IDs, exact round timing, placement when a spawn tile is blocked, ownership transition, and replay inputs before it is accepted as a game rule.
