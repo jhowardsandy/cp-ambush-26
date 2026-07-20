@@ -28,7 +28,8 @@ public static class StateChecksum
             canonical.Append(unit.Id.ToString("N")).Append('|')
                 .Append(unit.FactionId).Append('|')
                 .Append(unit.Position.X).Append('|').Append(unit.Position.Y).Append('|')
-                .Append((int)unit.Facing).Append('|').Append((int)unit.ActivityState).Append('\n');
+                .Append((int)unit.Facing).Append('|').Append((int)unit.ActivityState).Append('|')
+                .Append(unit.HitPoints).Append('|').Append(unit.MaxHitPoints).Append('\n');
         }
 
         using (var sha256 = SHA256.Create())

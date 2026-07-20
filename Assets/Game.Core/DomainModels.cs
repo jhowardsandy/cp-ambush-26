@@ -9,7 +9,7 @@ namespace TacticalStrategyGame.Core
 
 public enum Facing { North, East, South, West }
 public enum UnitActivityState { Active, Incapacitated }
-public enum TacticalActionType { Wait, Rotate, Move, Aim, Attack }
+public enum TacticalActionType { Wait, Rotate, Move, Aim, Attack, ApplyEffect }
 
 public sealed record GridPosition(int X, int Y);
 
@@ -24,7 +24,9 @@ public sealed record UnitState(
     string FactionId,
     GridPosition Position,
     Facing Facing,
-    UnitActivityState ActivityState);
+    UnitActivityState ActivityState,
+    int HitPoints = 10,
+    int MaxHitPoints = 10);
 
 public sealed record TacticalAction(
     Guid ActionId,
@@ -34,7 +36,12 @@ public sealed record TacticalAction(
     int DurationTicks,
     GridPosition? Destination = null,
     Facing? Facing = null,
-    IReadOnlyList<GridPosition>? Path = null);
+    IReadOnlyList<GridPosition>? Path = null,
+    Guid? TargetUnitId = null,
+    string? EffectId = null);
+
+/// <summary>Setting-neutral, versioned vitality change. Positive values heal; negative values damage.</summary>
+public sealed record EffectDefinition(string Id, int VitalityDelta);
 
 public sealed record CommandBundle(string FactionId, IReadOnlyList<TacticalAction> Actions);
 
@@ -62,7 +69,8 @@ public sealed record SimulationRequest(
     uint RandomSeed,
     string SimulationVersion = "1",
     string ContentVersion = "1",
-    ScenarioDefinition? Scenario = null);
+    ScenarioDefinition? Scenario = null,
+    IReadOnlyList<EffectDefinition>? Effects = null);
 
 public sealed record ValidationDiagnostic(string Code, string Message, Guid? ActionId = null);
 

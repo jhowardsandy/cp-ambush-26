@@ -52,7 +52,13 @@ public sealed class TimelineResolver
                     continue;
 
                 var unit = state.FindUnit(item.Action.UnitId)!;
-                state = ApplyCompletion(state, unit, item.Action);
+                var completion = ApplyCompletion(state, unit, item.Action, request.Effects);
+                state = completion.State;
+                if (completion.Effect is not null)
+                {
+                    AddEvent(tick, DomainEventType.EffectApplied, item.FactionId, completion.Effect.Target.Id, item.Action.ActionId,
+                        $"effect={completion.EffectDefinition!.Id}; before={completion.BeforeHitPoints}; requested={completion.EffectDefinition.VitalityDelta}; applied={completion.Effect.AppliedVitalityDelta}; after={completion.Effect.Target.HitPoints}");
+                }
                 AddEvent(tick, DomainEventType.ActionCompleted, item.FactionId, unit.Id, item.Action.ActionId);
             }
         }
@@ -107,16 +113,43 @@ public sealed class TimelineResolver
             events.Add(new DomainEvent(sequence++, tick, type, factionId, unitId, actionId, detail, fromPosition, toPosition));
     }
 
-    private static GameState ApplyCompletion(GameState state, UnitState unit, TacticalAction action) => action.Type switch
+    private static CompletionResult ApplyCompletion(GameState state, UnitState unit, TacticalAction action, IReadOnlyList<EffectDefinition>? effects)
     {
-        TacticalActionType.Rotate when action.Facing is not null => state.WithUnit(unit with { Facing = action.Facing.Value }),
-        _ => state
-    };
+        if (action.Type == TacticalActionType.Rotate && action.Facing is not null)
+            return new CompletionResult(state.WithUnit(unit with { Facing = action.Facing.Value }));
+
+        if (action.Type == TacticalActionType.ApplyEffect)
+        {
+            var definition = effects!.Single(effect => StringComparer.Ordinal.Equals(effect.Id, action.EffectId));
+            var target = state.FindUnit(action.TargetUnitId!.Value)!;
+            var application = EffectRules.Apply(target, definition);
+            return new CompletionResult(state.WithUnit(application.Target), application, definition, target.HitPoints);
+        }
+
+        return new CompletionResult(state);
+    }
 
     private static IReadOnlyList<ValidationDiagnostic> Validate(SimulationRequest request)
     {
         var diagnostics = new List<ValidationDiagnostic>();
         var units = request.InitialState.Units.ToDictionary(unit => unit.Id);
+        foreach (var unit in request.InitialState.Units)
+        {
+            if (unit.MaxHitPoints <= 0)
+                diagnostics.Add(new("non-positive-max-hit-points", "Unit maximum hit points must be positive."));
+            else if (unit.HitPoints < 0 || unit.HitPoints > unit.MaxHitPoints)
+                diagnostics.Add(new("invalid-hit-points", "Unit hit points must be between zero and maximum hit points."));
+        }
+        var effects = request.Effects ?? Array.Empty<EffectDefinition>();
+        foreach (var effect in effects)
+        {
+            if (String.IsNullOrWhiteSpace(effect.Id))
+                diagnostics.Add(new("missing-effect-id", "Effect definitions require a stable non-empty ID."));
+            if (effect.VitalityDelta == 0)
+                diagnostics.Add(new("zero-vitality-effect", "An effect vitality change cannot be zero."));
+        }
+        if (effects.GroupBy(effect => effect.Id, StringComparer.Ordinal).Any(group => group.Count() > 1))
+            diagnostics.Add(new("duplicate-effect-id", "Effect definition IDs must be unique."));
         if (request.Scenario != null)
         {
             diagnostics.AddRange(ScenarioValidator.Validate(request.Scenario));
@@ -143,6 +176,8 @@ public sealed class TimelineResolver
                 ValidateMovePath(action, unit, request.Scenario?.Map, diagnostics);
             if (action.Type == TacticalActionType.Rotate && action.Facing is null)
                 diagnostics.Add(new("missing-facing", "Rotate requires a facing.", action.ActionId));
+            if (action.Type == TacticalActionType.ApplyEffect)
+                ValidateEffectAction(action, units, effects, diagnostics);
         }
 
         foreach (var group in request.CommandBundles.SelectMany(bundle => bundle.Actions).GroupBy(action => action.UnitId))
@@ -159,6 +194,19 @@ public sealed class TimelineResolver
         }
 
         return diagnostics;
+    }
+
+    private static void ValidateEffectAction(TacticalAction action, IReadOnlyDictionary<Guid, UnitState> units, IReadOnlyList<EffectDefinition> effects, ICollection<ValidationDiagnostic> diagnostics)
+    {
+        if (action.TargetUnitId is null)
+            diagnostics.Add(new("missing-effect-target", "ApplyEffect requires a target unit.", action.ActionId));
+        else if (!units.ContainsKey(action.TargetUnitId.Value))
+            diagnostics.Add(new("unknown-effect-target", "ApplyEffect target must be a unit in the initial state.", action.ActionId));
+
+        if (String.IsNullOrWhiteSpace(action.EffectId))
+            diagnostics.Add(new("missing-effect-id", "ApplyEffect requires an effect ID.", action.ActionId));
+        else if (!effects.Any(effect => StringComparer.Ordinal.Equals(effect.Id, action.EffectId)))
+            diagnostics.Add(new("unknown-effect-id", "ApplyEffect references an unknown effect definition.", action.ActionId));
     }
 
     private static void ValidateMovePath(TacticalAction action, UnitState? unit, GridMapDefinition? map, ICollection<ValidationDiagnostic> diagnostics)
@@ -198,6 +246,8 @@ public sealed class TimelineResolver
     {
         public GridPosition Destination => MovementRules.PathFor(Scheduled.Action)[StepIndex];
     }
+
+    private sealed record CompletionResult(GameState State, EffectApplication? Effect = null, EffectDefinition? EffectDefinition = null, int BeforeHitPoints = 0);
 
     private sealed class ScheduledActionComparer : IComparer<ScheduledAction>
     {

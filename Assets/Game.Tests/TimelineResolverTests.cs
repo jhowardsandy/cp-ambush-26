@@ -335,6 +335,58 @@ public sealed class TimelineResolverTests
         Assert.That(VisibilityRules.HasLineOfSight(map, new GridPosition(2, 2), target), Is.True);
     }
 
+    [Test]
+    public void Healing_effect_clamps_to_maximum_and_emits_its_calculation()
+    {
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.North, UnitActivityState.Active, HitPoints: 8, MaxHitPoints: 10),
+            new UnitState(RedUnit, "red", new GridPosition(1, 0), Facing.South, UnitActivityState.Active)
+        });
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.ApplyEffect, 1, 1, TargetUnitId: BlueUnit, EffectId: "field-med-kit");
+        var request = new SimulationRequest(state, new[] { Bundle("blue", action) }, new RoundConfiguration(), 1234u,
+            Effects: new[] { new EffectDefinition("field-med-kit", 5) });
+
+        var result = new TimelineResolver().Resolve(request);
+
+        Assert.That(result.FinalState.FindUnit(BlueUnit)!.HitPoints, Is.EqualTo(10));
+        var effect = result.Events.Single(@event => @event.Type == DomainEventType.EffectApplied);
+        Assert.That(effect.Tick, Is.EqualTo(2));
+        Assert.That(effect.UnitId, Is.EqualTo(BlueUnit));
+        Assert.That(effect.Detail, Is.EqualTo("effect=field-med-kit; before=8; requested=5; applied=2; after=10"));
+    }
+
+    [Test]
+    public void Damaging_effect_clamps_at_zero_and_incapacitates_the_target()
+    {
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.North, UnitActivityState.Active),
+            new UnitState(RedUnit, "red", new GridPosition(1, 0), Facing.South, UnitActivityState.Active, HitPoints: 3, MaxHitPoints: 10)
+        });
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.ApplyEffect, 0, 1, TargetUnitId: RedUnit, EffectId: "training-impact");
+        var request = new SimulationRequest(state, new[] { Bundle("blue", action) }, new RoundConfiguration(), 1234u,
+            Effects: new[] { new EffectDefinition("training-impact", -5) });
+
+        var result = new TimelineResolver().Resolve(request);
+
+        var target = result.FinalState.FindUnit(RedUnit)!;
+        Assert.That(target.HitPoints, Is.EqualTo(0));
+        Assert.That(target.ActivityState, Is.EqualTo(UnitActivityState.Incapacitated));
+        Assert.That(result.Events.Single(@event => @event.Type == DomainEventType.EffectApplied).Detail,
+            Is.EqualTo("effect=training-impact; before=3; requested=-5; applied=-3; after=0"));
+    }
+
+    [Test]
+    public void Effect_action_with_an_unknown_definition_is_rejected()
+    {
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.ApplyEffect, 0, 1, TargetUnitId: RedUnit, EffectId: "not-in-content");
+        var result = new TimelineResolver().Resolve(Request(Bundle("blue", action)));
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("unknown-effect-id"));
+    }
+
     private static SimulationRequest Request(params CommandBundle[] bundles) => Request(DefaultState(), bundles);
 
     private static SimulationRequest Request(GameState state, params CommandBundle[] bundles) => new(state, bundles, new RoundConfiguration(), 1234u);
