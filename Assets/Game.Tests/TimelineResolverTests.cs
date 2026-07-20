@@ -296,6 +296,10 @@ public sealed class TimelineResolverTests
         {
             new TerrainCellDefinition(new GridPosition(1, 1), MovementTicks: 2),
             new TerrainCellDefinition(new GridPosition(2, 2), IsPassable: false)
+        }, new[]
+        {
+            new MapAreaDefinition("rescue-building", new[] { new GridPosition(1, 1), new GridPosition(1, 2) }),
+            new MapAreaDefinition("reinforcement-entry", new[] { new GridPosition(3, 0) })
         }), State(new GridPosition(0, 0), new GridPosition(3, 2)), "content-json-1", new[]
         {
             new ObjectiveDefinition("incapacitate-red", ObjectiveType.IncapacitateAllOpposingUnits, "blue")
@@ -308,9 +312,30 @@ public sealed class TimelineResolverTests
         Assert.That(decoded.Map.Width, Is.EqualTo(scenario.Map.Width));
         Assert.That(decoded.Map.Height, Is.EqualTo(scenario.Map.Height));
         Assert.That(decoded.Map.Terrain, Is.EqualTo(scenario.Map.Terrain));
+        Assert.That(decoded.Map.Areas, Is.EqualTo(scenario.Map.Areas));
         Assert.That(decoded.InitialState.Units, Is.EqualTo(scenario.InitialState.Units));
         Assert.That(decoded.ContentVersion, Is.EqualTo(scenario.ContentVersion));
         Assert.That(decoded.Objectives, Is.EqualTo(scenario.Objectives));
+    }
+
+    [Test]
+    public void Scenario_rejects_invalid_named_map_areas()
+    {
+        var scenario = new ScenarioDefinition("invalid-areas", new GridMapDefinition("invalid-areas-map", 3, 3, Areas: new[]
+        {
+            new MapAreaDefinition("", Array.Empty<GridPosition>()),
+            new MapAreaDefinition("duplicate", new[] { new GridPosition(0, 0), new GridPosition(0, 0) }),
+            new MapAreaDefinition("duplicate", new[] { new GridPosition(4, 0) })
+        }), DefaultState());
+        var request = ScenarioFactory.CreateRequest(scenario, Array.Empty<CommandBundle>(), new RoundConfiguration(3), 1234u);
+
+        var result = new TimelineResolver().Resolve(request);
+
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("missing-map-area-id"));
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("empty-map-area"));
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("duplicate-map-area-tile"));
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("map-area-out-of-bounds"));
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("duplicate-map-area-id"));
     }
 
     [Test]

@@ -13,3 +13,8 @@
 `ScenarioSerializer` reads and writes portable JSON without requiring Unity. The example at `docs/examples/scenarios/movement-sandbox-01.json` demonstrates a reusable map, terrain, units, and content version. Unity scenes may render a scenario, but they are not the authoritative scenario data format.
 
 Walls, doors, elevation, cover, deployment zones, objectives, faction metadata, scripted triggers, and content import/validation tooling are deferred. They must extend the generic scenario model rather than force historical or fantasy assumptions into `Game.Core`.
+# Scenario content schema
+
+`GridMapDefinition` is setting-neutral map content with dimensions, optional terrain cells, and optional named map areas. `MapAreaDefinition` contains a stable ID and a non-empty unique set of in-bounds tiles. Areas have no behavior on their own; they provide validated content references for future deployment zones, buildings/search zones, extraction areas, capture points, and reinforcement spawns.
+
+Scenario validation rejects empty/duplicate area IDs, empty areas, duplicate tiles within an area, and out-of-bounds area tiles. Area content round-trips through scenario JSON with terrain, units, objectives, and content version.

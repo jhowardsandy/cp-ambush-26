@@ -13,18 +13,25 @@ public sealed record TerrainCellDefinition(
     bool IsPassable = true,
     bool BlocksLineOfSight = false);
 
+/// <summary>Named set of map tiles for objectives, deployment, buildings, extraction, or spawn rules.</summary>
+public sealed record MapAreaDefinition(string Id, IReadOnlyList<GridPosition> Tiles);
+
 /// <summary>Setting-neutral rectangular tactical map definition.</summary>
 public sealed record GridMapDefinition(
     string Id,
     int Width,
     int Height,
-    IReadOnlyList<TerrainCellDefinition>? Terrain = null)
+    IReadOnlyList<TerrainCellDefinition>? Terrain = null,
+    IReadOnlyList<MapAreaDefinition>? Areas = null)
 {
     public bool Contains(GridPosition position) =>
         position.X >= 0 && position.X < Width && position.Y >= 0 && position.Y < Height;
 
     public TerrainCellDefinition CellAt(GridPosition position) =>
         Terrain?.FirstOrDefault(cell => cell.Position == position) ?? new TerrainCellDefinition(position);
+
+    public MapAreaDefinition? AreaById(string id) =>
+        Areas?.FirstOrDefault(area => StringComparer.Ordinal.Equals(area.Id, id));
 }
 
 /// <summary>Reusable, data-serializable starting point for one tactical encounter.</summary>
@@ -76,6 +83,24 @@ public static class ScenarioValidator
         }
         if (terrain.GroupBy(cell => cell.Position).Any(group => group.Count() > 1))
             diagnostics.Add(new("duplicate-terrain-cell", "A map cannot define terrain more than once for the same tile."));
+
+        var areas = scenario.Map.Areas ?? Array.Empty<MapAreaDefinition>();
+        foreach (var area in areas)
+        {
+            if (String.IsNullOrWhiteSpace(area.Id))
+                diagnostics.Add(new("missing-map-area-id", "Map areas require a stable non-empty ID."));
+            if (area.Tiles == null || area.Tiles.Count == 0)
+                diagnostics.Add(new("empty-map-area", "Map areas must contain at least one tile."));
+            else
+            {
+                if (area.Tiles.Any(position => !scenario.Map.Contains(position)))
+                    diagnostics.Add(new("map-area-out-of-bounds", "Map area tiles must be inside the scenario map."));
+                if (area.Tiles.GroupBy(position => position).Any(group => group.Count() > 1))
+                    diagnostics.Add(new("duplicate-map-area-tile", "A map area cannot list the same tile more than once."));
+            }
+        }
+        if (areas.GroupBy(area => area.Id, StringComparer.Ordinal).Any(group => group.Count() > 1))
+            diagnostics.Add(new("duplicate-map-area-id", "Map area IDs must be unique."));
 
         var objectives = scenario.Objectives ?? Array.Empty<ObjectiveDefinition>();
         foreach (var objective in objectives)
