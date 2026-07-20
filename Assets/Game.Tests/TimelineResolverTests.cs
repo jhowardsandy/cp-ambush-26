@@ -229,6 +229,39 @@ public sealed class TimelineResolverTests
         Assert.That(decoded.Inputs.ContentVersion, Is.EqualTo("content-7"));
     }
 
+    [Test]
+    public void Terrain_movement_ticks_delay_entry_and_determine_action_duration()
+    {
+        var map = new GridMapDefinition("terrain-map", 4, 4, new[]
+        {
+            new TerrainCellDefinition(new GridPosition(1, 0), MovementTicks: 2)
+        });
+        var scenario = new ScenarioDefinition("terrain-scenario", map, State(new GridPosition(0, 0), new GridPosition(3, 3)));
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 3, Path: new[] { new GridPosition(1, 0), new GridPosition(2, 0) });
+        var request = ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(), 1234u);
+
+        var result = new TimelineResolver().Resolve(request);
+
+        Assert.That(result.Events.Where(e => e.Type == DomainEventType.UnitEnteredTile).Select(e => e.Tick), Is.EqualTo(new[] { 2, 3 }));
+        Assert.That(result.FinalState.FindUnit(BlueUnit)!.Position, Is.EqualTo(new GridPosition(2, 0)));
+    }
+
+    [Test]
+    public void Impassable_terrain_rejects_movement_path()
+    {
+        var map = new GridMapDefinition("blocked-map", 3, 3, new[]
+        {
+            new TerrainCellDefinition(new GridPosition(1, 0), IsPassable: false)
+        });
+        var scenario = new ScenarioDefinition("blocked-scenario", map, State(new GridPosition(0, 0), new GridPosition(2, 2)));
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(1, 0) });
+        var request = ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(), 1234u);
+
+        var result = new TimelineResolver().Resolve(request);
+
+        Assert.That(result.Diagnostics.Select(d => d.Code), Does.Contain("impassable-movement-path"));
+    }
+
     private static SimulationRequest Request(params CommandBundle[] bundles) => Request(DefaultState(), bundles);
 
     private static SimulationRequest Request(GameState state, params CommandBundle[] bundles) => new(state, bundles, new RoundConfiguration(), 1234u);

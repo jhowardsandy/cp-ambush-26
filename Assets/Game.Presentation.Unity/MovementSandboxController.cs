@@ -35,7 +35,11 @@ namespace TacticalStrategyGame.Presentation.Unity
         {
             _scenario = new ScenarioDefinition(
                 "movement-sandbox-01",
-                new GridMapDefinition("sandbox-grid", 8, 6),
+                new GridMapDefinition("sandbox-grid", 8, 6, new[]
+                {
+                    new TerrainCellDefinition(new GridPosition(2, 1), MovementTicks: 2),
+                    new TerrainCellDefinition(new GridPosition(4, 3), IsPassable: false)
+                }),
                 new GameState(new[]
                 {
                     new UnitState(Guid.Parse("11111111-1111-1111-1111-111111111111"), "blue", new GridPosition(1, 1), Facing.East, UnitActivityState.Active),
@@ -50,9 +54,14 @@ namespace TacticalStrategyGame.Presentation.Unity
                 tile.transform.SetParent(transform, false);
                 tile.transform.position = new Vector3(x, 0, y);
                 tile.transform.localScale = new Vector3(0.94f, 0.08f, 0.94f);
-                tile.GetComponent<Renderer>().material.color = (x + y) % 2 == 0
-                    ? new Color(0.16f, 0.20f, 0.24f)
-                    : new Color(0.20f, 0.25f, 0.30f);
+                var terrain = _scenario.Map.CellAt(new GridPosition(x, y));
+                tile.GetComponent<Renderer>().material.color = !terrain.IsPassable
+                    ? new Color(0.48f, 0.18f, 0.18f)
+                    : terrain.MovementTicks > 1
+                        ? new Color(0.50f, 0.38f, 0.16f)
+                        : (x + y) % 2 == 0
+                            ? new Color(0.16f, 0.20f, 0.24f)
+                            : new Color(0.20f, 0.25f, 0.30f);
             }
 
             foreach (var unit in _scenario.InitialState.Units)
@@ -94,7 +103,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 Guid.Parse("11111111-1111-1111-1111-111111111111"),
                 TacticalActionType.Move,
                 0,
-                3,
+                4,
                 Path: new[] { new GridPosition(2, 1), new GridPosition(3, 1), new GridPosition(3, 2) });
             var redAction = new TacticalAction(
                 Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),

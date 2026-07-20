@@ -10,6 +10,14 @@ Example: a unit at `(0,0)` starts path `[(1,0), (1,1)]` at tick 10. It enters `(
 
 Evidence: `Move_enters_each_cardinal_path_tile_on_its_matching_tick`, `Diagonal_path_step_is_rejected`, and `Move_duration_must_match_number_of_path_tiles`.
 
+## MOV-TRN-001: Terrain movement cost and passability
+
+Status: accepted.
+
+A scenario tile may define a positive movement-tick cost and passability. Entering a normal tile costs one tick. Entering a two-tick tile occurs after two ticks; an impassable tile cannot appear in a movement path. These data values are setting-neutral and may later represent mud, rubble, magical hazards, or other original terrain concepts without changing the timeline engine.
+
+Evidence: `Terrain_movement_ticks_delay_entry_and_determine_action_duration` and `Impassable_terrain_rejects_movement_path`.
+
 ## MOV-RES-001: Start-of-tick occupancy
 
 Status: accepted.

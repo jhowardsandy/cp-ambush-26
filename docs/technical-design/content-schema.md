@@ -8,4 +8,6 @@
 
 ## Deferred schema
 
-Terrain cells, walls, doors, elevation, cover, deployment zones, objectives, faction metadata, scripted triggers, and content import/validation tooling are deferred. They must extend the generic scenario model rather than force historical or fantasy assumptions into `Game.Core`.
+`TerrainCellDefinition` is the first generic scenario extension. It supplies a cell position, positive movement-tick cost, and passability. The movement resolver derives timing directly from these fields.
+
+Walls, doors, elevation, cover, deployment zones, objectives, faction metadata, scripted triggers, and content import/validation tooling are deferred. They must extend the generic scenario model rather than force historical or fantasy assumptions into `Game.Core`.

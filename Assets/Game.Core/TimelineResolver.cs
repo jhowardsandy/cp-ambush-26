@@ -64,8 +64,8 @@ public sealed class TimelineResolver
         {
             var intents = scheduled
                 .Where(item => item.Action.Type == TacticalActionType.Move && !failedActions.Contains(item.Action.ActionId))
-                .Select(item => new MovementIntent(item, tick - item.Action.StartTick - 1))
-                .Where(intent => intent.StepIndex >= 0 && intent.StepIndex < MovementRules.PathFor(intent.Scheduled.Action).Count)
+                .Select(item => new MovementIntent(item, MovementRules.StepIndexAtTick(item.Action, request.Scenario?.Map, tick)))
+                .Where(intent => intent.StepIndex >= 0)
                 .OrderBy(intent => intent.Scheduled, ScheduledActionComparer.Instance)
                 .ToArray();
 
@@ -170,8 +170,8 @@ public sealed class TimelineResolver
             return;
         }
 
-        if (path.Count != action.DurationTicks)
-            diagnostics.Add(new("movement-duration-mismatch", "Move duration must equal the number of path tiles at one tick per tile.", action.ActionId));
+        if (MovementRules.DurationFor(action, map) != action.DurationTicks)
+            diagnostics.Add(new("movement-duration-mismatch", "Move duration must equal the summed movement ticks of its path.", action.ActionId));
 
         if (unit == null)
             return;
@@ -186,6 +186,8 @@ public sealed class TimelineResolver
                 diagnostics.Add(new("repeated-path-position", "A movement path cannot revisit a tile during one action.", action.ActionId));
             if (map != null && !map.Contains(position))
                 diagnostics.Add(new("movement-out-of-bounds", "Movement path must remain inside the scenario map.", action.ActionId));
+            if (map != null && !map.CellAt(position).IsPassable)
+                diagnostics.Add(new("impassable-movement-path", "Movement path cannot enter an impassable terrain tile.", action.ActionId));
             previous = position;
         }
     }

@@ -7,11 +7,23 @@ using System.Linq;
 namespace TacticalStrategyGame.Core
 {
 
+public sealed record TerrainCellDefinition(
+    GridPosition Position,
+    int MovementTicks = 1,
+    bool IsPassable = true);
+
 /// <summary>Setting-neutral rectangular tactical map definition.</summary>
-public sealed record GridMapDefinition(string Id, int Width, int Height)
+public sealed record GridMapDefinition(
+    string Id,
+    int Width,
+    int Height,
+    IReadOnlyList<TerrainCellDefinition>? Terrain = null)
 {
     public bool Contains(GridPosition position) =>
         position.X >= 0 && position.X < Width && position.Y >= 0 && position.Y < Height;
+
+    public TerrainCellDefinition CellAt(GridPosition position) =>
+        Terrain?.FirstOrDefault(cell => cell.Position == position) ?? new TerrainCellDefinition(position);
 }
 
 /// <summary>Reusable, data-serializable starting point for one tactical encounter.</summary>
@@ -49,6 +61,17 @@ public static class ScenarioValidator
             if (!scenario.Map.Contains(unit.Position))
                 diagnostics.Add(new("unit-out-of-bounds", "Scenario unit position must be inside its map."));
         }
+
+        var terrain = scenario.Map.Terrain ?? Array.Empty<TerrainCellDefinition>();
+        foreach (var cell in terrain)
+        {
+            if (!scenario.Map.Contains(cell.Position))
+                diagnostics.Add(new("terrain-out-of-bounds", "Terrain cell position must be inside its map."));
+            if (cell.MovementTicks <= 0)
+                diagnostics.Add(new("invalid-terrain-cost", "Terrain movement ticks must be positive."));
+        }
+        if (terrain.GroupBy(cell => cell.Position).Any(group => group.Count() > 1))
+            diagnostics.Add(new("duplicate-terrain-cell", "A map cannot define terrain more than once for the same tile."));
 
         return diagnostics;
     }
