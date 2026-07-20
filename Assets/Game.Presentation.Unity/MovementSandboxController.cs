@@ -17,8 +17,10 @@ namespace TacticalStrategyGame.Presentation.Unity
         private readonly Dictionary<Guid, UnitActivityState> _displayActivityStates = new();
         private readonly List<string> _eventLines = new();
         private ScenarioDefinition _scenario = null!;
+        private EncounterState _encounter = null!;
         private SimulationResult? _result;
         private bool _isResolving;
+        private const int DemonstrationRoundCount = 2;
 
         private void Start()
         {
@@ -87,52 +89,37 @@ namespace TacticalStrategyGame.Presentation.Unity
             StopAllCoroutines();
             _isResolving = false;
             _result = null;
+            _encounter = new EncounterState(
+                new EncounterDefinition(_scenario.Id, _scenario.Map, _scenario.ContentVersion),
+                _scenario.InitialState);
             _eventLines.Clear();
-            _eventLines.Add("Sandbox reset. Press Space to resolve the planned round.");
+            _eventLines.Add("Encounter reset. Round 1 is ready: movement orders.");
             RenderState(_scenario.InitialState);
         }
 
         private void StartRoundPlayback()
         {
-            if (!_isResolving)
+            if (!_isResolving && _encounter.CompletedRounds < DemonstrationRoundCount)
                 StartCoroutine(ResolveAndPlayback());
         }
 
         private IEnumerator ResolveAndPlayback()
         {
             _isResolving = true;
-            var blueAction = new TacticalAction(
-                Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
-                Guid.Parse("11111111-1111-1111-1111-111111111111"),
-                TacticalActionType.Move,
-                0,
-                4,
-                Path: new[] { new GridPosition(2, 1), new GridPosition(3, 1), new GridPosition(3, 2) });
-            var redAction = new TacticalAction(
-                Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
-                Guid.Parse("22222222-2222-2222-2222-222222222222"),
-                TacticalActionType.Move,
-                1,
-                2,
-                Path: new[] { new GridPosition(5, 4), new GridPosition(4, 4) });
-            var blueEffect = new TacticalAction(
-                Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
-                Guid.Parse("11111111-1111-1111-1111-111111111111"),
-                TacticalActionType.ApplyEffect,
-                4,
-                1,
-                TargetUnitId: Guid.Parse("11111111-1111-1111-1111-111111111111"),
-                EffectId: "field-med-kit");
-            var request = ScenarioFactory.CreateRequest(
-                _scenario,
-                new[] { new CommandBundle("blue", new[] { blueAction, blueEffect }), new CommandBundle("red", new[] { redAction }) },
+            var roundNumber = _encounter.CompletedRounds + 1;
+            var stateBeforeRound = _encounter.CurrentState;
+            var round = EncounterResolver.ResolveRound(
+                _encounter,
+                CommandsForRound(roundNumber),
                 new RoundConfiguration(10),
-                20260720u,
+                (uint)(20260720 + roundNumber),
                 effects: new[] { new EffectDefinition("field-med-kit", 5) });
 
-            _result = new TimelineResolver().Resolve(request);
+            _result = round.Resolution;
+            _encounter = round.NextState;
             _eventLines.Clear();
-            RenderState(_scenario.InitialState);
+            _eventLines.Add($"Resolving encounter round {roundNumber}.");
+            RenderState(stateBeforeRound);
 
             foreach (var tickEvents in _result.Events.GroupBy(@event => @event.Tick).OrderBy(group => group.Key))
             {
@@ -154,7 +141,33 @@ namespace TacticalStrategyGame.Presentation.Unity
             }
 
             _eventLines.Add($"Checksum: {_result.FinalStateChecksum}");
+            _eventLines.Add(_encounter.CompletedRounds < DemonstrationRoundCount
+                ? $"Round {roundNumber} complete. Resolve round {_encounter.CompletedRounds + 1} for fresh orders."
+                : "Two-round encounter demo complete. Reset to begin again.");
             _isResolving = false;
+        }
+
+        private static IReadOnlyList<CommandBundle> CommandsForRound(int roundNumber)
+        {
+            var blueUnit = Guid.Parse("11111111-1111-1111-1111-111111111111");
+            var redUnit = Guid.Parse("22222222-2222-2222-2222-222222222222");
+            if (roundNumber == 1)
+            {
+                var blueMove = new TacticalAction(
+                    Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), blueUnit, TacticalActionType.Move, 0, 4,
+                    Path: new[] { new GridPosition(2, 1), new GridPosition(3, 1), new GridPosition(3, 2) });
+                var redMove = new TacticalAction(
+                    Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), redUnit, TacticalActionType.Move, 1, 2,
+                    Path: new[] { new GridPosition(5, 4), new GridPosition(4, 4) });
+                return new[] { new CommandBundle("blue", new[] { blueMove }), new CommandBundle("red", new[] { redMove }) };
+            }
+
+            var blueHeal = new TacticalAction(
+                Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"), blueUnit, TacticalActionType.ApplyEffect, 0, 1,
+                TargetUnitId: blueUnit, EffectId: "field-med-kit");
+            var redWait = new TacticalAction(
+                Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"), redUnit, TacticalActionType.Wait, 0, 1);
+            return new[] { new CommandBundle("blue", new[] { blueHeal }), new CommandBundle("red", new[] { redWait }) };
         }
 
         private void RenderState(GameState state)
@@ -204,9 +217,13 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void OnGUI()
         {
-            GUI.Box(new Rect(14, 14, 590, 68), "Movement & Effects Sandbox — deterministic core playback");
-            GUI.enabled = !_isResolving;
-            if (GUI.Button(new Rect(24, 46, 140, 26), "Resolve round"))
+            GUI.Box(new Rect(14, 14, 590, 68), "Encounter Sandbox — deterministic multi-round playback");
+            var canResolve = !_isResolving && _encounter.CompletedRounds < DemonstrationRoundCount;
+            GUI.enabled = canResolve;
+            var resolveLabel = _encounter.CompletedRounds < DemonstrationRoundCount
+                ? $"Resolve round {_encounter.CompletedRounds + 1}"
+                : "Demo complete";
+            if (GUI.Button(new Rect(24, 46, 140, 26), resolveLabel))
                 StartRoundPlayback();
             if (GUI.Button(new Rect(174, 46, 90, 26), "Reset"))
                 ResetSandbox();
