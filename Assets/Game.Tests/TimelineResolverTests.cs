@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using TacticalStrategyGame.Core;
@@ -343,13 +344,17 @@ public sealed class TimelineResolverTests
     [Test]
     public void Unit_definition_creates_initial_unit_state_and_round_trips_in_scenario_json()
     {
-        var definition = new UnitDefinition("scout", 7, 5, 1, new[] { "scout", "light" }, new[] { "carbine" }, new[] { "first-aid" });
+        var definition = new UnitDefinition("scout", 7, 5, 1, new[] { "scout", "light" }, new[] { "carbine" }, new[] { "first-aid" }, new[] { new NumericAttributeDefinition("evasion", 2) });
         var unit = definition.CreateInitialState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East);
         var scenario = new ScenarioDefinition("unit-content", new GridMapDefinition("unit-content-map", 3, 3), new GameState(new[]
         {
             unit,
             new UnitState(RedUnit, "red", new GridPosition(2, 2), Facing.West, UnitActivityState.Active)
-        }), UnitDefinitions: new[] { definition });
+        }), UnitDefinitions: new[] { definition }, FactionDefinitions: new[]
+        {
+            new FactionDefinition("blue", new[] { "scout" }),
+            new FactionDefinition("red")
+        });
 
         var decoded = ScenarioSerializer.Deserialize(ScenarioSerializer.Serialize(scenario));
 
@@ -363,6 +368,9 @@ public sealed class TimelineResolverTests
         Assert.That(decoded.UnitDefinitions[0].RoleTags, Is.EqualTo(new[] { "scout", "light" }));
         Assert.That(decoded.UnitDefinitions[0].AttackProfileIds, Is.EqualTo(new[] { "carbine" }));
         Assert.That(decoded.UnitDefinitions[0].EffectIds, Is.EqualTo(new[] { "first-aid" }));
+        Assert.That(decoded.UnitDefinitions[0].Attributes!.Select(attribute => new { attribute.Id, attribute.Value }),
+            Is.EqualTo(new[] { new { Id = "evasion", Value = 2 } }));
+        Assert.That(decoded.FactionDefinitions!.Select(faction => faction.Id), Is.EqualTo(new[] { "blue", "red" }));
         Assert.That(ScenarioValidator.Validate(decoded), Is.Empty);
     }
 
@@ -385,6 +393,41 @@ public sealed class TimelineResolverTests
         Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("invalid-unit-role-tag"));
         Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("invalid-unit-attack-profile-id"));
         Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("unknown-unit-definition"));
+    }
+
+    [Test]
+    public void Scenario_rejects_unknown_factions_and_units_not_allowed_by_faction()
+    {
+        var definition = new UnitDefinition("scout", 8, 5);
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.North, UnitActivityState.Active, HitPoints: 8, MaxHitPoints: 8, UnitDefinitionId: "scout"),
+            new UnitState(RedUnit, "red", new GridPosition(1, 0), Facing.South, UnitActivityState.Active, HitPoints: 8, MaxHitPoints: 8, UnitDefinitionId: "scout")
+        });
+        var scenario = new ScenarioDefinition("faction-validation", new GridMapDefinition("faction-validation-map", 3, 1), state,
+            UnitDefinitions: new[] { definition },
+            FactionDefinitions: new[] { new FactionDefinition("blue", new[] { "rifle" }) });
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, Array.Empty<CommandBundle>(), new RoundConfiguration(3), 1234u));
+
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("unit-not-allowed-for-faction"));
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("unknown-faction-definition"));
+    }
+
+    [Test]
+    public void Larger_squad_skirmish_fixture_loads_as_a_valid_portable_scenario()
+    {
+        var fixturePath = Path.Combine(Directory.GetCurrentDirectory(), "docs", "examples", "scenarios", "iron-timeline-squad-skirmish-01.json");
+        var scenario = ScenarioSerializer.Deserialize(File.ReadAllText(fixturePath));
+
+        Assert.That(scenario.Map.Width, Is.EqualTo(16));
+        Assert.That(scenario.Map.Height, Is.EqualTo(12));
+        Assert.That(scenario.InitialState.Units.Count, Is.EqualTo(8));
+        Assert.That(scenario.InitialState.Units.Count(unit => unit.FactionId == "blue"), Is.EqualTo(4));
+        Assert.That(scenario.InitialState.Units.Count(unit => unit.FactionId == "red"), Is.EqualTo(4));
+        Assert.That(scenario.Map.AreaById("old-town-search-zone"), Is.Not.Null);
+        Assert.That(scenario.Map.AreaById("red-reinforcement-entry"), Is.Not.Null);
+        Assert.That(scenario.UnitDefinitions, Has.Count.EqualTo(4));
+        Assert.That(ScenarioValidator.Validate(scenario), Is.Empty);
     }
 
     [Test]

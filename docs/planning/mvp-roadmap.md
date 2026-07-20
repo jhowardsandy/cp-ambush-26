@@ -52,6 +52,8 @@ The MVP proves the engine, not a large campaign or a finished art direction.
 5. **Perception and reactions:** add memory/fog-of-war presentation, then reaction rules after their conflict policy is accepted.
 6. **Hardening and playtests:** automate scenario batches and begin structured human testing once the authored-order loop is usable.
 
+The portable `iron-timeline-squad-skirmish-01` fixture now provides the initial 16×12 four-versus-four roster, terrain, map areas, and elimination objective for this next scenario-loop work. It is validated content, not yet a fully playable Unity scenario.
+
 ## Phase detail
 
 ### Phase 1: Spatial movement

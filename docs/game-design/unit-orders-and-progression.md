@@ -2,7 +2,7 @@
 
 Status: proposed design directions. Nothing in this document is an accepted simulation rule yet.
 
-Update: the portable `UnitDefinition` catalog foundation is implemented for archetype ID, maximum vitality, vision, base movement timing, role tags, and listed attack/effect IDs. Its listed capability bindings and progression behavior remain proposed.
+Update: the portable `UnitDefinition` catalog foundation is implemented for archetype ID, maximum vitality, vision, base movement timing, role tags, listed attack/effect IDs, and extensible named numeric attributes. `FactionDefinition` declares which unit definitions a country/culture/race-style content package can field. Their listed capability bindings and progression behavior remain proposed.
 
 ## Tactical order language
 

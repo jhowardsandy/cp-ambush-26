@@ -1,0 +1,51 @@
+{
+  "Id": "iron-timeline-squad-skirmish-01",
+  "Map": {
+    "Id": "riverside-town-16x12",
+    "Width": 16,
+    "Height": 12,
+    "Terrain": [
+      { "Position": { "X": 4, "Y": 3 }, "MovementTicks": 2, "IsPassable": true, "BlocksLineOfSight": false },
+      { "Position": { "X": 4, "Y": 4 }, "MovementTicks": 2, "IsPassable": true, "BlocksLineOfSight": false },
+      { "Position": { "X": 7, "Y": 5 }, "MovementTicks": 1, "IsPassable": false, "BlocksLineOfSight": true },
+      { "Position": { "X": 7, "Y": 6 }, "MovementTicks": 1, "IsPassable": false, "BlocksLineOfSight": true },
+      { "Position": { "X": 8, "Y": 5 }, "MovementTicks": 1, "IsPassable": false, "BlocksLineOfSight": true },
+      { "Position": { "X": 8, "Y": 6 }, "MovementTicks": 1, "IsPassable": false, "BlocksLineOfSight": true },
+      { "Position": { "X": 11, "Y": 8 }, "MovementTicks": 2, "IsPassable": true, "BlocksLineOfSight": false },
+      { "Position": { "X": 12, "Y": 8 }, "MovementTicks": 2, "IsPassable": true, "BlocksLineOfSight": false }
+    ],
+    "Areas": [
+      { "Id": "blue-deployment", "Tiles": [{ "X": 1, "Y": 1 }, { "X": 1, "Y": 2 }, { "X": 2, "Y": 1 }, { "X": 2, "Y": 2 }] },
+      { "Id": "red-deployment", "Tiles": [{ "X": 13, "Y": 9 }, { "X": 13, "Y": 10 }, { "X": 14, "Y": 9 }, { "X": 14, "Y": 10 }] },
+      { "Id": "old-town-search-zone", "Tiles": [{ "X": 7, "Y": 5 }, { "X": 7, "Y": 6 }, { "X": 8, "Y": 5 }, { "X": 8, "Y": 6 }] },
+      { "Id": "red-reinforcement-entry", "Tiles": [{ "X": 15, "Y": 9 }, { "X": 15, "Y": 10 }] },
+      { "Id": "south-extraction", "Tiles": [{ "X": 7, "Y": 0 }, { "X": 8, "Y": 0 }] }
+    ]
+  },
+  "InitialState": {
+    "Units": [
+      { "Id": "10000000-0000-0000-0000-000000000001", "FactionId": "blue", "Position": { "X": 1, "Y": 1 }, "Facing": 1, "ActivityState": 0, "HitPoints": 10, "MaxHitPoints": 10, "UnitDefinitionId": "rifle-team" },
+      { "Id": "10000000-0000-0000-0000-000000000002", "FactionId": "blue", "Position": { "X": 1, "Y": 2 }, "Facing": 1, "ActivityState": 0, "HitPoints": 8, "MaxHitPoints": 8, "UnitDefinitionId": "scout" },
+      { "Id": "10000000-0000-0000-0000-000000000003", "FactionId": "blue", "Position": { "X": 2, "Y": 1 }, "Facing": 1, "ActivityState": 0, "HitPoints": 9, "MaxHitPoints": 9, "UnitDefinitionId": "medic" },
+      { "Id": "10000000-0000-0000-0000-000000000004", "FactionId": "blue", "Position": { "X": 2, "Y": 2 }, "Facing": 1, "ActivityState": 0, "HitPoints": 11, "MaxHitPoints": 11, "UnitDefinitionId": "commander" },
+      { "Id": "20000000-0000-0000-0000-000000000001", "FactionId": "red", "Position": { "X": 13, "Y": 9 }, "Facing": 3, "ActivityState": 0, "HitPoints": 10, "MaxHitPoints": 10, "UnitDefinitionId": "rifle-team" },
+      { "Id": "20000000-0000-0000-0000-000000000002", "FactionId": "red", "Position": { "X": 13, "Y": 10 }, "Facing": 3, "ActivityState": 0, "HitPoints": 8, "MaxHitPoints": 8, "UnitDefinitionId": "scout" },
+      { "Id": "20000000-0000-0000-0000-000000000003", "FactionId": "red", "Position": { "X": 14, "Y": 9 }, "Facing": 3, "ActivityState": 0, "HitPoints": 9, "MaxHitPoints": 9, "UnitDefinitionId": "medic" },
+      { "Id": "20000000-0000-0000-0000-000000000004", "FactionId": "red", "Position": { "X": 14, "Y": 10 }, "Facing": 3, "ActivityState": 0, "HitPoints": 11, "MaxHitPoints": 11, "UnitDefinitionId": "commander" }
+    ]
+  },
+  "ContentVersion": "squad-skirmish-01",
+  "Objectives": [
+    { "Id": "incapacitate-red", "Type": 0, "WinningFactionId": "blue" }
+  ],
+  "UnitDefinitions": [
+    { "Id": "rifle-team", "MaxHitPoints": 10, "VisionRange": 5, "BaseMovementTicks": 1, "RoleTags": ["rifle", "line"], "AttackProfileIds": ["rifle"], "EffectIds": [], "Attributes": [{ "Id": "armor", "Value": 0 }] },
+    { "Id": "scout", "MaxHitPoints": 8, "VisionRange": 7, "BaseMovementTicks": 1, "RoleTags": ["scout", "light"], "AttackProfileIds": ["carbine"], "EffectIds": [], "Attributes": [{ "Id": "evasion", "Value": 2 }] },
+    { "Id": "medic", "MaxHitPoints": 9, "VisionRange": 5, "BaseMovementTicks": 1, "RoleTags": ["medic", "support"], "AttackProfileIds": ["carbine"], "EffectIds": ["field-med-kit"], "Attributes": [{ "Id": "medical-capacity", "Value": 1 }] },
+    { "Id": "commander", "MaxHitPoints": 11, "VisionRange": 6, "BaseMovementTicks": 1, "RoleTags": ["commander", "leader"], "AttackProfileIds": ["sidearm"], "EffectIds": [], "Attributes": [{ "Id": "command", "Value": 1 }] }
+  ],
+  "FactionDefinitions": [
+    { "Id": "blue", "UnitDefinitionIds": ["rifle-team", "scout", "medic", "commander"], "Tags": ["expeditionary"] },
+    { "Id": "red", "UnitDefinitionIds": ["rifle-team", "scout", "medic", "commander"], "Tags": ["garrison"] }
+  ]
+}

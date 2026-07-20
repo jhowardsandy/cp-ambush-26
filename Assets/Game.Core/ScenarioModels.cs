@@ -41,7 +41,8 @@ public sealed record ScenarioDefinition(
     GameState InitialState,
     string ContentVersion = "1",
     IReadOnlyList<ObjectiveDefinition>? Objectives = null,
-    IReadOnlyList<UnitDefinition>? UnitDefinitions = null);
+    IReadOnlyList<UnitDefinition>? UnitDefinitions = null,
+    IReadOnlyList<FactionDefinition>? FactionDefinitions = null);
 
 public static class ScenarioFactory
 {
@@ -88,6 +89,8 @@ public static class ScenarioValidator
             ValidateIdentifierList(definition.RoleTags, "invalid-unit-role-tag", "Unit role tags must be non-empty and unique.", diagnostics);
             ValidateIdentifierList(definition.AttackProfileIds, "invalid-unit-attack-profile-id", "Unit attack profile IDs must be non-empty and unique.", diagnostics);
             ValidateIdentifierList(definition.EffectIds, "invalid-unit-effect-id", "Unit effect IDs must be non-empty and unique.", diagnostics);
+            if (definition.Attributes != null && (definition.Attributes.Any(attribute => String.IsNullOrWhiteSpace(attribute.Id)) || definition.Attributes.GroupBy(attribute => attribute.Id, StringComparer.Ordinal).Any(group => group.Count() > 1)))
+                diagnostics.Add(new("invalid-unit-attribute-id", "Unit attributes require non-empty unique IDs."));
         }
         if (unitDefinitions.GroupBy(definition => definition.Id, StringComparer.Ordinal).Any(group => group.Count() > 1))
             diagnostics.Add(new("duplicate-unit-definition-id", "Unit definition IDs must be unique."));
@@ -98,6 +101,28 @@ public static class ScenarioValidator
                 diagnostics.Add(new("unknown-unit-definition", "Scenario unit references an unknown unit definition."));
             else if (unit.MaxHitPoints != definition.MaxHitPoints)
                 diagnostics.Add(new("unit-definition-hit-points-mismatch", "Scenario unit maximum hit points must match its unit definition."));
+        }
+
+        var factionDefinitions = scenario.FactionDefinitions ?? Array.Empty<FactionDefinition>();
+        foreach (var faction in factionDefinitions)
+        {
+            if (String.IsNullOrWhiteSpace(faction.Id))
+                diagnostics.Add(new("missing-faction-definition-id", "Faction definitions require a stable non-empty ID."));
+            ValidateIdentifierList(faction.UnitDefinitionIds, "invalid-faction-unit-definition-id", "Faction unit definition IDs must be non-empty and unique.", diagnostics);
+            ValidateIdentifierList(faction.Tags, "invalid-faction-tag", "Faction tags must be non-empty and unique.", diagnostics);
+        }
+        if (factionDefinitions.GroupBy(faction => faction.Id, StringComparer.Ordinal).Any(group => group.Count() > 1))
+            diagnostics.Add(new("duplicate-faction-definition-id", "Faction definition IDs must be unique."));
+        if (factionDefinitions.Length > 0)
+        {
+            foreach (var unit in scenario.InitialState.Units)
+            {
+                var faction = factionDefinitions.FirstOrDefault(candidate => StringComparer.Ordinal.Equals(candidate.Id, unit.FactionId));
+                if (faction == null)
+                    diagnostics.Add(new("unknown-faction-definition", "Scenario unit references an unknown faction definition."));
+                else if (!String.IsNullOrWhiteSpace(unit.UnitDefinitionId) && !(faction.UnitDefinitionIds ?? Array.Empty<string>()).Any(id => StringComparer.Ordinal.Equals(id, unit.UnitDefinitionId)))
+                    diagnostics.Add(new("unit-not-allowed-for-faction", "Scenario unit definition is not allowed by its faction definition."));
+            }
         }
 
         var terrain = scenario.Map.Terrain ?? Array.Empty<TerrainCellDefinition>();
