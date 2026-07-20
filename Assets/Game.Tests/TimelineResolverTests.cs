@@ -336,6 +336,49 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Faction_visibility_reveals_an_enemy_within_range_and_clear_line_of_sight()
+    {
+        var map = new GridMapDefinition("perception-map", 6, 1);
+        var state = State(new GridPosition(0, 0), new GridPosition(3, 0));
+
+        var snapshot = PerceptionRules.Evaluate(map, state, "blue", visionRange: 3);
+
+        Assert.That(snapshot.VisibleUnitIds, Is.EqualTo(new[] { BlueUnit, RedUnit }));
+        Assert.That(snapshot.CanSee(RedUnit), Is.True);
+    }
+
+    [Test]
+    public void Faction_visibility_does_not_reveal_an_enemy_behind_a_blocker_or_outside_range()
+    {
+        var blockedMap = new GridMapDefinition("blocked-perception-map", 6, 1, new[]
+        {
+            new TerrainCellDefinition(new GridPosition(2, 0), BlocksLineOfSight: true)
+        });
+        var state = State(new GridPosition(0, 0), new GridPosition(4, 0));
+
+        var blocked = PerceptionRules.Evaluate(blockedMap, state, "blue", visionRange: 4);
+        var outOfRange = PerceptionRules.Evaluate(new GridMapDefinition("range-perception-map", 6, 1), state, "blue", visionRange: 3);
+
+        Assert.That(blocked.CanSee(RedUnit), Is.False);
+        Assert.That(outOfRange.CanSee(RedUnit), Is.False);
+    }
+
+    [Test]
+    public void Faction_visibility_always_includes_friendly_units_but_an_incapacitated_observer_reveals_no_enemy()
+    {
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.North, UnitActivityState.Incapacitated),
+            new UnitState(RedUnit, "red", new GridPosition(1, 0), Facing.South, UnitActivityState.Active)
+        });
+
+        var snapshot = PerceptionRules.Evaluate(new GridMapDefinition("incapacitated-observer-map", 3, 1), state, "blue", visionRange: 1);
+
+        Assert.That(snapshot.VisibleUnitIds, Is.EqualTo(new[] { BlueUnit }));
+        Assert.That(snapshot.CanSee(RedUnit), Is.False);
+    }
+
+    [Test]
     public void Healing_effect_clamps_to_maximum_and_emits_its_calculation()
     {
         var state = new GameState(new[]

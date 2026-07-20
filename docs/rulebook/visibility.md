@@ -9,3 +9,22 @@ Two positions have objective line of sight when the deterministic grid ray betwe
 Examples: a building wall or dense tree may be marked as a line-of-sight blocker. A future smoke cloud may supply the same generic blocker behavior dynamically. Whether bushes conceal rather than fully block is a later rule.
 
 Evidence: `Line_of_sight_is_blocked_by_an_intermediate_terrain_cell` and `Line_of_sight_is_symmetric_and_excludes_origin_and_target_as_blockers`.
+
+## VIS-RNG-001: Present-time faction visibility
+
+Status: accepted.
+
+A faction always has current visibility of its own units. An opposing unit is currently visible when at least one active unit of that faction is within the supplied Manhattan vision range and has objective terrain line of sight to the opposing unit. A range boundary is inclusive: a target at exactly the range is visible when the line is clear.
+
+This produces a present-time visibility snapshot only. It does not remember a previously seen unit, create a player-facing fog-of-war display, use unit facing, or grant vision to incapacitated observers.
+
+Examples:
+
+| Observer to target distance | Clear line | Observer active | Result |
+| ---: | --- | --- | --- |
+| 3, range 3 | yes | yes | visible |
+| 4, range 3 | yes | yes | not visible |
+| 4, range 4 | blocked | yes | not visible |
+| 1, range 1 | yes | no | not visible |
+
+Evidence: `Faction_visibility_reveals_an_enemy_within_range_and_clear_line_of_sight`, `Faction_visibility_does_not_reveal_an_enemy_behind_a_blocker_or_outside_range`, and `Faction_visibility_always_includes_friendly_units_but_an_incapacitated_observer_reveals_no_enemy`.
