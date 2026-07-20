@@ -1,0 +1,15 @@
+{
+  "name": "Game.Tests",
+  "rootNamespace": "TacticalStrategyGame.Tests",
+  "references": ["Game.Core"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true,
+  "optionalUnityReferences": ["TestAssemblies"]
+}

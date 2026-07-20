@@ -1,0 +1,14 @@
+{
+  "name": "Game.Presentation.Unity",
+  "rootNamespace": "TacticalStrategyGame.Presentation.Unity",
+  "references": ["Game.Core"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
