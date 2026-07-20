@@ -25,7 +25,7 @@ The MVP proves the engine, not a large campaign or a finished art direction.
 | 3. Combat kernel | Aim and attacks have explainable results | Weapon profiles, range, cover, hit/damage calculation sheets, seeded rolls, exhaustive boundary tests, calculation breakdown events. |
 | 4. Reactions | Timed interrupts work consistently | Trigger, priority, delay, interruption/resume policy, conflict matrix, deterministic multi-trigger tests. |
 | 5. Scenario loop | A complete tactical encounter exists | Scenario foundation implemented: reusable map/initial-state/content-version data, bounds validation, and replay serialization. Add deployment, objectives, deterministic conventional enemy planner, and replay fixtures. |
-| 6. Planning and playback | Humans can play and inspect it | Placeholder map/tokens, order editor, validation feedback, playback controls, event inspector, rule explanation panel. |
+| 6. Planning and playback | Humans can play and inspect it | First movement sandbox scene implemented: placeholder grid/tokens, deterministic resolve/reset controls, event overlay, and checksum. Add order editing, timeline playback, validation feedback, and inspector. |
 | 7. MVP hardening | Playtest-ready vertical slice | Regression suite, seed corpus, balance harness, telemetry schema, accessibility pass, known-rules manual, playtest protocol. |
 | 8. MVP release candidate | One defensible, replayable prototype build | Clean install/build, scenario acceptance suite, human-playtest findings triaged, documented release notes and rollback build. |
 

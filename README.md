@@ -32,3 +32,7 @@ Run Edit Mode tests from Unity's Test Runner, or headlessly:
 ## Rules and quality
 
 The living [rulebook](docs/rulebook/README.md), [verification strategy](docs/quality/rule-verification.md), [traceability matrix](docs/quality/rule-traceability.md), and [MVP roadmap](docs/planning/mvp-roadmap.md) govern future rule changes.
+
+## Try the movement sandbox
+
+Open `Assets/Scenes/MovementSandbox.unity` in Unity 6.3 LTS and enter Play mode. Press `Space` to resolve the planned round through `Game.Core`; press `R` to reset. The overlay displays the ordered domain events and final checksum. The scene is placeholder presentation only and deliberately exercises the same reusable scenario, movement, event, and replay path used by automated tests.
