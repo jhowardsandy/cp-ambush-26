@@ -475,6 +475,32 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Golden_replay_direct_attack_has_stable_event_sequence_and_checksum()
+    {
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East, UnitActivityState.Active),
+            new UnitState(RedUnit, "red", new GridPosition(3, 0), Facing.West, UnitActivityState.Active, HitPoints: 4, MaxHitPoints: 10)
+        });
+        var scenario = new ScenarioDefinition("golden-direct-attack", new GridMapDefinition("golden-direct-attack-map", 5, 1), state, "golden-attack-1");
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 1, 2, TargetUnitId: RedUnit, AttackProfileId: "golden-rifle");
+        var request = ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(4), 20260720u, "golden-1",
+            attackProfiles: new[] { new AttackProfile("golden-rifle", 1, 3, 5) });
+
+        var result = new TimelineResolver().Resolve(request);
+
+        Assert.That(result.Events.Select(@event => new { @event.Tick, @event.Type, @event.UnitId, @event.TargetUnitId, @event.ActionId, @event.Detail }), Is.EqualTo(new[]
+        {
+            new { Tick = 0, Type = DomainEventType.RoundStarted, UnitId = (Guid?)null, TargetUnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null },
+            new { Tick = 1, Type = DomainEventType.ActionStarted, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)null, ActionId = (Guid?)FirstAction, Detail = (string?)null },
+            new { Tick = 3, Type = DomainEventType.AttackResolved, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)RedUnit, ActionId = (Guid?)FirstAction, Detail = "attack=golden-rifle; distance=3; damage=5; before=4; applied=-4; after=0" },
+            new { Tick = 3, Type = DomainEventType.ActionCompleted, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)null, ActionId = (Guid?)FirstAction, Detail = (string?)null },
+            new { Tick = 4, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, TargetUnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null }
+        }));
+        Assert.That(result.FinalStateChecksum, Is.EqualTo("FE87B99AC3075D4D54718A07FE97DFC0DAC01B3B9C35C42E3E750A267837DDED"));
+    }
+
+    [Test]
     public void Healing_effect_clamps_to_maximum_and_emits_its_calculation()
     {
         var state = new GameState(new[]
