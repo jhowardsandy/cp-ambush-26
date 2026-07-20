@@ -113,7 +113,7 @@ public static class ScenarioValidator
         }
         if (factionDefinitions.GroupBy(faction => faction.Id, StringComparer.Ordinal).Any(group => group.Count() > 1))
             diagnostics.Add(new("duplicate-faction-definition-id", "Faction definition IDs must be unique."));
-        if (factionDefinitions.Length > 0)
+        if (factionDefinitions.Count > 0)
         {
             foreach (var unit in scenario.InitialState.Units)
             {
