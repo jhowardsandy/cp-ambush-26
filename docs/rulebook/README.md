@@ -10,6 +10,8 @@ This folder is the living, player-readable rulebook. It describes accepted behav
 4. `direct-attacks.md` — guaranteed-hit direct attacks with range and terrain sight.
 5. `encounter-rounds.md` — valid round carry-forward and invalid-plan behavior.
 6. `objectives.md` — eliminate-all-opponents victory and future objective directions.
+7. `action-points.md` — per-round action-point budget validation.
+8. `posture.md` — standing, crouched, and prone posture transitions.
 
 ## Planned chapters
 
