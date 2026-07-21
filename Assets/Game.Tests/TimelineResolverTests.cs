@@ -960,7 +960,7 @@ public sealed class TimelineResolverTests
             var result = EncounterResolver.ResolveRound(encounter, new[] { blue.Commands, red.Commands }, new RoundConfiguration(10), (uint)(20260721 + roundNumber),
                 attackProfiles: new[] { profile });
 
-            Assert.That(result.Resolution.IsValid, Is.True);
+            Assert.That(result.Resolution.IsValid, Is.True, string.Join("; ", result.Resolution.Diagnostics.Select(diagnostic => diagnostic.Code + ":" + diagnostic.Message)));
             validRounds++;
             checksums.Add(result.Resolution.FinalStateChecksum);
             decisionCounts.Add(blue.Decisions.Count + red.Decisions.Count);
