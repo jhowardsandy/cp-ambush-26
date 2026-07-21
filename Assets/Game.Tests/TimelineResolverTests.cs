@@ -658,6 +658,29 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Adjacent_posture_change_updates_state_and_emits_event()
+    {
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.ChangePosture, 0, 1, Posture: UnitPosture.Crouched);
+        var result = new TimelineResolver().Resolve(Request(Bundle("blue", action)));
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.FinalState.FindUnit(BlueUnit)!.Posture, Is.EqualTo(UnitPosture.Crouched));
+        var posture = result.Events.Single(@event => @event.Type == DomainEventType.PostureChanged);
+        Assert.That(posture.PostureAfter, Is.EqualTo(UnitPosture.Crouched));
+        Assert.That(posture.Detail, Is.EqualTo("posture=Crouched"));
+    }
+
+    [Test]
+    public void Posture_change_cannot_skip_an_intermediate_posture()
+    {
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.ChangePosture, 0, 1, Posture: UnitPosture.Prone);
+        var result = new TimelineResolver().Resolve(Request(Bundle("blue", action)));
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("invalid-posture-transition"));
+    }
+
+    [Test]
     public void Golden_replay_direct_attack_has_stable_event_sequence_and_checksum()
     {
         var state = new GameState(new[]

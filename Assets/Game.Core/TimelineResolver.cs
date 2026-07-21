@@ -74,6 +74,9 @@ public sealed class TimelineResolver
                         hitPointsAfter: completion.Attack.Application.Target.HitPoints, activityStateAfter: completion.Attack.Application.Target.ActivityState,
                         targetUnitId: completion.Attack.Application.Target.Id);
                 }
+                if (item.Action.Type == TacticalActionType.ChangePosture && item.Action.Posture is not null)
+                    AddEvent(tick, DomainEventType.PostureChanged, item.FactionId, unit.Id, item.Action.ActionId,
+                        $"posture={item.Action.Posture}", postureAfter: item.Action.Posture);
                 AddEvent(tick, DomainEventType.ActionCompleted, item.FactionId, unit.Id, item.Action.ActionId);
             }
         }
@@ -124,14 +127,17 @@ public sealed class TimelineResolver
             AddEvent(tick, DomainEventType.ActionFailed, intent.Scheduled.FactionId, intent.Scheduled.Action.UnitId, intent.Scheduled.Action.ActionId, detail);
         }
 
-        void AddEvent(int tick, DomainEventType type, string factionId, Guid? unitId = null, Guid? actionId = null, string? detail = null, GridPosition? fromPosition = null, GridPosition? toPosition = null, int? hitPointsAfter = null, UnitActivityState? activityStateAfter = null, Guid? targetUnitId = null) =>
-            events.Add(new DomainEvent(sequence++, tick, type, factionId, unitId, actionId, detail, fromPosition, toPosition, hitPointsAfter, activityStateAfter, targetUnitId));
+        void AddEvent(int tick, DomainEventType type, string factionId, Guid? unitId = null, Guid? actionId = null, string? detail = null, GridPosition? fromPosition = null, GridPosition? toPosition = null, int? hitPointsAfter = null, UnitActivityState? activityStateAfter = null, Guid? targetUnitId = null, UnitPosture? postureAfter = null) =>
+            events.Add(new DomainEvent(sequence++, tick, type, factionId, unitId, actionId, detail, fromPosition, toPosition, hitPointsAfter, activityStateAfter, targetUnitId, postureAfter));
     }
 
     private static CompletionResult ApplyCompletion(GameState state, UnitState unit, TacticalAction action, IReadOnlyList<EffectDefinition>? effects, IReadOnlyList<AttackProfile>? attackProfiles, GridMapDefinition? map)
     {
         if (action.Type == TacticalActionType.Rotate && action.Facing is not null)
             return new CompletionResult(state.WithUnit(unit with { Facing = action.Facing.Value }));
+
+        if (action.Type == TacticalActionType.ChangePosture && action.Posture is not null)
+            return new CompletionResult(state.WithUnit(unit with { Posture = action.Posture.Value }));
 
         if (action.Type == TacticalActionType.ApplyEffect)
         {
@@ -213,6 +219,8 @@ public sealed class TimelineResolver
                 ValidateMovePath(action, unit, request.Scenario?.Map, diagnostics);
             if (action.Type == TacticalActionType.Rotate && action.Facing is null)
                 diagnostics.Add(new("missing-facing", "Rotate requires a facing.", action.ActionId));
+            if (action.Type == TacticalActionType.ChangePosture)
+                ValidatePostureAction(action, unit, diagnostics);
             if (action.Type == TacticalActionType.ApplyEffect)
                 ValidateEffectAction(action, units, effects, diagnostics);
             if (action.Type == TacticalActionType.Attack)
@@ -270,6 +278,14 @@ public sealed class TimelineResolver
             diagnostics.Add(new("missing-effect-id", "ApplyEffect requires an effect ID.", action.ActionId));
         else if (!effects.Any(effect => StringComparer.Ordinal.Equals(effect.Id, action.EffectId)))
             diagnostics.Add(new("unknown-effect-id", "ApplyEffect references an unknown effect definition.", action.ActionId));
+    }
+
+    private static void ValidatePostureAction(TacticalAction action, UnitState? unit, ICollection<ValidationDiagnostic> diagnostics)
+    {
+        if (action.Posture is null)
+            diagnostics.Add(new("missing-posture", "ChangePosture requires a destination posture.", action.ActionId));
+        else if (unit is not null && Math.Abs((int)action.Posture.Value - (int)unit.Posture) != 1)
+            diagnostics.Add(new("invalid-posture-transition", "Posture changes must move one step between standing, crouched, and prone.", action.ActionId));
     }
 
     private static void ValidateMovePath(TacticalAction action, UnitState? unit, GridMapDefinition? map, ICollection<ValidationDiagnostic> diagnostics)

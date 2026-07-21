@@ -9,7 +9,8 @@ namespace TacticalStrategyGame.Core
 
 public enum Facing { North, East, South, West }
 public enum UnitActivityState { Active, Incapacitated }
-public enum TacticalActionType { Wait, Rotate, Move, Aim, Attack, ApplyEffect }
+public enum UnitPosture { Standing, Crouched, Prone }
+public enum TacticalActionType { Wait, Rotate, Move, Aim, Attack, ApplyEffect, ChangePosture }
 
 public sealed record GridPosition(int X, int Y);
 
@@ -28,7 +29,8 @@ public sealed record UnitState(
     int HitPoints = 10,
     int MaxHitPoints = 10,
     string? UnitDefinitionId = null,
-    int ActionPointBudget = 6);
+    int ActionPointBudget = 6,
+    UnitPosture Posture = UnitPosture.Standing);
 
 public sealed record TacticalAction(
     Guid ActionId,
@@ -41,7 +43,8 @@ public sealed record TacticalAction(
     IReadOnlyList<GridPosition>? Path = null,
     Guid? TargetUnitId = null,
     string? EffectId = null,
-    string? AttackProfileId = null);
+    string? AttackProfileId = null,
+    UnitPosture? Posture = null);
 
 /// <summary>Setting-neutral, versioned vitality change. Positive values heal; negative values damage.</summary>
 public sealed record EffectDefinition(string Id, int VitalityDelta, int ActionPointCost = 2);
