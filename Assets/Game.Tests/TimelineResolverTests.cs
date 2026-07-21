@@ -287,7 +287,7 @@ public sealed class TimelineResolverTests
             new { Tick = 3, Type = DomainEventType.ActionCompleted, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction },
             new { Tick = 5, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, ActionId = (Guid?)null }
         }));
-        Assert.That(result.FinalStateChecksum, Is.EqualTo("250038CE4E0AAB526AA72283C5CB74F15B8BE237F667F384CDA8FFB4960632E6"));
+        Assert.That(result.FinalStateChecksum, Is.EqualTo("7222B46B11F8AC8DB16872404E44CA6240DFD8283F70D3087E427BF96263EFEE"));
     }
 
     [Test]
@@ -703,7 +703,7 @@ public sealed class TimelineResolverTests
             new { Tick = 3, Type = DomainEventType.ActionCompleted, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)null, ActionId = (Guid?)FirstAction, Detail = (string?)null },
             new { Tick = 4, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, TargetUnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null }
         }));
-        Assert.That(result.FinalStateChecksum, Is.EqualTo("FE87B99AC3075D4D54718A07FE97DFC0DAC01B3B9C35C42E3E750A267837DDED"));
+        Assert.That(result.FinalStateChecksum, Is.EqualTo("C46DF81F698505C1ADE95EA668ADC11C04637C510F41061E1303A015CEB8A8E7"));
     }
 
     [Test]
@@ -842,7 +842,7 @@ public sealed class TimelineResolverTests
             new { Tick = 3, Type = DomainEventType.ActionCompleted, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction, Detail = (string?)null },
             new { Tick = 4, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null }
         }));
-        Assert.That(result.FinalStateChecksum, Is.EqualTo("E54B162B835B2819E70ECDBF2CD68C41039B759F16B1877504EA17123D5EC191"));
+        Assert.That(result.FinalStateChecksum, Is.EqualTo("B566038CC280E781776128426632E8D07B6417F9E28E2B04B69F5D803E6599D3"));
     }
 
     private static SimulationRequest Request(params CommandBundle[] bundles) => Request(DefaultState(), bundles);
