@@ -409,6 +409,35 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Mixed_rifleman_and_medic_rosters_produce_a_valid_deterministic_pve_round()
+    {
+        var blueMedic = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var redRifleman = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var state = new GameState(new[]
+        {
+            StarterMilitaryContent.Rifleman.CreateInitialState(BlueUnit, "blue", new GridPosition(0, 0), Facing.North),
+            StarterMilitaryContent.CombatMedic.CreateInitialState(blueMedic, "blue", new GridPosition(2, 0), Facing.North),
+            StarterMilitaryContent.Rifleman.CreateInitialState(redRifleman, "red", new GridPosition(0, 2), Facing.South),
+            StarterMilitaryContent.CombatMedic.CreateInitialState(RedUnit, "red", new GridPosition(2, 2), Facing.South)
+        });
+        var scenario = new ScenarioDefinition("mixed-roster", new GridMapDefinition("mixed-roster-map", 4, 4), state,
+            UnitDefinitions: new[] { StarterMilitaryContent.Rifleman, StarterMilitaryContent.CombatMedic },
+            FactionDefinitions: new[]
+            {
+                new FactionDefinition("blue", new[] { "rifleman", "combat-medic" }),
+                new FactionDefinition("red", new[] { "rifleman", "combat-medic" })
+            });
+        var blue = PvePlanner.Plan("blue", state, scenario.Map, StarterMilitaryContent.ServiceRifle);
+        var red = PvePlanner.Plan("red", state, scenario.Map, StarterMilitaryContent.ServiceRifle);
+
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { blue.Commands, red.Commands }, new RoundConfiguration(4), 20260721u,
+            effects: new[] { StarterMilitaryContent.FieldMedKit }, attackProfiles: new[] { StarterMilitaryContent.ServiceRifle }));
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.Events.Count(@event => @event.Type == DomainEventType.AttackResolved), Is.EqualTo(4));
+    }
+
+    [Test]
     public void Scenario_rejects_invalid_or_unknown_unit_definition_references()
     {
         var invalidDefinition = new UnitDefinition("", 0, -1, 0, new[] { "role", "role" }, new[] { "" });

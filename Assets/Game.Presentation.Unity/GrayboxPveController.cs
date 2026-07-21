@@ -21,7 +21,8 @@ namespace TacticalStrategyGame.Presentation.Unity
         private Guid _selectedRed;
         private bool _resolving;
         private string _message = string.Empty;
-        private static readonly AttackProfile Rifle = new("graybox-rifle", 1, 3, 5);
+        private static readonly AttackProfile Rifle = StarterMilitaryContent.ServiceRifle;
+        private static readonly EffectDefinition FieldMedKit = StarterMilitaryContent.FieldMedKit;
 
         private void Start()
         {
@@ -34,8 +35,10 @@ namespace TacticalStrategyGame.Presentation.Unity
         {
             var units = new[]
             {
-                Unit("blue", 1, 1, 1), Unit("blue", 2, 3, 1), Unit("blue", 3, 5, 1), Unit("blue", 4, 7, 1),
-                Unit("red", 1, 1, 6), Unit("red", 2, 3, 6), Unit("red", 3, 5, 6), Unit("red", 4, 7, 6)
+                Unit("blue", 1, 1, 1, StarterMilitaryContent.Rifleman), Unit("blue", 2, 3, 1, StarterMilitaryContent.CombatMedic),
+                Unit("blue", 3, 5, 1, StarterMilitaryContent.Rifleman), Unit("blue", 4, 7, 1, StarterMilitaryContent.CombatMedic),
+                Unit("red", 1, 1, 6, StarterMilitaryContent.Rifleman), Unit("red", 2, 3, 6, StarterMilitaryContent.CombatMedic),
+                Unit("red", 3, 5, 6, StarterMilitaryContent.Rifleman), Unit("red", 4, 7, 6, StarterMilitaryContent.CombatMedic)
             };
             _scenario = new ScenarioDefinition("graybox-pve-4v4-01", new GridMapDefinition("graybox-pve-grid", 10, 8, new[]
             {
@@ -45,11 +48,17 @@ namespace TacticalStrategyGame.Presentation.Unity
                 new TerrainCellDefinition(new GridPosition(5, 4), IsPassable: false, BlocksLineOfSight: true, CoverValue: 3),
                 new TerrainCellDefinition(new GridPosition(2, 3), MovementTicks: 2, ConcealmentValue: 2),
                 new TerrainCellDefinition(new GridPosition(7, 4), MovementTicks: 2, ConcealmentValue: 2)
-            }), new GameState(units), Objectives: new[] { new ObjectiveDefinition("eliminate-red", ObjectiveType.IncapacitateAllOpposingUnits, "blue") });
+            }), new GameState(units), Objectives: new[] { new ObjectiveDefinition("eliminate-red", ObjectiveType.IncapacitateAllOpposingUnits, "blue") },
+                UnitDefinitions: new[] { StarterMilitaryContent.Rifleman, StarterMilitaryContent.CombatMedic },
+                FactionDefinitions: new[]
+                {
+                    new FactionDefinition("blue", new[] { StarterMilitaryContent.Rifleman.Id, StarterMilitaryContent.CombatMedic.Id }),
+                    new FactionDefinition("red", new[] { StarterMilitaryContent.Rifleman.Id, StarterMilitaryContent.CombatMedic.Id })
+                });
         }
 
-        private static UnitState Unit(string faction, int number, int x, int y) =>
-            new(Guid.Parse($"{(faction == "blue" ? "1" : "2")}0000000-0000-0000-0000-00000000000{number}"), faction, new GridPosition(x, y), faction == "blue" ? Facing.North : Facing.South, UnitActivityState.Active, ActionPointBudget: 6);
+        private static UnitState Unit(string faction, int number, int x, int y, UnitDefinition definition) =>
+            definition.CreateInitialState(Guid.Parse($"{(faction == "blue" ? "1" : "2")}0000000-0000-0000-0000-00000000000{number}"), faction, new GridPosition(x, y), faction == "blue" ? Facing.North : Facing.South);
 
         private void BuildViews()
         {
@@ -63,9 +72,9 @@ namespace TacticalStrategyGame.Presentation.Unity
             }
             foreach (var unit in _scenario.InitialState.Units)
             {
-                var view = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                var view = GameObject.CreatePrimitive(unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? PrimitiveType.Sphere : PrimitiveType.Capsule);
                 view.transform.SetParent(transform, false); view.transform.localScale = Vector3.one * .42f;
-                view.GetComponent<Renderer>().material.color = unit.FactionId == "blue" ? new Color(.2f, .62f, 1f) : new Color(1f, .3f, .25f);
+                view.GetComponent<Renderer>().material.color = UnitColor(unit);
                 _views.Add(unit.Id, view);
             }
             var cameraObject = new GameObject("Graybox PvE Camera");
@@ -77,7 +86,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         private void ResetEncounter()
         {
             StopAllCoroutines(); _resolving = false; _blueOrders.Clear(); _lines.Clear();
-            _encounter = new EncounterState(new EncounterDefinition(_scenario.Id, _scenario.Map, _scenario.ContentVersion, _scenario.Objectives), _scenario.InitialState);
+            _encounter = new EncounterState(new EncounterDefinition(_scenario.Id, _scenario.Map, _scenario.ContentVersion, _scenario.Objectives, _scenario.UnitDefinitions, _scenario.FactionDefinitions), _scenario.InitialState);
             _selectedBlue = _scenario.InitialState.Units.First(unit => unit.FactionId == "blue").Id;
             _selectedRed = _scenario.InitialState.Units.First(unit => unit.FactionId == "red").Id;
             _message = "Draft one order for any Blue unit, then submit the round. Red uses deterministic PvE.";
@@ -103,6 +112,23 @@ namespace TacticalStrategyGame.Presentation.Unity
             _message = $"Drafted speculative attack: Blue {UnitNumber(unit.Id)} targets Red {UnitNumber(target.Id)}.";
         }
 
+        private void DraftSelfHeal()
+        {
+            var unit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
+            if (unit.UnitDefinitionId != StarterMilitaryContent.CombatMedic.Id)
+            {
+                _message = "Only a Combat Medic has the field-medicine skill and med kits.";
+                return;
+            }
+            if (InventoryRules.QuantityOf(unit, "med-kit") == 0)
+            {
+                _message = $"Blue {UnitNumber(unit.Id)} has no med kits remaining.";
+                return;
+            }
+            _blueOrders[unit.Id] = new TacticalAction(unit.Id, unit.Id, TacticalActionType.ApplyEffect, 0, 1, TargetUnitId: unit.Id, EffectId: FieldMedKit.Id);
+            _message = $"Drafted self-heal for Blue {UnitNumber(unit.Id)}. One med kit will be spent on successful resolution.";
+        }
+
         private void Submit()
         {
             if (_resolving || _encounter.Outcome?.IsComplete == true) return;
@@ -117,7 +143,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         private IEnumerator Resolve()
         {
             _resolving = true; var before = _encounter.CurrentState; var red = PvePlanner.Plan("red", before, _scenario.Map, Rifle);
-            var result = EncounterResolver.ResolveRound(_encounter, new[] { new CommandBundle("blue", _blueOrders.Values.ToArray()), red.Commands }, new RoundConfiguration(10), (uint)(20260721 + _encounter.CompletedRounds), attackProfiles: new[] { Rifle });
+            var result = EncounterResolver.ResolveRound(_encounter, new[] { new CommandBundle("blue", _blueOrders.Values.ToArray()), red.Commands }, new RoundConfiguration(10), (uint)(20260721 + _encounter.CompletedRounds), effects: new[] { FieldMedKit }, attackProfiles: new[] { Rifle });
             _blueOrders.Clear(); _lines.Clear(); Render(before);
             foreach (var group in result.Resolution.Events.GroupBy(@event => @event.Tick).OrderBy(group => group.Key))
             {
@@ -139,11 +165,15 @@ namespace TacticalStrategyGame.Presentation.Unity
             foreach (var unit in state.Units)
             {
                 _views[unit.Id].transform.position = new Vector3(unit.Position.X, .3f, unit.Position.Y);
-                _views[unit.Id].GetComponent<Renderer>().material.color = unit.ActivityState == UnitActivityState.Incapacitated ? Color.gray : unit.FactionId == "blue" ? new Color(.2f, .62f, 1f) : new Color(1f, .3f, .25f);
+                _views[unit.Id].GetComponent<Renderer>().material.color = unit.ActivityState == UnitActivityState.Incapacitated ? Color.gray : UnitColor(unit);
             }
         }
 
         private static int UnitNumber(Guid id) => id.ToString("N")[31] - '0';
+        private static string RoleName(UnitState unit) => unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? "MEDIC" : "RIFLE";
+        private static Color UnitColor(UnitState unit) => unit.FactionId == "blue"
+            ? unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? new Color(.25f, .9f, .65f) : new Color(.2f, .62f, 1f)
+            : unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? new Color(1f, .55f, .25f) : new Color(1f, .3f, .25f);
 
         private string PlannedOrderDescription(UnitState unit)
         {
@@ -155,6 +185,8 @@ namespace TacticalStrategyGame.Presentation.Unity
             }
             if (action.Type == TacticalActionType.Attack && action.TargetUnitId.HasValue)
                 return $"Attack Red {UnitNumber(action.TargetUnitId.Value)} — checked at resolution";
+            if (action.Type == TacticalActionType.ApplyEffect)
+                return "Self-heal — med kit spent at resolution";
             return action.Type.ToString();
         }
 
@@ -177,6 +209,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (GUI.Button(new Rect(505, 76, 100, 24), "Attack red")) DraftAttack();
             if (GUI.Button(new Rect(615, 76, 100, 24), "Next red")) _selectedRed = NextRed();
             if (GUI.Button(new Rect(725, 76, 100, 24), "Clear blue")) _blueOrders.Remove(_selectedBlue);
+            if (GUI.Button(new Rect(835, 76, 100, 24), "Medic heal self")) DraftSelfHeal();
             GUI.Box(new Rect(12, 138, 1000, 112), $"Round plan — {_blueOrders.Count}/4 Blue orders queued. Choosing another order for a Blue unit replaces its current order.");
             for (var i = 0; i < blue.Length; i++)
             {
@@ -187,7 +220,9 @@ namespace TacticalStrategyGame.Presentation.Unity
             foreach (var unit in _encounter.CurrentState.Units)
             {
                 var screen = Camera.main!.WorldToScreenPoint(_views[unit.Id].transform.position + Vector3.up * .65f);
-                GUI.Label(new Rect(screen.x - 52, Screen.height - screen.y, 130, 20), $"{unit.FactionId.ToUpperInvariant()} {UnitNumber(unit.Id)} {unit.HitPoints}/10");
+                var medKits = InventoryRules.QuantityOf(unit, "med-kit");
+                var inventory = medKits > 0 || unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? $" kit:{medKits}" : string.Empty;
+                GUI.Label(new Rect(screen.x - 70, Screen.height - screen.y, 180, 20), $"{unit.FactionId.ToUpperInvariant()} {UnitNumber(unit.Id)} {RoleName(unit)} {unit.HitPoints}/{unit.MaxHitPoints}{inventory}");
             }
         }
 

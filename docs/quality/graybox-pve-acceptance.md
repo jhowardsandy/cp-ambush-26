@@ -7,3 +7,7 @@ The `iron-timeline-squad-skirmish-01` portable 16×12 fixture is executed as a f
 The acceptance test runs the full encounter twice and requires identical per-round checksums, decision counts, four valid rounds, eight unit decisions per round, and observable event activity. This is an engine-level integration proof, not yet the player-operated Unity scene; player-side multi-unit authoring is the next presentation slice.
 
 Evidence: `Graybox_four_v_four_pve_encounter_is_repeatable_across_multiple_rounds`.
+
+## Manual mixed-roster scene check
+
+In the player-operated scene, each side must visibly contain two capsule Riflemen and two sphere Combat Medics. A damaged Blue Medic can draft `Medic heal self`; successful resolution restores vitality and decrements the displayed med-kit count by one. This is presentation validation of core rules already covered by the deterministic inventory tests.
