@@ -23,6 +23,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         private Guid _selectedHealTarget;
         private bool _resolving;
         private bool _autoPlaying;
+        private bool _manualRoute;
         private string _message = string.Empty;
         private static readonly AttackProfile Rifle = StarterMilitaryContent.ServiceRifle;
         private static readonly EffectDefinition FieldMedKit = StarterMilitaryContent.FieldMedKit;
@@ -114,7 +115,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void ResetEncounter()
         {
-            StopAllCoroutines(); _resolving = false; _autoPlaying = false; _blueOrders.Clear(); _lines.Clear(); _armedOverwatch.Clear();
+            StopAllCoroutines(); _resolving = false; _autoPlaying = false; _manualRoute = false; _blueOrders.Clear(); _lines.Clear(); _armedOverwatch.Clear();
             _encounter = new EncounterState(new EncounterDefinition(_scenario.Id, _scenario.Map, _scenario.ContentVersion, _scenario.Objectives, _scenario.UnitDefinitions, _scenario.FactionDefinitions), _scenario.InitialState);
             _selectedBlue = _scenario.InitialState.Units.First(unit => unit.FactionId == "blue").Id;
             _selectedRed = _scenario.InitialState.Units.First(unit => unit.FactionId == "red").Id;
@@ -144,7 +145,17 @@ namespace TacticalStrategyGame.Presentation.Unity
             }
             var previousMove = actions.LastOrDefault(action => action.Type == TacticalActionType.Move);
             var origin = previousMove?.Path is { Count: > 0 } ? previousMove.Path[^1] : unit.Position;
-            var route = FindRoute(origin, destination, unit.Id);
+            IReadOnlyList<GridPosition>? route;
+            if (_manualRoute)
+            {
+                if (!MovementRules.IsCardinalStep(origin, destination) || !_scenario.Map.Contains(destination) || !_scenario.Map.CellAt(destination).IsPassable || _encounter.CurrentState.Units.Any(other => other.Id != unit.Id && other.Position == destination))
+                {
+                    _message = "Manual route mode requires the next adjacent, passable, unoccupied tile.";
+                    return;
+                }
+                route = new[] { destination };
+            }
+            else route = FindRoute(origin, destination, unit.Id);
             if (route is null)
             {
                 _message = "No clear route to that tile using the current known board. Try another destination.";
@@ -268,6 +279,14 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (!_blueOrders.TryGetValue(_selectedBlue, out var actions) || actions.Count == 0)
             {
                 _message = $"Blue {UnitNumber(_selectedBlue)} has no queued action to undo.";
+                return;
+            }
+            var last = actions[^1];
+            if (last.Type == TacticalActionType.Move && last.Path is { Count: > 1 })
+            {
+                var shortenedPath = last.Path.Take(last.Path.Count - 1).ToArray();
+                actions[^1] = last with { Path = shortenedPath, DurationTicks = MovementRules.DurationFor(last with { Path = shortenedPath }, _scenario.Map) };
+                _message = $"Removed Blue {UnitNumber(_selectedBlue)}'s last movement tile.";
                 return;
             }
             actions.RemoveAt(actions.Count - 1);
@@ -464,6 +483,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (GUI.Button(new Rect(300, 104, 115, 24), "Next heal target")) _selectedHealTarget = NextBlueHealTarget();
             if (GUI.Button(new Rect(425, 104, 115, 24), "Medic heal target")) DraftHealTarget();
             GUI.Label(new Rect(550, 106, 300, 20), $"Heal target: Blue {UnitNumber(_selectedHealTarget)}");
+            if (GUI.Button(new Rect(850, 104, 140, 24), _manualRoute ? "Manual route: ON" : "Manual route: OFF")) _manualRoute = !_manualRoute;
             GUI.Label(new Rect(24, 134, 250, 20), "Overwatch zone (Rifleman only):");
             if (GUI.Button(new Rect(280, 132, 45, 24), "N")) DraftOverwatch(Facing.North);
             if (GUI.Button(new Rect(335, 132, 45, 24), "E")) DraftOverwatch(Facing.East);
