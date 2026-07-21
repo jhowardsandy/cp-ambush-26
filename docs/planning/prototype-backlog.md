@@ -2,11 +2,11 @@
 
 - [x] Milestone 0 repository and documentation initialization
 - [x] Milestone 1 deterministic timeline core and tests
-- [~] Milestone 2 grid movement rules — cardinal paths and strict same-tick occupancy implemented; terrain, modifiers, and richer conflicts deferred
-- [x] Milestone 3 minimal placeholder presentation — Unity encounter sandbox renders terrain, movement, vitality, direct-fire projectile, and incapacitation from core events
-- [~] Milestone 4 visibility — objective line of sight and present-time range snapshots implemented; memory, fog of war, and presentation deferred
-- [~] Milestone 5 combat — guaranteed-hit direct-fire profile with range/LOS, damage, incapacitation, and golden replay implemented; accuracy, cover, armor, ammunition, and alternate delivery remain deferred
-- [ ] Milestone 6 reactions
-- [~] Milestone 7 first scenario — reusable scenario, multi-round two-unit demonstration, and validated 16×12 four-versus-four content fixture implemented; Unity scenario presentation, deployment flow, objective variety, and PvE planner remain deferred
-- [~] Player-authored unit selection and order editing — manual sandbox mode builds one selected blue unit's multi-tile move path (with terrain-derived timing and 10-tick round cap), or drafts heal/attack, then submits it through the real encounter resolver; tile selection, multiple units, move-then-action timelines, and richer order editing remain deferred
-- [ ] Deterministic, explainable PvE enemy planner
+- [~] Milestone 2 grid movement rules — cardinal routes, terrain timing/AP, blockers, seeded same-tick contention, one-tick delays, and route previews implemented; elevation, dynamic terrain, larger-map performance, and richer movement modifiers remain deferred.
+- [x] Milestone 3 minimal placeholder presentation — Riverside Crossing renders terrain, role-distinct units, movement, projectiles, vitality, incapacitation, observation, overwatch cones, and resolver-driven feedback.
+- [~] Milestone 4 visibility — per-unit vision, terrain LOS, concealment-reduced observation, and development observation feedback implemented; faction memory, finished fog, facing/elevation, and dynamic blockers remain deferred.
+- [~] Milestone 5 combat — named direct fire, target-tile cover mitigation, targeted healing/inventory, incapacitation, event calculations, and golden replay implemented; accuracy, armor, ammunition, blast/projectile rules, and richer weapons remain deferred.
+- [~] Milestone 6 reactions — one-shot, skill-gated cardinal overwatch with deterministic movement-entry trigger, cone preview, and reaction playback implemented; priority matrices, interruption/resume, posture/scoped requirements, and ammunition policy remain deferred.
+- [~] Milestone 7 first scenario — Riverside Crossing is a playable 16×12 4v4 Unity graybox with elimination objective, authored contact rally, terrain, multi-unit player orders, deterministic PvE, auto-play, automated acceptance, and human-playtest protocol. Deployment, objective variety, and playtest-led tuning remain deferred.
+- [~] Player-authored unit selection and order editing — all four Blue units can build routed/manual movement, targeted attacks/heals, and overwatch sequences with AP/tick/conflict previews; posture controls, richer conditional orders, drag/edit UX, and player-selected doctrine automation remain deferred.
+- [~] Deterministic, explainable PvE enemy planner — observation-safe attack/heal/cover/scout behavior and authored rally objectives implemented; role-aware tactical policy, multi-action planning, objectives, posture, reactions, and doctrine selection remain deferred.

@@ -37,20 +37,20 @@ The MVP proves the engine, not a large campaign or a finished art direction.
 | 1. Spatial movement | **Strong foundation** | Movement modifiers, richer reservations, larger-map performance, and additional golden/property coverage. |
 | 2. Perception | **Foundation implemented** | Per-unit data-defined vision, faction memory, reveal/loss events, fog-of-war presentation, facing/elevation, and concealment. |
 | 3. Combat kernel | **First direct-fire slice implemented** | Data-defined unit/weapon catalogs, seeded accuracy, cover, armor, ammunition, alternate delivery types, and balance coverage. |
-| 4. Reactions | **Not started** | Accepted trigger/priority/interruption policy and deterministic resolver implementation. |
-| 5. Scenario loop | **Foundation implemented** | Four-versus-four original scenario, deployment, objectives, PvE enemy planner, acceptance fixtures, and scenario outcomes. |
-| 6. Planning and playback | **Proof surface implemented** | Unit selection, player-authored order editing, target selection, validation feedback, timeline controls, and inspector. |
-| 7. MVP hardening | **Not started** | Regression corpus, balance harness, telemetry, accessibility, manual, and structured playtests. |
+| 4. Reactions | **First slice implemented** | One-shot overwatch works; expand trigger/priority/interruption, posture/scoped, and resource policy only through accepted rules. |
+| 5. Scenario loop | **Playable graybox implemented** | Riverside Crossing 4v4 has terrain, objective, PvE, auto-play, acceptance coverage, and a human protocol. Add deployment, objective variety, and scenario scripting. |
+| 6. Planning and playback | **Playable graybox implemented** | Multi-unit route/action sequences, target selection, previews, feedback, and event log work. Add posture controls, richer plan editing, pause/speed/inspection, and optional doctrine automation. |
+| 7. MVP hardening | **Started** | 70 deterministic tests, rulebook, traceability, acceptance fixture, and human protocol exist. Add seed corpus, balance harness, accessibility, recorded playtests, and release checks. |
 | 8. MVP release candidate | **Not started** | Build/distribution validation, release notes, and playtest-led defect closure. |
 
 ## Next stretch: from proof surface to playable vertical slice
 
-1. **Player order authoring:** select a friendly unit, choose a legal move/action, preview its timing/validation, and submit it as the player command bundle. Evolve the current round tick cap into a data-defined per-unit action-point/movement economy only after its costs, refunds, modifiers, and replay explanation are accepted.
-2. **Scenario loop:** expand the two-unit demonstration into an original four-versus-four map with deployment and a simple objective.
-3. **PvE intelligence:** produce deterministic, explainable enemy command bundles from the same state/visibility contract. First nearest-target attack-or-advance planner is implemented; visibility, loadouts, posture, reactions, and multi-action policy remain next inputs.
-4. **Combat depth:** add data-defined unit and weapon profiles, then seeded accuracy, cover, armor, ammunition, and additional delivery types one accepted rule at a time.
-5. **Perception and reactions:** add memory/fog-of-war presentation, then reaction rules after their conflict policy is accepted.
-6. **Hardening and playtests:** automate scenario batches and begin structured human testing once the authored-order loop is usable.
+1. **Human-playtest closure:** execute the Riverside protocol, record clarity findings, and turn every rules defect into a regression. Improve the planning/playback surface from those findings.
+2. **Roster/content proof:** make the two starter archetypes tactically distinct, then add one contrasting role/weapon only with a documented content and balance contract.
+3. **Scenario/objective proof:** add one non-elimination objective (capture, extraction, or rescue) and a scenario scripting slice before expanding map count.
+4. **PvE tactical policy:** grow objective-aware, role-aware, multi-action behavior and only then add player-selected tactical doctrines as inspectable/overridable command generation.
+5. **Combat/perception depth:** accept seeded accuracy, ammunition, armor, elevation/facing, faction memory/fog, or posture interactions one rule at a time—not as a bundle.
+6. **Hardening and release proof:** scenario batches, seed corpus, balance harness, accessibility, a packaged build, and recorded playtests.
 
 The portable `iron-timeline-squad-skirmish-01` fixture now provides the initial 16×12 four-versus-four roster, terrain, map areas, and elimination objective for this next scenario-loop work. It is validated content, not yet a fully playable Unity scenario.
 
