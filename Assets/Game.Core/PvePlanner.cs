@@ -20,13 +20,15 @@ public static class PvePlanner
 
     /// <param name="healingEffect">Optional support effect available to a compatible, equipped unit.</param>
     /// <param name="unitDefinitions">Optional roster catalog used to verify declared skills and effects before planning.</param>
+    /// <param name="scoutObjectives">Known authored map positions to investigate before an opposing unit is observable.</param>
     public static PvePlan Plan(
         string factionId,
         GameState state,
         GridMapDefinition map,
         AttackProfile profile,
         EffectDefinition? healingEffect = null,
-        IReadOnlyList<UnitDefinition>? unitDefinitions = null)
+        IReadOnlyList<UnitDefinition>? unitDefinitions = null,
+        IReadOnlyList<GridPosition>? scoutObjectives = null)
     {
         var actions = new List<TacticalAction>();
         var decisions = new List<PveDecision>();
@@ -52,13 +54,12 @@ public static class PvePlanner
                 .FirstOrDefault();
             if (target is null)
             {
-                var scoutingDelta = StringComparer.Ordinal.Equals(factionId, "red") ? new GridPosition(0, -1) : new GridPosition(0, 1);
-                var scoutingDestination = new GridPosition(unit.Position.X + scoutingDelta.X, unit.Position.Y + scoutingDelta.Y);
-                if (map.Contains(scoutingDestination) && map.CellAt(scoutingDestination).IsPassable && !reservedDestinations.Contains(scoutingDestination))
+                var scoutingDestination = FindScoutingDestination(unit, map, reservedDestinations, scoutObjectives);
+                if (scoutingDestination is not null)
                 {
                     reservedDestinations.Add(scoutingDestination);
                     actions.Add(new TacticalAction(unit.Id, unit.Id, TacticalActionType.Move, 0, map.CellAt(scoutingDestination).MovementTicks, Path: new[] { scoutingDestination }));
-                    decisions.Add(new PveDecision(unit.Id, "scout", "No observable opposing unit exists; advance without hidden-target knowledge."));
+                    decisions.Add(new PveDecision(unit.Id, "scout", $"No observable opposing unit exists; advance toward a known scouting objective at ({scoutingDestination.X},{scoutingDestination.Y}) without hidden-target knowledge."));
                 }
                 else decisions.Add(new PveDecision(unit.Id, "wait", "No observable opposing unit exists."));
                 continue;
@@ -95,6 +96,22 @@ public static class PvePlanner
         }
 
         return new PvePlan(new CommandBundle(factionId, actions), decisions);
+    }
+
+    private static GridPosition? FindScoutingDestination(UnitState unit, GridMapDefinition map, ISet<GridPosition> reservedDestinations, IReadOnlyList<GridPosition>? scoutObjectives)
+    {
+        var objectives = (scoutObjectives ?? Array.Empty<GridPosition>()).Where(map.Contains).ToArray();
+        if (objectives.Length == 0) objectives = new[] { new GridPosition(map.Width / 2, map.Height / 2) };
+        var objective = objectives.OrderBy(position => GridDistance.Manhattan(unit.Position, position)).ThenBy(position => position.X).ThenBy(position => position.Y).First();
+        var candidates = MovementPreference.Select(delta => new GridPosition(unit.Position.X + delta.X, unit.Position.Y + delta.Y))
+            .Where(candidate => map.Contains(candidate) && map.CellAt(candidate).IsPassable && !reservedDestinations.Contains(candidate))
+            .Where(candidate => map.CellAt(candidate).ActionPointCost <= unit.ActionPointBudget)
+            .ToArray();
+        return candidates.Where(candidate => GridDistance.Manhattan(candidate, objective) < GridDistance.Manhattan(unit.Position, objective))
+            .OrderByDescending(candidate => map.CellAt(candidate).CoverValue)
+            .ThenBy(candidate => GridDistance.Manhattan(candidate, objective))
+            .ThenBy(candidate => Array.IndexOf(MovementPreference, new GridPosition(candidate.X - unit.Position.X, candidate.Y - unit.Position.Y)))
+            .FirstOrDefault();
     }
 
     private static UnitState? FindHealTarget(UnitState unit, GameState state, GridMapDefinition map, EffectDefinition? effect, UnitDefinition? definition)

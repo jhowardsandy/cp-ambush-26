@@ -928,6 +928,20 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Pve_planner_scouts_toward_an_authored_objective_without_hidden_target_knowledge()
+    {
+        var blue = new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East, UnitActivityState.Active, VisionRange: 1);
+        var red = new UnitState(RedUnit, "red", new GridPosition(9, 0), Facing.West, UnitActivityState.Active, VisionRange: 1);
+
+        var plan = PvePlanner.Plan("blue", new GameState(new[] { blue, red }), new GridMapDefinition("pve-scout-map", 10, 1),
+            new AttackProfile("short", 1, 2, 5), scoutObjectives: new[] { new GridPosition(5, 0) });
+
+        Assert.That(MovementRules.PathFor(plan.Commands.Actions.Single()).Single(), Is.EqualTo(new GridPosition(1, 0)));
+        Assert.That(plan.Decisions.Single().Decision, Is.EqualTo("scout"));
+        Assert.That(plan.Decisions.Single().Explanation, Does.Contain("without hidden-target knowledge"));
+    }
+
+    [Test]
     public void Golden_replay_direct_attack_has_stable_event_sequence_and_checksum()
     {
         var state = new GameState(new[]

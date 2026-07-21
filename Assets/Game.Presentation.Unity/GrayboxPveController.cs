@@ -322,7 +322,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             for (var round = 0; round < maximumDemoRounds && _encounter.Outcome?.IsComplete != true; round++)
             {
                 _message = $"Auto-play demo: planning round {_encounter.CompletedRounds + 1}.";
-                var blue = PvePlanner.Plan("blue", _encounter.CurrentState, _scenario.Map, Rifle, FieldMedKit, _scenario.UnitDefinitions);
+                var blue = PvePlanner.Plan("blue", _encounter.CurrentState, _scenario.Map, Rifle, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives);
                 yield return StartCoroutine(Resolve(blue.Commands));
                 if (_encounter.Outcome?.IsComplete != true)
                     yield return new WaitForSeconds(.65f);
@@ -339,7 +339,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private IEnumerator Resolve(CommandBundle blueCommands)
         {
-            _resolving = true; _armedOverwatch.Clear(); var before = _encounter.CurrentState; var red = PvePlanner.Plan("red", before, _scenario.Map, Rifle, FieldMedKit, _scenario.UnitDefinitions);
+            _resolving = true; _armedOverwatch.Clear(); var before = _encounter.CurrentState; var red = PvePlanner.Plan("red", before, _scenario.Map, Rifle, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives);
             var overwatchActions = blueCommands.Actions.Concat(red.Commands.Actions)
                 .Where(action => action.Type == TacticalActionType.EnterOverwatch && action.Facing.HasValue)
                 .ToDictionary(action => action.ActionId);
@@ -375,6 +375,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         }
 
         private static int UnitNumber(Guid id) => id.ToString("N")[31] - '0';
+        private IReadOnlyList<GridPosition> ScoutObjectives => _scenario.Map.AreaById("central-crossing")?.Tiles ?? Array.Empty<GridPosition>();
         private static string RoleName(UnitState unit) => unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? "MEDIC" : "RIFLE";
         private bool IsObservableByBlue(UnitState target, GameState state) => state.Units.Where(unit => unit.FactionId == "blue" && unit.ActivityState == UnitActivityState.Active)
             .Any(observer => VisibilityRules.Observe(_scenario.Map, observer, target).IsObservable);
