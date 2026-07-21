@@ -34,6 +34,16 @@ namespace TacticalStrategyGame.Presentation.Unity
             ResetEncounter();
         }
 
+        private void Update()
+        {
+            if (_resolving || _autoPlaying || !Input.GetMouseButtonDown(0) || Input.mousePosition.y > Screen.height - 180) return;
+            var ray = Camera.main!.ScreenPointToRay(Input.mousePosition);
+            if (!new Plane(Vector3.up, Vector3.zero).Raycast(ray, out var distance)) return;
+            var point = ray.GetPoint(distance);
+            var destination = new GridPosition(Mathf.RoundToInt(point.x), Mathf.RoundToInt(point.z));
+            if (_scenario.Map.Contains(destination)) DraftMoveTo(destination);
+        }
+
         private void BuildScenario()
         {
             var units = new[]
@@ -119,17 +129,65 @@ namespace TacticalStrategyGame.Presentation.Unity
             var priorActions = PlannedActions(unit.Id);
             var priorMove = priorActions.LastOrDefault(action => action.Type == TacticalActionType.Move);
             var origin = priorMove?.Path is { Count: > 0 } ? priorMove.Path[^1] : unit.Position;
-            var destination = new GridPosition(origin.X + delta.X, origin.Y + delta.Y);
-            if (!unit.ActivityState.Equals(UnitActivityState.Active) || !_scenario.Map.Contains(destination) || !_scenario.Map.CellAt(destination).IsPassable || _encounter.CurrentState.Units.Any(other => other.Position == destination))
-            { _message = "That move is outside the map, blocked, or occupied."; return; }
-            if (priorActions.LastOrDefault()?.Type == TacticalActionType.Move && priorMove is not null)
+            DraftMoveTo(new GridPosition(origin.X + delta.X, origin.Y + delta.Y));
+        }
+
+        private void DraftMoveTo(GridPosition destination)
+        {
+            var unit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
+            if (unit.ActivityState != UnitActivityState.Active) { _message = "The selected unit is not active."; return; }
+            var actions = PlannedActions(unit.Id);
+            if (actions.Any(action => action.Type == TacticalActionType.Move) && actions.Last().Type != TacticalActionType.Move)
             {
-                var path = priorMove.Path!.Append(destination).ToArray();
-                priorActions[^1] = priorMove with { Path = path, DurationTicks = MovementRules.DurationFor(priorMove with { Path = path }, _scenario.Map) };
+                _message = "This first planner permits one contiguous move path. Undo back to the move before adding more movement.";
+                return;
+            }
+            var previousMove = actions.LastOrDefault(action => action.Type == TacticalActionType.Move);
+            var origin = previousMove?.Path is { Count: > 0 } ? previousMove.Path[^1] : unit.Position;
+            var route = FindRoute(origin, destination, unit.Id);
+            if (route is null)
+            {
+                _message = "No clear route to that tile using the current known board. Try another destination.";
+                return;
+            }
+            if (route.Count == 0) { _message = "That unit is already on this tile."; return; }
+            if (actions.LastOrDefault()?.Type == TacticalActionType.Move && previousMove is not null)
+            {
+                var path = previousMove.Path!.Concat(route).ToArray();
+                actions[^1] = previousMove with { Path = path, DurationTicks = MovementRules.DurationFor(previousMove with { Path = path }, _scenario.Map) };
             }
             else
-                QueueAction(unit, TacticalActionType.Move, _scenario.Map.CellAt(destination).MovementTicks, path: new[] { destination });
-            _message = $"Queued move for Blue {UnitNumber(unit.Id)} to ({destination.X},{destination.Y}).";
+            {
+                var duration = route.Sum(position => _scenario.Map.CellAt(position).MovementTicks);
+                QueueAction(unit, TacticalActionType.Move, duration, path: route);
+            }
+            _message = $"Previewing {route.Count} tile(s) to ({destination.X},{destination.Y}). The plan panel shows final AP and tick cost.";
+        }
+
+        private IReadOnlyList<GridPosition>? FindRoute(GridPosition origin, GridPosition destination, Guid movingUnitId)
+        {
+            var frontier = new Queue<GridPosition>();
+            var previous = new Dictionary<GridPosition, GridPosition?> { [origin] = null };
+            var occupied = _encounter.CurrentState.Units.Where(unit => unit.Id != movingUnitId).Select(unit => unit.Position).ToHashSet();
+            frontier.Enqueue(origin);
+            var steps = new[] { new GridPosition(0, 1), new GridPosition(1, 0), new GridPosition(0, -1), new GridPosition(-1, 0) };
+            while (frontier.Count > 0)
+            {
+                var current = frontier.Dequeue();
+                if (current == destination) break;
+                foreach (var step in steps)
+                {
+                    var next = new GridPosition(current.X + step.X, current.Y + step.Y);
+                    if (!_scenario.Map.Contains(next) || !_scenario.Map.CellAt(next).IsPassable || occupied.Contains(next) || previous.ContainsKey(next)) continue;
+                    previous[next] = current;
+                    frontier.Enqueue(next);
+                }
+            }
+            if (!previous.ContainsKey(destination)) return null;
+            var route = new List<GridPosition>();
+            for (GridPosition? current = destination; current is not null && current != origin; current = previous[current]) route.Add(current);
+            route.Reverse();
+            return route;
         }
 
         private void DraftAttack()
@@ -303,11 +361,31 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void DrawOverwatchOverlay()
         {
+            DrawPlannedRouteOverlay();
             var queued = SelectedQueuedOverwatch();
             if (queued?.Facing is not null)
                 DrawWatchCone(_encounter.CurrentState.FindUnit(_selectedBlue)!, queued.Facing.Value, new Color(1f, .82f, .15f, .28f), "PLANNED");
             foreach (var armed in _armedOverwatch)
                 DrawWatchCone(_encounter.CurrentState.FindUnit(armed.Key)!, armed.Value, new Color(1f, .5f, .1f, .34f), "ARMED");
+        }
+
+        private void DrawPlannedRouteOverlay()
+        {
+            if (!_blueOrders.TryGetValue(_selectedBlue, out var actions)) return;
+            var move = actions.LastOrDefault(action => action.Type == TacticalActionType.Move);
+            if (move?.Path is not { Count: > 0 }) return;
+            var camera = Camera.main!;
+            var tileSize = Mathf.Abs(camera.WorldToScreenPoint(new Vector3(1, .1f, 0)).x - camera.WorldToScreenPoint(new Vector3(0, .1f, 0)).x) * .62f;
+            var priorColor = GUI.color;
+            GUI.color = new Color(.2f, .9f, 1f, .42f);
+            for (var index = 0; index < move.Path.Count; index++)
+            {
+                var position = move.Path[index];
+                var screen = camera.WorldToScreenPoint(new Vector3(position.X, .13f, position.Y));
+                GUI.DrawTexture(new Rect(screen.x - tileSize / 2, Screen.height - screen.y - tileSize / 2, tileSize, tileSize), Texture2D.whiteTexture);
+                GUI.Label(new Rect(screen.x - 9, Screen.height - screen.y - 9, 25, 20), (index + 1).ToString());
+            }
+            GUI.color = priorColor;
         }
 
         private void DrawWatchCone(UnitState unit, Facing facing, Color color, string label)
@@ -345,7 +423,8 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (!_blueOrders.TryGetValue(unit.Id, out var actions) || actions.Count == 0) return "No order — waits";
             var descriptions = actions.Select(action => ActionDescription(action)).ToArray();
             var spent = actions.Sum(action => ActionPointRules.CostFor(action, _scenario.Map, new[] { FieldMedKit }, new[] { Rifle }));
-            return $"{String.Join(" → ", descriptions)}  [{spent}/{unit.ActionPointBudget} AP]";
+            var finalTick = actions.Max(action => action.StartTick + action.DurationTicks);
+            return $"{String.Join(" → ", descriptions)}  [{spent}/{unit.ActionPointBudget} AP; t0–{finalTick}/10]";
         }
 
         private static string ActionDescription(TacticalAction action)
@@ -377,10 +456,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 var marker = blue[i].Id == _selectedBlue ? "> " : string.Empty;
                 if (GUI.Button(new Rect(24 + i * 74, 76, 68, 24), $"{marker}Blue {i + 1}")) _selectedBlue = blue[i].Id;
             }
-            if (GUI.Button(new Rect(300, 76, 45, 24), "N")) DraftMove(new GridPosition(0, 1));
-            if (GUI.Button(new Rect(350, 76, 45, 24), "S")) DraftMove(new GridPosition(0, -1));
-            if (GUI.Button(new Rect(400, 76, 45, 24), "E")) DraftMove(new GridPosition(1, 0));
-            if (GUI.Button(new Rect(450, 76, 45, 24), "W")) DraftMove(new GridPosition(-1, 0));
+            GUI.Label(new Rect(300, 78, 200, 20), "Click a map tile to preview route");
             if (GUI.Button(new Rect(505, 76, 100, 24), "Attack red")) DraftAttack();
             if (GUI.Button(new Rect(615, 76, 100, 24), "Next red")) _selectedRed = NextRed();
             if (GUI.Button(new Rect(725, 76, 60, 24), "Undo")) UndoLastBlueAction();
