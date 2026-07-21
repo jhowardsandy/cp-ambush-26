@@ -13,6 +13,7 @@ This folder is the living, player-readable rulebook. It describes accepted behav
 7. `action-points.md` — per-round action-point budget validation.
 8. `posture.md` — standing, crouched, and prone posture transitions.
 9. `terrain-protection.md` — generic cover and concealment terrain data.
+10. `overwatch.md` — one-shot movement-triggered watch cones.
 
 ## Planned chapters
 
