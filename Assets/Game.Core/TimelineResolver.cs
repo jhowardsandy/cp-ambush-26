@@ -286,7 +286,7 @@ public sealed class TimelineResolver
             if (action.Type == TacticalActionType.ChangePosture)
                 ValidatePostureAction(action, unit, diagnostics);
             if (action.Type == TacticalActionType.EnterOverwatch)
-                ValidateOverwatchAction(action, attackProfiles, request.Scenario?.Map, diagnostics);
+                ValidateOverwatchAction(action, unit, request.Scenario?.UnitDefinitions, attackProfiles, request.Scenario?.Map, diagnostics);
             if (action.Type == TacticalActionType.ApplyEffect)
                 ValidateEffectAction(action, unit, units, effects, request.Scenario?.Map, diagnostics);
             if (action.Type == TacticalActionType.Attack)
@@ -422,7 +422,7 @@ public sealed class TimelineResolver
             diagnostics.Add(new("invalid-posture-transition", "Posture changes must move one step between standing, crouched, and prone.", action.ActionId));
     }
 
-    private static void ValidateOverwatchAction(TacticalAction action, IReadOnlyList<AttackProfile> profiles, GridMapDefinition? map, ICollection<ValidationDiagnostic> diagnostics)
+    private static void ValidateOverwatchAction(TacticalAction action, UnitState? unit, IReadOnlyList<UnitDefinition>? definitions, IReadOnlyList<AttackProfile> profiles, GridMapDefinition? map, ICollection<ValidationDiagnostic> diagnostics)
     {
         if (map is null)
             diagnostics.Add(new("overwatch-requires-map", "EnterOverwatch requires a scenario map.", action.ActionId));
@@ -432,6 +432,9 @@ public sealed class TimelineResolver
             diagnostics.Add(new("overwatch-requires-profile", "EnterOverwatch requires an attack profile.", action.ActionId));
         else if (!profiles.Any(profile => StringComparer.Ordinal.Equals(profile.Id, action.AttackProfileId)))
             diagnostics.Add(new("unknown-overwatch-profile-id", "EnterOverwatch references an unknown attack profile.", action.ActionId));
+        var definition = definitions?.FirstOrDefault(candidate => unit is not null && StringComparer.Ordinal.Equals(candidate.Id, unit.UnitDefinitionId));
+        if (definition is not null && !(definition.SkillIds ?? Array.Empty<string>()).Contains("overwatch", StringComparer.Ordinal))
+            diagnostics.Add(new("missing-overwatch-skill", "Unit does not have the overwatch skill.", action.ActionId));
     }
 
     private static void ValidateMovePath(TacticalAction action, UnitState? unit, GridMapDefinition? map, ICollection<ValidationDiagnostic> diagnostics)

@@ -147,6 +147,19 @@ namespace TacticalStrategyGame.Presentation.Unity
             _message = $"Queued heal: Blue {UnitNumber(unit.Id)} targets Blue {UnitNumber(target.Id)}. Range and sight are checked at resolution.";
         }
 
+        private void DraftOverwatch(Facing facing)
+        {
+            var unit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
+            var definition = _scenario.UnitDefinitions!.Single(candidate => candidate.Id == unit.UnitDefinitionId);
+            if (!(definition.SkillIds ?? Array.Empty<string>()).Contains("overwatch", StringComparer.Ordinal))
+            {
+                _message = "Only a Rifleman has the overwatch skill in this starter roster.";
+                return;
+            }
+            QueueAction(unit, TacticalActionType.EnterOverwatch, 1, attackProfileId: Rifle.Id, facing: facing);
+            _message = $"Queued overwatch for Blue {UnitNumber(unit.Id)}: 90° {facing} watch cone; one reaction shot if an enemy enters it.";
+        }
+
         private List<TacticalAction> PlannedActions(Guid unitId)
         {
             if (_blueOrders.TryGetValue(unitId, out var actions)) return actions;
@@ -155,7 +168,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             return actions;
         }
 
-        private void QueueAction(UnitState unit, TacticalActionType type, int durationTicks, GridPosition? destination = null, IReadOnlyList<GridPosition>? path = null, Guid? targetUnitId = null, string? effectId = null, string? attackProfileId = null)
+        private void QueueAction(UnitState unit, TacticalActionType type, int durationTicks, GridPosition? destination = null, IReadOnlyList<GridPosition>? path = null, Guid? targetUnitId = null, string? effectId = null, string? attackProfileId = null, Facing? facing = null)
         {
             var actions = PlannedActions(unit.Id);
             var startTick = actions.Count == 0 ? 0 : actions[^1].StartTick + actions[^1].DurationTicks;
@@ -164,7 +177,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 _message = "That action would extend beyond this 10-tick round. Undo or clear an earlier order.";
                 return;
             }
-            actions.Add(new TacticalAction(PlannedActionId(unit.Id, actions.Count + 1), unit.Id, type, startTick, durationTicks, destination, Path: path, TargetUnitId: targetUnitId, EffectId: effectId, AttackProfileId: attackProfileId));
+            actions.Add(new TacticalAction(PlannedActionId(unit.Id, actions.Count + 1), unit.Id, type, startTick, durationTicks, destination, Facing: facing, Path: path, TargetUnitId: targetUnitId, EffectId: effectId, AttackProfileId: attackProfileId));
         }
 
         private static Guid PlannedActionId(Guid unitId, int sequence)
@@ -281,12 +294,14 @@ namespace TacticalStrategyGame.Presentation.Unity
                 return $"Attack Red {UnitNumber(action.TargetUnitId.Value)} — checked at resolution";
             if (action.Type == TacticalActionType.ApplyEffect && action.TargetUnitId.HasValue)
                 return $"Heal Blue {UnitNumber(action.TargetUnitId.Value)} — range checked at resolution";
+            if (action.Type == TacticalActionType.EnterOverwatch && action.Facing.HasValue)
+                return $"Overwatch {action.Facing} — 90° cone, one reaction shot";
             return action.Type.ToString();
         }
 
         private void OnGUI()
         {
-            GUI.Box(new Rect(12, 12, 1000, 118), "Graybox 4v4 PvE — player Blue vs deterministic Red");
+            GUI.Box(new Rect(12, 12, 1000, 160), "Graybox 4v4 PvE — player Blue vs deterministic Red");
             if (GUI.Button(new Rect(24, 44, 120, 26), "Submit round")) Submit();
             if (GUI.Button(new Rect(154, 44, 80, 26), "Reset")) ResetEncounter();
             if (GUI.Button(new Rect(244, 44, 120, 26), "Auto-play demo")) StartAutoPlay();
@@ -308,13 +323,18 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (GUI.Button(new Rect(300, 104, 115, 24), "Next heal target")) _selectedHealTarget = NextBlueHealTarget();
             if (GUI.Button(new Rect(425, 104, 115, 24), "Medic heal target")) DraftHealTarget();
             GUI.Label(new Rect(550, 106, 300, 20), $"Heal target: Blue {UnitNumber(_selectedHealTarget)}");
-            GUI.Box(new Rect(12, 138, 1000, 112), $"Round plan — {PlannedActionCount} actions across {_blueOrders.Count} Blue units. Orders resolve left-to-right; Undo removes the selected unit's last action.");
+            GUI.Label(new Rect(24, 134, 250, 20), "Overwatch zone (Rifleman only):");
+            if (GUI.Button(new Rect(280, 132, 45, 24), "N")) DraftOverwatch(Facing.North);
+            if (GUI.Button(new Rect(335, 132, 45, 24), "E")) DraftOverwatch(Facing.East);
+            if (GUI.Button(new Rect(390, 132, 45, 24), "S")) DraftOverwatch(Facing.South);
+            if (GUI.Button(new Rect(445, 132, 45, 24), "W")) DraftOverwatch(Facing.West);
+            GUI.Box(new Rect(12, 180, 1000, 112), $"Round plan — {PlannedActionCount} actions across {_blueOrders.Count} Blue units. Orders resolve left-to-right; Undo removes the selected unit's last action.");
             for (var i = 0; i < blue.Length; i++)
             {
                 var selected = blue[i].Id == _selectedBlue ? "> " : "  ";
-                GUI.Label(new Rect(28, 164 + i * 20, 970, 20), $"{selected}Blue {i + 1}: {PlannedOrderDescription(blue[i])}");
+                GUI.Label(new Rect(28, 206 + i * 20, 970, 20), $"{selected}Blue {i + 1}: {PlannedOrderDescription(blue[i])}");
             }
-            var y = 258f; foreach (var line in _lines.Take(15)) { GUI.Label(new Rect(20, y, 990, 20), line); y += 19; }
+            var y = 300f; foreach (var line in _lines.Take(15)) { GUI.Label(new Rect(20, y, 990, 20), line); y += 19; }
             foreach (var unit in _encounter.CurrentState.Units)
             {
                 var screen = Camera.main!.WorldToScreenPoint(_views[unit.Id].transform.position + Vector3.up * .65f);

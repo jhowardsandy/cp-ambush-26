@@ -801,6 +801,21 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Overwatch_requires_the_overwatch_skill_when_a_unit_catalog_is_present()
+    {
+        var medic = StarterMilitaryContent.CombatMedic.CreateInitialState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East);
+        var state = new GameState(new[] { medic, new UnitState(RedUnit, "red", new GridPosition(2, 0), Facing.West, UnitActivityState.Active) });
+        var scenario = new ScenarioDefinition("medic-overwatch", new GridMapDefinition("medic-overwatch-map", 3, 1), state,
+            UnitDefinitions: new[] { StarterMilitaryContent.CombatMedic });
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.EnterOverwatch, 0, 1, Facing: Facing.East, AttackProfileId: StarterMilitaryContent.ServiceRifle.Id);
+
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(3), 1234u,
+            attackProfiles: new[] { StarterMilitaryContent.ServiceRifle }));
+
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("missing-overwatch-skill"));
+    }
+
+    [Test]
     public void Pve_planner_is_deterministic_and_uses_the_same_attack_command_contract()
     {
         var state = State(new GridPosition(0, 0), new GridPosition(2, 0));
