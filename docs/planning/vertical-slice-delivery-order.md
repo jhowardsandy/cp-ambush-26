@@ -10,7 +10,7 @@ Finish and review only the mechanics required for the first original PvE encount
 
 ## 2. Repeatable graybox PvE scenario
 
-Build one playable original map with multiple units, terrain, several rounds, a simple objective, player orders, deterministic enemy orders, replay/reset controls, and an event inspector. Exercise distinct player decisions across repeated runs and convert every discovered calculation defect into a focused automated regression test.
+Build one playable original map with multiple units, terrain, several rounds, a simple objective, player orders, deterministic enemy orders, replay/reset controls, and an event inspector. The first 4v4 graybox scene is now implemented with per-unit Blue order drafting and Red PvE playback; exercise distinct player decisions across repeated runs and convert every discovered calculation defect into a focused automated regression test.
 
 ## 3. Two-unit-type content proof
 
