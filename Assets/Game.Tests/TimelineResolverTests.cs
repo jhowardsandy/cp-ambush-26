@@ -718,6 +718,34 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Pve_planner_is_deterministic_and_uses_the_same_attack_command_contract()
+    {
+        var state = State(new GridPosition(0, 0), new GridPosition(2, 0));
+        var map = new GridMapDefinition("pve-map", 4, 1);
+        var rifle = new AttackProfile("pve-rifle", 1, 3, 5);
+
+        var first = PvePlanner.Plan("blue", state, map, rifle);
+        var second = PvePlanner.Plan("blue", state, map, rifle);
+
+        Assert.That(second, Is.EqualTo(first));
+        Assert.That(first.Commands.Actions.Single().Type, Is.EqualTo(TacticalActionType.Attack));
+        Assert.That(first.Commands.Actions.Single().TargetUnitId, Is.EqualTo(RedUnit));
+        Assert.That(first.Decisions.Single().Decision, Is.EqualTo("attack"));
+    }
+
+    [Test]
+    public void Pve_planner_moves_toward_nearest_target_with_an_explanation()
+    {
+        var state = State(new GridPosition(0, 0), new GridPosition(4, 0));
+        var plan = PvePlanner.Plan("blue", state, new GridMapDefinition("pve-move-map", 5, 1), new AttackProfile("short", 1, 2, 5));
+
+        var move = plan.Commands.Actions.Single();
+        Assert.That(move.Type, Is.EqualTo(TacticalActionType.Move));
+        Assert.That(MovementRules.PathFor(move).Single(), Is.EqualTo(new GridPosition(1, 0)));
+        Assert.That(plan.Decisions.Single().Explanation, Does.Contain("reduces distance"));
+    }
+
+    [Test]
     public void Golden_replay_direct_attack_has_stable_event_sequence_and_checksum()
     {
         var state = new GameState(new[]
