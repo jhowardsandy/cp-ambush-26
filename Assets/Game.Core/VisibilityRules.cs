@@ -6,6 +6,15 @@ namespace TacticalStrategyGame.Core
 /// <summary>Deterministic grid line-of-sight for objective map geometry.</summary>
 public static class VisibilityRules
 {
+    public static ObservationResult Observe(GridMapDefinition map, UnitState observer, UnitState target)
+    {
+        var distance = GridDistance.Manhattan(observer.Position, target.Position);
+        var concealment = TerrainProtectionRules.At(map, target.Position).ConcealmentValue;
+        var effectiveRange = System.Math.Max(0, observer.VisionRange - concealment);
+        return distance <= effectiveRange
+            ? new ObservationResult(true, distance, effectiveRange, concealment)
+            : new ObservationResult(false, distance, effectiveRange, concealment, $"Target distance {distance} exceeds observable range {effectiveRange} after concealment {concealment}.");
+    }
     public static bool HasLineOfSight(GridMapDefinition map, GridPosition origin, GridPosition target)
     {
         if (!map.Contains(origin) || !map.Contains(target))
@@ -43,5 +52,7 @@ public static class VisibilityRules
         return true;
     }
 }
+
+public sealed record ObservationResult(bool IsObservable, int Distance, int EffectiveRange, int Concealment, string? FailureDetail = null);
 
 }

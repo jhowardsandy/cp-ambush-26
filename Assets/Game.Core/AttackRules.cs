@@ -9,6 +9,9 @@ public static class AttackRules
     public static AttackResolution Resolve(UnitState attacker, UnitState target, AttackProfile profile, GridMapDefinition map)
     {
         var distance = GridDistance.Manhattan(attacker.Position, target.Position);
+        var observation = VisibilityRules.Observe(map, attacker, target);
+        if (!observation.IsObservable)
+            return new AttackResolution(distance, null, observation.FailureDetail);
         if (distance < profile.MinimumRange || distance > profile.MaximumRange)
             return new AttackResolution(distance, null, $"Target distance {distance} is outside attack range {profile.MinimumRange}-{profile.MaximumRange}.");
         if (profile.RequiresLineOfSight && !VisibilityRules.HasLineOfSight(map, attacker.Position, target.Position))

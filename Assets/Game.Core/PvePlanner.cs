@@ -28,13 +28,22 @@ public static class PvePlanner
                      .OrderBy(unit => unit.Id))
         {
             var target = state.Units.Where(candidate => candidate.ActivityState == UnitActivityState.Active && !StringComparer.Ordinal.Equals(candidate.FactionId, factionId))
+                .Where(candidate => VisibilityRules.Observe(map, unit, candidate).IsObservable)
                 .OrderBy(candidate => GridDistance.Manhattan(unit.Position, candidate.Position))
                 .ThenBy(candidate => candidate.FactionId, StringComparer.Ordinal)
                 .ThenBy(candidate => candidate.Id)
                 .FirstOrDefault();
             if (target is null)
             {
-                decisions.Add(new PveDecision(unit.Id, "wait", "No active opposing unit exists."));
+                var scoutingDelta = StringComparer.Ordinal.Equals(factionId, "red") ? new GridPosition(0, -1) : new GridPosition(0, 1);
+                var scoutingDestination = new GridPosition(unit.Position.X + scoutingDelta.X, unit.Position.Y + scoutingDelta.Y);
+                if (map.Contains(scoutingDestination) && map.CellAt(scoutingDestination).IsPassable && !reservedDestinations.Contains(scoutingDestination))
+                {
+                    reservedDestinations.Add(scoutingDestination);
+                    actions.Add(new TacticalAction(unit.Id, unit.Id, TacticalActionType.Move, 0, map.CellAt(scoutingDestination).MovementTicks, Path: new[] { scoutingDestination }));
+                    decisions.Add(new PveDecision(unit.Id, "scout", "No observable opposing unit exists; advance without hidden-target knowledge."));
+                }
+                else decisions.Add(new PveDecision(unit.Id, "wait", "No observable opposing unit exists."));
                 continue;
             }
 

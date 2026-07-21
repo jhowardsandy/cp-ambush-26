@@ -38,7 +38,8 @@ public sealed record UnitState(
     int ActionPointBudget = 6,
     UnitPosture Posture = UnitPosture.Standing,
     OverwatchState? Overwatch = null,
-    IReadOnlyList<InventoryItemState>? Inventory = null);
+    IReadOnlyList<InventoryItemState>? Inventory = null,
+    int VisionRange = Int32.MaxValue);
 
 public sealed record TacticalAction(
     Guid ActionId,

@@ -354,6 +354,20 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Concealment_reduces_observation_range_and_blocks_direct_attack()
+    {
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East, UnitActivityState.Active, VisionRange: 4),
+            new UnitState(RedUnit, "red", new GridPosition(3, 0), Facing.West, UnitActivityState.Active)
+        });
+        var map = new GridMapDefinition("concealment-map", 4, 1, new[] { new TerrainCellDefinition(new GridPosition(3, 0), ConcealmentValue: 2) });
+        var attack = AttackRules.Resolve(state.FindUnit(BlueUnit)!, state.FindUnit(RedUnit)!, new AttackProfile("rifle", 1, 4, 5), map);
+
+        Assert.That(attack.FailureDetail, Does.Contain("observable range 2"));
+    }
+
+    [Test]
     public void Scenario_rejects_invalid_named_map_areas()
     {
         var scenario = new ScenarioDefinition("invalid-areas", new GridMapDefinition("invalid-areas-map", 3, 3, Areas: new[]

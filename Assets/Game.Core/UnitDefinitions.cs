@@ -25,7 +25,7 @@ public sealed record UnitDefinition(
 {
     public UnitState CreateInitialState(Guid unitId, string factionId, GridPosition position, Facing facing) =>
         new(unitId, factionId, position, facing, UnitActivityState.Active, MaxHitPoints, MaxHitPoints, Id,
-            Inventory: (StartingInventory ?? Array.Empty<InventoryItemDefinition>()).Select(item => new InventoryItemState(item.ItemId, item.Quantity)).ToArray());
+            Inventory: (StartingInventory ?? Array.Empty<InventoryItemDefinition>()).Select(item => new InventoryItemState(item.ItemId, item.Quantity)).ToArray(), VisionRange: VisionRange);
 }
 
 /// <summary>Content-defined faction/culture package. It declares roster legality without special-casing countries or races.</summary>
