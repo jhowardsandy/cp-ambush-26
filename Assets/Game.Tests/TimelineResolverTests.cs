@@ -637,7 +637,7 @@ public sealed class TimelineResolverTests
         Assert.That(attack.TargetUnitId, Is.EqualTo(RedUnit));
         Assert.That(attack.FromPosition, Is.EqualTo(new GridPosition(0, 0)));
         Assert.That(attack.ToPosition, Is.EqualTo(new GridPosition(3, 0)));
-        Assert.That(attack.Detail, Is.EqualTo("attack=training-rifle; distance=3; damage=5; before=4; applied=-4; after=0"));
+        Assert.That(attack.Detail, Is.EqualTo("attack=training-rifle; distance=3; damage=5; cover=0; effective=5; before=4; applied=-4; after=0"));
     }
 
     [Test]
@@ -700,7 +700,7 @@ public sealed class TimelineResolverTests
         Assert.That(result.Events.Where(@event => @event.ActionId == FirstAction).Select(@event => @event.Type),
             Is.EqualTo(new[] { DomainEventType.ActionStarted, DomainEventType.AttackResolved, DomainEventType.ActionCompleted }));
         Assert.That(result.Events.Single(@event => @event.ActionId == FirstAction && @event.Type == DomainEventType.AttackResolved).Detail,
-            Is.EqualTo("attack=short-rifle; distance=2; damage=5; before=10; applied=-5; after=5"));
+            Is.EqualTo("attack=short-rifle; distance=2; damage=5; cover=0; effective=5; before=10; applied=-5; after=5"));
     }
 
     [Test]
@@ -715,6 +715,26 @@ public sealed class TimelineResolverTests
         Assert.That(result.IsValid, Is.False);
         Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("friendly-attack-target"));
         Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("unknown-attack-profile-id"));
+    }
+
+    [Test]
+    public void Target_cover_mitigates_direct_attack_damage_but_never_below_one()
+    {
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East, UnitActivityState.Active),
+            new UnitState(RedUnit, "red", new GridPosition(2, 0), Facing.West, UnitActivityState.Active)
+        });
+        var map = new GridMapDefinition("cover-map", 3, 1, new[] { new TerrainCellDefinition(new GridPosition(2, 0), CoverValue: 4) });
+        var scenario = new ScenarioDefinition("cover-attack", map, state);
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 0, 1, TargetUnitId: RedUnit, AttackProfileId: "rifle");
+
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(3), 1234u,
+            attackProfiles: new[] { new AttackProfile("rifle", 1, 3, 5) }));
+
+        Assert.That(result.FinalState.FindUnit(RedUnit)!.HitPoints, Is.EqualTo(9));
+        Assert.That(result.Events.Single(@event => @event.Type == DomainEventType.AttackResolved).Detail,
+            Is.EqualTo("attack=rifle; distance=2; damage=5; cover=4; effective=1; before=10; applied=-1; after=9"));
     }
 
     [Test]
@@ -863,7 +883,7 @@ public sealed class TimelineResolverTests
         {
             new { Tick = 0, Type = DomainEventType.RoundStarted, UnitId = (Guid?)null, TargetUnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null },
             new { Tick = 1, Type = DomainEventType.ActionStarted, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)null, ActionId = (Guid?)FirstAction, Detail = (string?)null },
-            new { Tick = 3, Type = DomainEventType.AttackResolved, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)RedUnit, ActionId = (Guid?)FirstAction, Detail = "attack=golden-rifle; distance=3; damage=5; before=4; applied=-4; after=0" },
+            new { Tick = 3, Type = DomainEventType.AttackResolved, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)RedUnit, ActionId = (Guid?)FirstAction, Detail = "attack=golden-rifle; distance=3; damage=5; cover=0; effective=5; before=4; applied=-4; after=0" },
             new { Tick = 3, Type = DomainEventType.ActionCompleted, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)null, ActionId = (Guid?)FirstAction, Detail = (string?)null },
             new { Tick = 4, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, TargetUnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null }
         }));

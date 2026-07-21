@@ -11,6 +11,7 @@
 | MOV-RES-003 | accepted | `rulebook/movement-and-occupancy.md` | Swap rejection test | Add named golden movement fixtures with the fixture harness. |
 | MOV-TRN-001 | accepted | `rulebook/movement-and-occupancy.md` | Terrain timing and impassable-path tests | `GR-MOV-001` terrain-delay golden replay. |
 | TRN-PRT-001 | accepted | `rulebook/terrain-protection.md` | Portable cover/concealment and invalid-content test | Scenario JSON round-trip coverage. |
+| ATK-COV-001 | accepted | `rulebook/direct-attacks.md` | Cover mitigation and minimum-one-damage test | Add a cover-focused Riverside Crossing replay. |
 | RXN-OW-001 | accepted | `rulebook/overwatch.md` | One-shot movement-triggered reaction test | Add an overwatch replay fixture after scenario fixture extraction. |
 | SCN-MAP-001 | accepted | `technical-design/content-schema.md` | Scenario map dimension and starting-position validation test | Scenario definition survives replay serialization. |
 | SCN-MAP-002 | accepted | `technical-design/content-schema.md` | Movement-out-of-bounds scenario test | Add map-boundary golden fixture with the fixture harness. |

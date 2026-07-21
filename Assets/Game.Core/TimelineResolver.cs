@@ -70,7 +70,7 @@ public sealed class TimelineResolver
                 if (completion.Attack is not null)
                 {
                     AddEvent(tick, DomainEventType.AttackResolved, item.FactionId, unit.Id, item.Action.ActionId,
-                        $"attack={completion.AttackProfile!.Id}; distance={completion.Attack.Distance}; damage={completion.AttackProfile.Damage}; before={completion.BeforeHitPoints}; applied={completion.Attack.Application!.AppliedVitalityDelta}; after={completion.Attack.Application.Target.HitPoints}",
+                        $"attack={completion.AttackProfile!.Id}; distance={completion.Attack.Distance}; damage={completion.AttackProfile.Damage}; cover={completion.Attack.CoverMitigation}; effective={completion.Attack.EffectiveDamage}; before={completion.BeforeHitPoints}; applied={completion.Attack.Application!.AppliedVitalityDelta}; after={completion.Attack.Application.Target.HitPoints}",
                         fromPosition: unit.Position, toPosition: completion.Attack.Application.Target.Position,
                         hitPointsAfter: completion.Attack.Application.Target.HitPoints, activityStateAfter: completion.Attack.Application.Target.ActivityState,
                         targetUnitId: completion.Attack.Application.Target.Id);
@@ -148,7 +148,7 @@ public sealed class TimelineResolver
                 var resolution = AttackRules.Resolve(watcher, target, profile, request.Scenario!.Map);
                 state = state.WithUnit(resolution.Application!.Target).WithUnit(watcher with { Overwatch = watcher.Overwatch! with { HasFired = true } });
                 AddEvent(tick, DomainEventType.ReactionAttackResolved, watcher.FactionId, watcher.Id, watcher.Overwatch!.ActionId,
-                    $"reaction={profile.Id}; target={target.Id}; distance={resolution.Distance}; damage={profile.Damage}; before={target.HitPoints}; applied={resolution.Application.AppliedVitalityDelta}; after={resolution.Application.Target.HitPoints}",
+                    $"reaction={profile.Id}; target={target.Id}; distance={resolution.Distance}; damage={profile.Damage}; cover={resolution.CoverMitigation}; effective={resolution.EffectiveDamage}; before={target.HitPoints}; applied={resolution.Application.AppliedVitalityDelta}; after={resolution.Application.Target.HitPoints}",
                     fromPosition: watcher.Position, toPosition: target.Position, hitPointsAfter: resolution.Application.Target.HitPoints, activityStateAfter: resolution.Application.Target.ActivityState,
                     targetUnitId: target.Id);
             }

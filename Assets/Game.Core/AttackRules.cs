@@ -3,7 +3,7 @@
 namespace TacticalStrategyGame.Core
 {
 
-/// <summary>Pure direct-attack resolution. Accuracy, cover, armor, and projectile travel are separate future rules.</summary>
+/// <summary>Pure direct-attack resolution. Cover mitigation is deterministic; accuracy, armor, and projectile travel remain future rules.</summary>
 public static class AttackRules
 {
     public static AttackResolution Resolve(UnitState attacker, UnitState target, AttackProfile profile, GridMapDefinition map)
@@ -16,11 +16,13 @@ public static class AttackRules
         if (target.ActivityState != UnitActivityState.Active)
             return new AttackResolution(distance, null, "Target is not active.");
 
-        var application = EffectRules.Apply(target, new EffectDefinition(profile.Id, -profile.Damage));
-        return new AttackResolution(distance, application);
+        var coverMitigation = TerrainProtectionRules.At(map, target.Position).CoverValue;
+        var effectiveDamage = System.Math.Max(1, profile.Damage - coverMitigation);
+        var application = EffectRules.Apply(target, new EffectDefinition(profile.Id, -effectiveDamage));
+        return new AttackResolution(distance, application, CoverMitigation: coverMitigation, EffectiveDamage: effectiveDamage);
     }
 }
 
-public sealed record AttackResolution(int Distance, EffectApplication? Application, string? FailureDetail = null);
+public sealed record AttackResolution(int Distance, EffectApplication? Application, string? FailureDetail = null, int CoverMitigation = 0, int EffectiveDamage = 0);
 
 }
