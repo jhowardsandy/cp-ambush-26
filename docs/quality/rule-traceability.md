@@ -28,6 +28,7 @@
 | ENC-LOOP-001 | accepted | `rulebook/encounter-rounds.md` | Valid carry-forward and invalid-plan no-advance tests | Add a two-round golden replay after fixture extraction supports encounter records. |
 | ATK-DIR-001 | accepted | `rulebook/direct-attacks.md` | Legal direct-fire, moving-target into/out-of-range completion, blocked-resolution, invalid-profile, and friendly-target tests | `GR-ATK-001` guaranteed direct-fire golden replay. |
 | OBJ-ELM-001 | accepted | `rulebook/objectives.md` | Objective completion, incomplete state, completed-encounter protection, and scenario JSON tests | Add a completed-encounter golden replay after encounter fixtures are extracted. |
+| OBJ-HLD-001 | accepted | `rulebook/objectives.md` | Required-round completion and contested reset tests | Add Riverside hold-area multi-round replay. |
 | VIS-* | proposed | Future visibility chapter | Not implemented | Not implemented |
 | ATK-* | proposed | Future combat chapter | Not implemented | Not implemented |
 | UPG-* | deferred | Future progression chapter | Not implemented | Not implemented |

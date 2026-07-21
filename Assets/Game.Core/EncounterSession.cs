@@ -16,7 +16,7 @@ public sealed record EncounterDefinition(
     IReadOnlyList<FactionDefinition>? FactionDefinitions = null);
 
 /// <summary>Authoritative state at the planning boundary before a new round is ordered.</summary>
-public sealed record EncounterState(EncounterDefinition Definition, GameState CurrentState, int CompletedRounds = 0, EncounterOutcome? Outcome = null);
+public sealed record EncounterState(EncounterDefinition Definition, GameState CurrentState, int CompletedRounds = 0, EncounterOutcome? Outcome = null, IReadOnlyList<ObjectiveProgress>? ObjectiveProgress = null);
 
 public sealed record EncounterRoundResult(EncounterState NextState, SimulationResult Resolution);
 
@@ -41,9 +41,12 @@ public static class EncounterResolver
             encounter.Definition.Objectives, encounter.Definition.UnitDefinitions, encounter.Definition.FactionDefinitions);
         var request = ScenarioFactory.CreateRequest(scenario, commandBundles, configuration, randomSeed, simulationVersion, effects, attackProfiles);
         var resolution = new TimelineResolver().Resolve(request);
-        var outcome = resolution.IsValid ? ObjectiveRules.Evaluate(encounter.Definition.Objectives, resolution.FinalState) : encounter.Outcome;
+        var evaluation = resolution.IsValid
+            ? ObjectiveRules.Evaluate(encounter.Definition.Objectives, encounter.Definition.Map, resolution.FinalState, encounter.ObjectiveProgress)
+            : null;
+        var outcome = resolution.IsValid ? evaluation!.Outcome : encounter.Outcome;
         var nextState = resolution.IsValid
-            ? encounter with { CurrentState = resolution.FinalState, CompletedRounds = encounter.CompletedRounds + 1, Outcome = outcome }
+            ? encounter with { CurrentState = resolution.FinalState, CompletedRounds = encounter.CompletedRounds + 1, Outcome = outcome, ObjectiveProgress = evaluation!.Progress }
             : encounter;
         return new EncounterRoundResult(nextState, resolution);
     }

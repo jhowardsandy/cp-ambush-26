@@ -177,6 +177,13 @@ public static class ScenarioValidator
                 diagnostics.Add(new("unknown-objective-type", "Objective type is not supported by this simulation version."));
             if (String.IsNullOrWhiteSpace(objective.WinningFactionId) || !scenario.InitialState.Units.Any(unit => StringComparer.Ordinal.Equals(unit.FactionId, objective.WinningFactionId)))
                 diagnostics.Add(new("unknown-objective-faction", "Objective winning faction must exist in the scenario initial state."));
+            if (objective.Type == ObjectiveType.HoldAreaForRounds)
+            {
+                if (String.IsNullOrWhiteSpace(objective.AreaId) || !areas.Any(area => StringComparer.Ordinal.Equals(area.Id, objective.AreaId)))
+                    diagnostics.Add(new("unknown-objective-area", "Hold-area objective must name an existing map area."));
+                if (objective.RequiredControlRounds <= 0)
+                    diagnostics.Add(new("non-positive-control-rounds", "Hold-area objective requires one or more uncontested completed rounds."));
+            }
         }
         if (objectives.GroupBy(objective => objective.Id, StringComparer.Ordinal).Any(group => group.Count() > 1))
             diagnostics.Add(new("duplicate-objective-id", "Objective definition IDs must be unique."));

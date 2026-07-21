@@ -1002,6 +1002,48 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Hold_area_objective_completes_after_required_uncontested_rounds()
+    {
+        var map = new GridMapDefinition("hold-area-map", 3, 1, Areas: new[] { new MapAreaDefinition("crossing", new[] { new GridPosition(1, 0) }) });
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(1, 0), Facing.East, UnitActivityState.Active),
+            new UnitState(RedUnit, "red", new GridPosition(2, 0), Facing.West, UnitActivityState.Active)
+        });
+        var definition = new EncounterDefinition("hold-area", map, Objectives: new[]
+        {
+            new ObjectiveDefinition("hold-crossing", ObjectiveType.HoldAreaForRounds, "blue", "crossing", RequiredControlRounds: 2)
+        });
+
+        var first = EncounterResolver.ResolveRound(new EncounterState(definition, state), Array.Empty<CommandBundle>(), new RoundConfiguration(2), 1234u);
+        var second = EncounterResolver.ResolveRound(first.NextState, Array.Empty<CommandBundle>(), new RoundConfiguration(2), 1235u);
+
+        Assert.That(first.NextState.ObjectiveProgress, Is.EqualTo(new[] { new ObjectiveProgress("hold-crossing", 1) }));
+        Assert.That(first.NextState.Outcome, Is.EqualTo(new EncounterOutcome(false)));
+        Assert.That(second.NextState.Outcome, Is.EqualTo(new EncounterOutcome(true, "blue", "objective=hold-crossing; winner=blue; area=crossing; held-rounds=2/2")));
+    }
+
+    [Test]
+    public void Hold_area_objective_resets_progress_when_contested()
+    {
+        var map = new GridMapDefinition("contested-hold-area-map", 3, 1, Areas: new[] { new MapAreaDefinition("crossing", new[] { new GridPosition(1, 0), new GridPosition(2, 0) }) });
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(1, 0), Facing.East, UnitActivityState.Active),
+            new UnitState(RedUnit, "red", new GridPosition(2, 0), Facing.West, UnitActivityState.Active)
+        });
+        var definition = new EncounterDefinition("contested-hold-area", map, Objectives: new[]
+        {
+            new ObjectiveDefinition("hold-crossing", ObjectiveType.HoldAreaForRounds, "blue", "crossing", RequiredControlRounds: 2)
+        });
+
+        var result = EncounterResolver.ResolveRound(new EncounterState(definition, state, ObjectiveProgress: new[] { new ObjectiveProgress("hold-crossing", 1) }), Array.Empty<CommandBundle>(), new RoundConfiguration(2), 1234u);
+
+        Assert.That(result.NextState.ObjectiveProgress, Is.EqualTo(new[] { new ObjectiveProgress("hold-crossing", 0) }));
+        Assert.That(result.NextState.Outcome, Is.EqualTo(new EncounterOutcome(false)));
+    }
+
+    [Test]
     public void Completed_encounter_cannot_resolve_another_round()
     {
         var encounter = new EncounterState(

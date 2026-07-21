@@ -18,12 +18,33 @@ The core evaluates objectives at the encounter round boundary, after timeline re
 
 Evidence: `Eliminate_all_opponents_objective_completes_when_last_enemy_is_incapacitated`, `Eliminate_all_opponents_objective_remains_incomplete_while_an_enemy_is_active`, and `Completed_encounter_cannot_resolve_another_round`.
 
+## OBJ-HLD-001: Hold a named area for completed rounds
+
+Status: accepted first capture/hold slice.
+
+An encounter may define `HoldAreaForRounds` for a named winning faction, a named map area, and a positive required number of completed rounds. At each valid round boundary, the holding count increases by one only when at least one active unit of the winning faction occupies the area and no active opposing unit occupies any tile in that area. Empty or contested areas reset the count to zero. When the count reaches the required value, the encounter completes for the named faction.
+
+The count belongs to the authoritative encounter planning state, not to Unity or an AI. Invalid rounds do not advance it. The player-facing status must show `held rounds / required rounds` and the completed outcome records the area and final count.
+
+Examples for a three-round Blue hold:
+
+| End-of-round area state | Count after round |
+| --- | ---: |
+| Blue active; no Red active | 1/3 (then 2/3, then win at 3/3) |
+| No active units | 0/3 |
+| Blue and Red both active | 0/3 |
+| Red only | 0/3 |
+
+Riverside Crossing uses this objective for Blue to hold the named `central-crossing` area for three uncontested completed rounds, alongside its eliminate-Red alternative.
+
+Evidence: `Hold_area_objective_completes_after_required_uncontested_rounds` and `Hold_area_objective_resets_progress_when_contested`.
+
 ## Proposed objective family
 
 The following are documented directions, not implemented rules:
 
 - **Eliminate commander:** requires role/identity content, target eligibility, and simultaneous-outcome policy.
-- **Capture/hold area:** requires named map areas, eligible occupiers, contested-state policy, tick/round duration, and reset/decay rules.
+- **Neutral/capture ownership:** requires multiple eligible factions, initial owner, handover policy, neutralization, and simultaneous control policy.
 - **Accrue control points:** requires score ownership, thresholds, point timing, ties, and overtime/end-of-round policy.
 - **Extract/escort/survive:** requires map exits or entities, eligibility, timing, and simultaneous-resolution policy.
 - **Search, rescue, and extract:** may place an important person or civilians in a town/building. It requires scan/search actions, unknown or revealed entity state, building/interior policy, rescue eligibility, escort or pickup behavior, extraction location, and failure conditions.

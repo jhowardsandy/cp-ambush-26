@@ -72,7 +72,11 @@ namespace TacticalStrategyGame.Presentation.Unity
                 new MapAreaDefinition("red-deployment", new[] { new GridPosition(14, 10), new GridPosition(12, 10), new GridPosition(14, 8), new GridPosition(11, 9) }),
                 new MapAreaDefinition("central-crossing", new[] { new GridPosition(6, 4), new GridPosition(7, 4), new GridPosition(8, 4), new GridPosition(9, 4), new GridPosition(6, 7), new GridPosition(7, 7), new GridPosition(8, 7), new GridPosition(9, 7) }),
                 new MapAreaDefinition("contact-rally", new[] { new GridPosition(9, 4) })
-            }), new GameState(units), Objectives: new[] { new ObjectiveDefinition("eliminate-red", ObjectiveType.IncapacitateAllOpposingUnits, "blue") },
+            }), new GameState(units), Objectives: new[]
+            {
+                new ObjectiveDefinition("hold-central-crossing", ObjectiveType.HoldAreaForRounds, "blue", "central-crossing", RequiredControlRounds: 3),
+                new ObjectiveDefinition("eliminate-red", ObjectiveType.IncapacitateAllOpposingUnits, "blue")
+            },
                 UnitDefinitions: new[] { StarterMilitaryContent.Rifleman, StarterMilitaryContent.CombatMedic },
                 FactionDefinitions: new[]
                 {
@@ -452,6 +456,13 @@ namespace TacticalStrategyGame.Presentation.Unity
         private static string RoundSummary(IReadOnlyList<DomainEvent> events, int round) =>
             $"Round {round} result: {events.Count(@event => @event.Type == DomainEventType.UnitEnteredTile)} moves · {events.Count(@event => @event.Type == DomainEventType.AttackResolved)} attacks · {events.Count(@event => @event.Type == DomainEventType.EffectApplied)} heals · {events.Count(@event => @event.Type == DomainEventType.ReactionAttackResolved)} reactions · {events.Count(@event => @event.Type == DomainEventType.MovementDelayed)} delays · {events.Count(@event => @event.Type == DomainEventType.ActionFailed)} failed";
 
+        private string ObjectiveStatus()
+        {
+            var objective = _scenario.Objectives!.First(candidate => candidate.Id == "hold-central-crossing");
+            var heldRounds = _encounter.ObjectiveProgress?.FirstOrDefault(progress => progress.ObjectiveId == objective.Id)?.ControlledRounds ?? 0;
+            return $"Objective: Blue holds Central Crossing uncontested {heldRounds}/{objective.RequiredControlRounds} completed rounds (or eliminate Red).";
+        }
+
         private void DrawFeedback()
         {
             _feedback.RemoveAll(pulse => pulse.ExpiresAt <= Time.time || !_views.ContainsKey(pulse.UnitId));
@@ -627,6 +638,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 var selected = blue[i].Id == _selectedBlue ? "> " : "  ";
                 GUI.Label(new Rect(28, 206 + i * 20, 970, 20), $"{selected}Blue {i + 1}: {PlannedOrderDescription(blue[i])}");
             }
+            GUI.Label(new Rect(560, 134, 440, 20), ObjectiveStatus());
             GUI.Box(new Rect(12, 300, 1000, 30), _roundSummary);
             var y = 338f; foreach (var line in _lines.Take(13)) { GUI.Label(new Rect(20, y, 990, 20), line); y += 19; }
             DrawOverwatchOverlay();

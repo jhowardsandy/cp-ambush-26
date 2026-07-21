@@ -67,6 +67,12 @@ Submit at least three purposeful rounds involving two or more Blue units. Review
 
 Expected: units with no drafted order wait; Red receives ordinary deterministic orders; playback progresses through ordered tick events; incapacitated units are distinct; each completed round shows a checksum. Auto-play resets first, runs no more than 12 rounds, and stops early on objective completion.
 
+### RC-HUM-009: Hold Central Crossing objective
+
+Move at least one active Blue unit into the named central-crossing tiles while no active Red unit occupies them. Submit consecutive rounds while preserving that uncontested state.
+
+Expected: the objective line progresses from `0/3` to `1/3`, then `2/3`, then Blue wins at `3/3`. A Red unit entering any central-crossing tile, or Blue leaving it empty, resets the count to `0/3`. Elimination of Red remains an alternative Blue victory condition.
+
 ## Session log template
 
 | Field | Record |
@@ -79,6 +85,12 @@ Expected: units with no drafted order wait; Red receives ordinary deterministic 
 | Rules defects | case, exact order sequence, event detail, checksum, evidence link |
 | Overall confidence (1–5) | |
 | Follow-up owner / disposition | |
+
+## Recorded sessions
+
+| Date | Playtester | Result | Notes |
+| --- | --- | --- | --- |
+| 2026-07-21 | Justin Howard | RC-HUM-001 through RC-HUM-008 passed | Auto-play did not complete in 12 rounds; recorded as current PvE-tuning observation, not a rules defect. |
 
 ## Exit criteria for this graybox phase
 
