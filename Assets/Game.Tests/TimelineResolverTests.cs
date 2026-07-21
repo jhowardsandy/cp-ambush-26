@@ -449,6 +449,23 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Graybox_four_v_four_pve_encounter_is_repeatable_across_multiple_rounds()
+    {
+        var fixturePath = Path.Combine(Directory.GetCurrentDirectory(), "docs", "examples", "scenarios", "iron-timeline-squad-skirmish-01.json");
+        var scenario = ScenarioSerializer.Deserialize(File.ReadAllText(fixturePath));
+        var rifle = new AttackProfile("graybox-rifle", 1, 3, 5);
+
+        var first = RunGrayboxPveEncounter(scenario, rifle);
+        var second = RunGrayboxPveEncounter(scenario, rifle);
+
+        Assert.That(first.Checksums, Is.EqualTo(second.Checksums));
+        Assert.That(first.DecisionCounts, Is.EqualTo(second.DecisionCounts));
+        Assert.That(first.ValidRounds, Is.EqualTo(4));
+        Assert.That(first.DecisionCounts, Is.EqualTo(new[] { 8, 8, 8, 8 }));
+        Assert.That(first.EventCounts.All(count => count > 2), Is.True);
+    }
+
+    [Test]
     public void Line_of_sight_is_blocked_by_an_intermediate_terrain_cell()
     {
         var map = new GridMapDefinition("los-map", 5, 1, new[]
@@ -928,6 +945,31 @@ public sealed class TimelineResolverTests
         new UnitState(BlueUnit, "blue", bluePosition, Facing.North, UnitActivityState.Active),
         new UnitState(RedUnit, "red", redPosition, Facing.South, UnitActivityState.Active)
     });
+
+    private static (IReadOnlyList<string> Checksums, IReadOnlyList<int> DecisionCounts, IReadOnlyList<int> EventCounts, int ValidRounds) RunGrayboxPveEncounter(ScenarioDefinition scenario, AttackProfile profile)
+    {
+        var encounter = new EncounterState(new EncounterDefinition(scenario.Id, scenario.Map, scenario.ContentVersion, scenario.Objectives), scenario.InitialState);
+        var checksums = new List<string>();
+        var decisionCounts = new List<int>();
+        var eventCounts = new List<int>();
+        var validRounds = 0;
+        for (var roundNumber = 1; roundNumber <= 4 && encounter.Outcome?.IsComplete != true; roundNumber++)
+        {
+            var blue = PvePlanner.Plan("blue", encounter.CurrentState, scenario.Map, profile);
+            var red = PvePlanner.Plan("red", encounter.CurrentState, scenario.Map, profile);
+            var result = EncounterResolver.ResolveRound(encounter, new[] { blue.Commands, red.Commands }, new RoundConfiguration(10), (uint)(20260721 + roundNumber),
+                attackProfiles: new[] { profile });
+
+            Assert.That(result.Resolution.IsValid, Is.True);
+            validRounds++;
+            checksums.Add(result.Resolution.FinalStateChecksum);
+            decisionCounts.Add(blue.Decisions.Count + red.Decisions.Count);
+            eventCounts.Add(result.Resolution.Events.Count);
+            encounter = result.NextState;
+        }
+
+        return (checksums, decisionCounts, eventCounts, validRounds);
+    }
 }
 
 }
