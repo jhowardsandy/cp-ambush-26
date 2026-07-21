@@ -207,7 +207,10 @@ namespace TacticalStrategyGame.Presentation.Unity
             var target = _encounter.CurrentState.FindUnit(_selectedRed)!;
             if (unit.ActivityState != UnitActivityState.Active || target.ActivityState != UnitActivityState.Active) { _message = "Both units must be active."; return; }
             QueueAction(unit, TacticalActionType.Attack, 1, targetUnitId: target.Id, attackProfileId: Rifle.Id);
-            _message = $"Queued speculative attack: Blue {UnitNumber(unit.Id)} targets Red {UnitNumber(target.Id)}.";
+            var observation = VisibilityRules.Observe(_scenario.Map, unit, target);
+            _message = observation.IsObservable
+                ? $"Queued attack: Blue {UnitNumber(unit.Id)} targets observable Red {UnitNumber(target.Id)}. Range and sight resolve later."
+                : $"Queued speculative attack: Red {UnitNumber(target.Id)} is currently concealed/out of vision; observation is checked at resolution.";
         }
 
         private void DraftHealTarget()
@@ -365,12 +368,16 @@ namespace TacticalStrategyGame.Presentation.Unity
             foreach (var unit in state.Units)
             {
                 _views[unit.Id].transform.position = new Vector3(unit.Position.X, .3f, unit.Position.Y);
-                _views[unit.Id].GetComponent<Renderer>().material.color = unit.ActivityState == UnitActivityState.Incapacitated ? Color.gray : UnitColor(unit);
+                var color = unit.ActivityState == UnitActivityState.Incapacitated ? Color.gray : UnitColor(unit);
+                if (unit.FactionId == "red" && !IsObservableByBlue(unit, state)) color = Color.Lerp(color, Color.black, .55f);
+                _views[unit.Id].GetComponent<Renderer>().material.color = color;
             }
         }
 
         private static int UnitNumber(Guid id) => id.ToString("N")[31] - '0';
         private static string RoleName(UnitState unit) => unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? "MEDIC" : "RIFLE";
+        private bool IsObservableByBlue(UnitState target, GameState state) => state.Units.Where(unit => unit.FactionId == "blue" && unit.ActivityState == UnitActivityState.Active)
+            .Any(observer => VisibilityRules.Observe(_scenario.Map, observer, target).IsObservable);
         private static Color UnitColor(UnitState unit) => unit.FactionId == "blue"
             ? unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? new Color(.25f, .9f, .65f) : new Color(.2f, .62f, 1f)
             : unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? new Color(1f, .55f, .25f) : new Color(1f, .3f, .25f);
@@ -517,7 +524,8 @@ namespace TacticalStrategyGame.Presentation.Unity
                 var screen = Camera.main!.WorldToScreenPoint(_views[unit.Id].transform.position + Vector3.up * .65f);
                 var medKits = InventoryRules.QuantityOf(unit, "med-kit");
                 var inventory = medKits > 0 || unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? $" kit:{medKits}" : string.Empty;
-                GUI.Label(new Rect(screen.x - 70, Screen.height - screen.y, 180, 20), $"{unit.FactionId.ToUpperInvariant()} {UnitNumber(unit.Id)} {RoleName(unit)} {unit.HitPoints}/{unit.MaxHitPoints}{inventory}");
+                var visibility = unit.FactionId == "red" ? IsObservableByBlue(unit, _encounter.CurrentState) ? " OBS" : " HIDDEN" : string.Empty;
+                GUI.Label(new Rect(screen.x - 70, Screen.height - screen.y, 180, 20), $"{unit.FactionId.ToUpperInvariant()} {UnitNumber(unit.Id)} {RoleName(unit)} {unit.HitPoints}/{unit.MaxHitPoints}{inventory}{visibility}");
             }
         }
 

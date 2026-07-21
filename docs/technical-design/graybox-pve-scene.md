@@ -12,4 +12,6 @@ The **Overwatch zone** buttons queue a Rifleman's 90-degree cardinal watch cone 
 
 If two planned Blue movement paths reach the same tile on the same tick, the shared route preview colors that tile magenta and the affected plan row shows `seeded clash`. This is a warning, not an invalid-plan claim: the resolver’s replay seed decides the movement winner and delays the other timeline by one tick.
 
+Red unit labels now expose the Blue faction’s current observation result: `OBS` when at least one active Blue unit can observe the target, otherwise `HIDDEN`. Hidden Red views are dimmed but intentionally remain visible in this development graybox; this is observation feedback, not finished fog-of-war presentation.
+
 For recording and deterministic visual regression checks, **Auto-play demo** resets the scene then submits up to eight rounds of `PvePlanner` orders for both Blue and Red. It uses the ordinary `EncounterResolver` playback path and pauses early if an objective completes; it does not fabricate movement, combat, or outcomes in Unity.
