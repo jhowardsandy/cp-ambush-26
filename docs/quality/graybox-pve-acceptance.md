@@ -11,3 +11,9 @@ Evidence: `Graybox_four_v_four_pve_encounter_is_repeatable_across_multiple_round
 ## Manual mixed-roster scene check
 
 In the player-operated scene, each side must visibly contain two capsule Riflemen and two sphere Combat Medics. A damaged Blue Medic can draft `Medic heal self`; successful resolution restores vitality and decrements the displayed med-kit count by one. This is presentation validation of core rules already covered by the deterministic inventory tests.
+
+## GBA-SEQ-001: Player order sequence
+
+The player can queue a cardinal move path then a named Red attack for the same Blue unit. The plan panel shows both actions and their AP total before submission; after resolution, the direct attack is evaluated from the moved position at its completion tick. Undo removes only the selected unit's latest action.
+
+Evidence: `A_unit_can_move_then_resolve_a_named_attack_from_its_new_position`.

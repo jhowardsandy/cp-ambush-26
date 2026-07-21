@@ -13,7 +13,7 @@ namespace TacticalStrategyGame.Presentation.Unity
     public sealed class GrayboxPveController : MonoBehaviour
     {
         private readonly Dictionary<Guid, GameObject> _views = new();
-        private readonly Dictionary<Guid, TacticalAction> _blueOrders = new();
+        private readonly Dictionary<Guid, List<TacticalAction>> _blueOrders = new();
         private readonly List<string> _lines = new();
         private ScenarioDefinition _scenario = null!;
         private EncounterState _encounter = null!;
@@ -97,11 +97,20 @@ namespace TacticalStrategyGame.Presentation.Unity
         private void DraftMove(GridPosition delta)
         {
             var unit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
-            var destination = new GridPosition(unit.Position.X + delta.X, unit.Position.Y + delta.Y);
+            var priorActions = PlannedActions(unit.Id);
+            var priorMove = priorActions.LastOrDefault(action => action.Type == TacticalActionType.Move);
+            var origin = priorMove?.Path is { Count: > 0 } ? priorMove.Path[^1] : unit.Position;
+            var destination = new GridPosition(origin.X + delta.X, origin.Y + delta.Y);
             if (!unit.ActivityState.Equals(UnitActivityState.Active) || !_scenario.Map.Contains(destination) || !_scenario.Map.CellAt(destination).IsPassable || _encounter.CurrentState.Units.Any(other => other.Position == destination))
             { _message = "That move is outside the map, blocked, or occupied."; return; }
-            _blueOrders[unit.Id] = new TacticalAction(unit.Id, unit.Id, TacticalActionType.Move, 0, _scenario.Map.CellAt(destination).MovementTicks, Path: new[] { destination });
-            _message = $"Drafted move for Blue {UnitNumber(unit.Id)} to ({destination.X},{destination.Y}).";
+            if (priorActions.LastOrDefault()?.Type == TacticalActionType.Move && priorMove is not null)
+            {
+                var path = priorMove.Path!.Append(destination).ToArray();
+                priorActions[^1] = priorMove with { Path = path, DurationTicks = MovementRules.DurationFor(priorMove with { Path = path }, _scenario.Map) };
+            }
+            else
+                QueueAction(unit, TacticalActionType.Move, _scenario.Map.CellAt(destination).MovementTicks, Path: new[] { destination });
+            _message = $"Queued move for Blue {UnitNumber(unit.Id)} to ({destination.X},{destination.Y}).";
         }
 
         private void DraftAttack()
@@ -109,8 +118,8 @@ namespace TacticalStrategyGame.Presentation.Unity
             var unit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
             var target = _encounter.CurrentState.FindUnit(_selectedRed)!;
             if (unit.ActivityState != UnitActivityState.Active || target.ActivityState != UnitActivityState.Active) { _message = "Both units must be active."; return; }
-            _blueOrders[unit.Id] = new TacticalAction(unit.Id, unit.Id, TacticalActionType.Attack, 0, 1, TargetUnitId: target.Id, AttackProfileId: Rifle.Id);
-            _message = $"Drafted speculative attack: Blue {UnitNumber(unit.Id)} targets Red {UnitNumber(target.Id)}.";
+            QueueAction(unit, TacticalActionType.Attack, 1, TargetUnitId: target.Id, AttackProfileId: Rifle.Id);
+            _message = $"Queued speculative attack: Blue {UnitNumber(unit.Id)} targets Red {UnitNumber(target.Id)}.";
         }
 
         private void DraftSelfHeal()
@@ -126,14 +135,54 @@ namespace TacticalStrategyGame.Presentation.Unity
                 _message = $"Blue {UnitNumber(unit.Id)} has no med kits remaining.";
                 return;
             }
-            _blueOrders[unit.Id] = new TacticalAction(unit.Id, unit.Id, TacticalActionType.ApplyEffect, 0, 1, TargetUnitId: unit.Id, EffectId: FieldMedKit.Id);
-            _message = $"Drafted self-heal for Blue {UnitNumber(unit.Id)}. One med kit will be spent on successful resolution.";
+            QueueAction(unit, TacticalActionType.ApplyEffect, 1, TargetUnitId: unit.Id, EffectId: FieldMedKit.Id);
+            _message = $"Queued self-heal for Blue {UnitNumber(unit.Id)}. One med kit will be spent on successful resolution.";
+        }
+
+        private List<TacticalAction> PlannedActions(Guid unitId)
+        {
+            if (_blueOrders.TryGetValue(unitId, out var actions)) return actions;
+            actions = new List<TacticalAction>();
+            _blueOrders.Add(unitId, actions);
+            return actions;
+        }
+
+        private void QueueAction(UnitState unit, TacticalActionType type, int durationTicks, GridPosition? destination = null, IReadOnlyList<GridPosition>? path = null, Guid? targetUnitId = null, string? effectId = null, string? attackProfileId = null)
+        {
+            var actions = PlannedActions(unit.Id);
+            var startTick = actions.Count == 0 ? 0 : actions[^1].StartTick + actions[^1].DurationTicks;
+            if (startTick + durationTicks > 10)
+            {
+                _message = "That action would extend beyond this 10-tick round. Undo or clear an earlier order.";
+                return;
+            }
+            actions.Add(new TacticalAction(PlannedActionId(unit.Id, actions.Count + 1), unit.Id, type, startTick, durationTicks, destination, Path: path, TargetUnitId: targetUnitId, EffectId: effectId, AttackProfileId: attackProfileId));
+        }
+
+        private static Guid PlannedActionId(Guid unitId, int sequence)
+        {
+            var canonical = unitId.ToString("N");
+            return Guid.Parse(canonical[..28] + sequence.ToString("x1") + canonical[29..]);
+        }
+
+        private int PlannedActionCount => _blueOrders.Values.Sum(actions => actions.Count);
+
+        private void UndoLastBlueAction()
+        {
+            if (!_blueOrders.TryGetValue(_selectedBlue, out var actions) || actions.Count == 0)
+            {
+                _message = $"Blue {UnitNumber(_selectedBlue)} has no queued action to undo.";
+                return;
+            }
+            actions.RemoveAt(actions.Count - 1);
+            if (actions.Count == 0) _blueOrders.Remove(_selectedBlue);
+            _message = $"Removed Blue {UnitNumber(_selectedBlue)}'s last queued action.";
         }
 
         private void Submit()
         {
             if (_resolving || _encounter.Outcome?.IsComplete == true) return;
-            if (_blueOrders.Count == 0)
+            if (PlannedActionCount == 0)
             {
                 _message = "Draft at least one Blue order first. Units without an order wait this round.";
                 return;
@@ -167,7 +216,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private IEnumerator Resolve()
         {
-            yield return Resolve(new CommandBundle("blue", _blueOrders.Values.ToArray()));
+            yield return Resolve(new CommandBundle("blue", _blueOrders.Values.SelectMany(actions => actions).ToArray()));
         }
 
         private IEnumerator Resolve(CommandBundle blueCommands)
@@ -207,7 +256,14 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private string PlannedOrderDescription(UnitState unit)
         {
-            if (!_blueOrders.TryGetValue(unit.Id, out var action)) return "No order — waits";
+            if (!_blueOrders.TryGetValue(unit.Id, out var actions) || actions.Count == 0) return "No order — waits";
+            var descriptions = actions.Select(action => ActionDescription(action)).ToArray();
+            var spent = actions.Sum(action => ActionPointRules.CostFor(action, _scenario.Map, new[] { FieldMedKit }, new[] { Rifle }));
+            return $"{String.Join(" → ", descriptions)}  [{spent}/{unit.ActionPointBudget} AP]";
+        }
+
+        private static string ActionDescription(TacticalAction action)
+        {
             if (action.Type == TacticalActionType.Move && action.Path is { Count: > 0 })
             {
                 var destination = action.Path[^1];
@@ -239,9 +295,10 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (GUI.Button(new Rect(450, 76, 45, 24), "W")) DraftMove(new GridPosition(-1, 0));
             if (GUI.Button(new Rect(505, 76, 100, 24), "Attack red")) DraftAttack();
             if (GUI.Button(new Rect(615, 76, 100, 24), "Next red")) _selectedRed = NextRed();
-            if (GUI.Button(new Rect(725, 76, 100, 24), "Clear blue")) _blueOrders.Remove(_selectedBlue);
-            if (GUI.Button(new Rect(835, 76, 100, 24), "Medic heal self")) DraftSelfHeal();
-            GUI.Box(new Rect(12, 138, 1000, 112), $"Round plan — {_blueOrders.Count}/4 Blue orders queued. Choosing another order for a Blue unit replaces its current order.");
+            if (GUI.Button(new Rect(725, 76, 60, 24), "Undo")) UndoLastBlueAction();
+            if (GUI.Button(new Rect(795, 76, 65, 24), "Clear")) _blueOrders.Remove(_selectedBlue);
+            if (GUI.Button(new Rect(870, 76, 120, 24), "Medic heal self")) DraftSelfHeal();
+            GUI.Box(new Rect(12, 138, 1000, 112), $"Round plan — {PlannedActionCount} actions across {_blueOrders.Count} Blue units. Orders resolve left-to-right; Undo removes the selected unit's last action.");
             for (var i = 0; i < blue.Length; i++)
             {
                 var selected = blue[i].Id == _selectedBlue ? "> " : "  ";

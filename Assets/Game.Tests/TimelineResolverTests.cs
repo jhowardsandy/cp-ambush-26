@@ -738,6 +738,27 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void A_unit_can_move_then_resolve_a_named_attack_from_its_new_position()
+    {
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East, UnitActivityState.Active),
+            new UnitState(RedUnit, "red", new GridPosition(3, 0), Facing.West, UnitActivityState.Active)
+        });
+        var scenario = new ScenarioDefinition("move-then-attack", new GridMapDefinition("move-then-attack-map", 4, 1), state);
+        var move = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(1, 0) });
+        var attack = new TacticalAction(SecondAction, BlueUnit, TacticalActionType.Attack, 1, 1, TargetUnitId: RedUnit, AttackProfileId: "rifle");
+
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", move, attack) }, new RoundConfiguration(3), 1234u,
+            attackProfiles: new[] { new AttackProfile("rifle", 1, 3, 5) }));
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.FinalState.FindUnit(BlueUnit)!.Position, Is.EqualTo(new GridPosition(1, 0)));
+        Assert.That(result.FinalState.FindUnit(RedUnit)!.HitPoints, Is.EqualTo(5));
+        Assert.That(result.Events.Single(@event => @event.Type == DomainEventType.AttackResolved).Tick, Is.EqualTo(2));
+    }
+
+    [Test]
     public void Adjacent_posture_change_updates_state_and_emits_event()
     {
         var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.ChangePosture, 0, 1, Posture: UnitPosture.Crouched);
