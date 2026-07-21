@@ -37,6 +37,24 @@ Units should be content-defined from composable data: base vitality, movement, v
 
 Role tags are candidate data for priority targeting and AI planning; they are not a reason to hard-code a special unit class into the core.
 
+## Proposed tactical doctrines (behavior stances)
+
+Alongside a player’s explicit orders, a unit may eventually carry a selected **tactical doctrine**: a data-defined preference that guides conditional orders, PvE, and optional assisted planning. We deliberately use *doctrine* rather than *alignment*: a future fantasy setting may need alignment for moral, cultural, or narrative meaning, while a doctrine answers only “how should this unit behave tactically?”
+
+Initial candidate doctrines:
+
+| Doctrine | Intended preference | Example use |
+| --- | --- | --- |
+| Aggressive | Advance toward legal objectives/contacts and favor attack opportunities. | Assault rifleman presses a crossing. |
+| Stealth | Favor concealment, avoid unnecessary exposure, and wait for stronger information. | Scout moves through brush before engaging. |
+| Support / Follow | Stay within a declared distance of a designated friendly unit and favor protection/healing. | Medic follows a Rifleman or commander. |
+| Hold / Defend | Remain near a defended area, favor cover and overwatch over pursuit. | Squad protects an extraction point. |
+| Ranged / Keep distance | Maintain a configured range band and avoid closing when a legal shot remains possible. | Archer, sniper, or missile unit holds standoff distance. |
+
+A doctrine is **not** permission for hidden information, extra actions, or presentation-side decisions. It must be represented as an explicit unit/order/scenario value with stable target/objective references where needed. The planner may only choose from legal actions using its faction’s accepted knowledge; it must record the doctrine, candidate priorities, selected action, tie-breaks, and fallback in the replay/event explanation.
+
+Before the first doctrine is accepted, define its ownership (unit default, player order, scenario, or temporary effect), change timing/cost, target reference validity, action/AP limits, observation and posture requirements, objective interaction, tie-breaks, fallback when its preference is impossible, multiplayer visibility policy, serialization/versioning, and deterministic test matrix. The first increment should be one small doctrine with an explicit behavior contract, not five loosely specified personalities.
+
 ## Proposed round action-point economy
 
 The current sandbox uses a 10-tick round as a technical planning bound; it is not yet a unit-speed rule. The proposed player-facing model is a per-unit action-point (AP) budget that refreshes at the start of each round. A unit's content definition would supply a base AP value, terrain traversal could spend AP per entered tile, and actions such as attacks, healing, reloads, stances, or abilities could spend explicit AP costs. Temporary effects or special abilities may grant, remove, or reserve AP only through named, versioned rules.
