@@ -948,7 +948,8 @@ public sealed class TimelineResolverTests
 
     private static (IReadOnlyList<string> Checksums, IReadOnlyList<int> DecisionCounts, IReadOnlyList<int> EventCounts, int ValidRounds) RunGrayboxPveEncounter(ScenarioDefinition scenario, AttackProfile profile)
     {
-        var encounter = new EncounterState(new EncounterDefinition(scenario.Id, scenario.Map, scenario.ContentVersion, scenario.Objectives), scenario.InitialState);
+        var encounter = new EncounterState(new EncounterDefinition(scenario.Id, scenario.Map, scenario.ContentVersion, scenario.Objectives,
+            scenario.UnitDefinitions, scenario.FactionDefinitions), scenario.InitialState);
         var checksums = new List<string>();
         var decisionCounts = new List<int>();
         var eventCounts = new List<int>();

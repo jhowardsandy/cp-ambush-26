@@ -7,7 +7,13 @@ namespace TacticalStrategyGame.Core
 {
 
 /// <summary>Content shared across all rounds of one reusable tactical encounter.</summary>
-public sealed record EncounterDefinition(string Id, GridMapDefinition Map, string ContentVersion = "1", IReadOnlyList<ObjectiveDefinition>? Objectives = null);
+public sealed record EncounterDefinition(
+    string Id,
+    GridMapDefinition Map,
+    string ContentVersion = "1",
+    IReadOnlyList<ObjectiveDefinition>? Objectives = null,
+    IReadOnlyList<UnitDefinition>? UnitDefinitions = null,
+    IReadOnlyList<FactionDefinition>? FactionDefinitions = null);
 
 /// <summary>Authoritative state at the planning boundary before a new round is ordered.</summary>
 public sealed record EncounterState(EncounterDefinition Definition, GameState CurrentState, int CompletedRounds = 0, EncounterOutcome? Outcome = null);
@@ -31,7 +37,8 @@ public static class EncounterResolver
         if (encounter.Outcome?.IsComplete == true)
             throw new InvalidOperationException("A completed encounter cannot resolve another round.");
 
-        var scenario = new ScenarioDefinition(encounter.Definition.Id, encounter.Definition.Map, encounter.CurrentState, encounter.Definition.ContentVersion, encounter.Definition.Objectives);
+        var scenario = new ScenarioDefinition(encounter.Definition.Id, encounter.Definition.Map, encounter.CurrentState, encounter.Definition.ContentVersion,
+            encounter.Definition.Objectives, encounter.Definition.UnitDefinitions, encounter.Definition.FactionDefinitions);
         var request = ScenarioFactory.CreateRequest(scenario, commandBundles, configuration, randomSeed, simulationVersion, effects, attackProfiles);
         var resolution = new TimelineResolver().Resolve(request);
         var outcome = resolution.IsValid ? ObjectiveRules.Evaluate(encounter.Definition.Objectives, resolution.FinalState) : encounter.Outcome;
