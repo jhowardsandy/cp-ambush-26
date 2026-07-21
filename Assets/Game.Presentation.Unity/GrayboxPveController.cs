@@ -70,7 +70,8 @@ namespace TacticalStrategyGame.Presentation.Unity
             {
                 new MapAreaDefinition("blue-deployment", new[] { new GridPosition(1, 1), new GridPosition(3, 1), new GridPosition(1, 3), new GridPosition(4, 2) }),
                 new MapAreaDefinition("red-deployment", new[] { new GridPosition(14, 10), new GridPosition(12, 10), new GridPosition(14, 8), new GridPosition(11, 9) }),
-                new MapAreaDefinition("central-crossing", new[] { new GridPosition(6, 4), new GridPosition(7, 4), new GridPosition(8, 4), new GridPosition(9, 4), new GridPosition(6, 7), new GridPosition(7, 7), new GridPosition(8, 7), new GridPosition(9, 7) })
+                new MapAreaDefinition("central-crossing", new[] { new GridPosition(6, 4), new GridPosition(7, 4), new GridPosition(8, 4), new GridPosition(9, 4), new GridPosition(6, 7), new GridPosition(7, 7), new GridPosition(8, 7), new GridPosition(9, 7) }),
+                new MapAreaDefinition("contact-rally", new[] { new GridPosition(9, 4) })
             }), new GameState(units), Objectives: new[] { new ObjectiveDefinition("eliminate-red", ObjectiveType.IncapacitateAllOpposingUnits, "blue") },
                 UnitDefinitions: new[] { StarterMilitaryContent.Rifleman, StarterMilitaryContent.CombatMedic },
                 FactionDefinitions: new[]
@@ -392,7 +393,9 @@ namespace TacticalStrategyGame.Presentation.Unity
         }
 
         private static int UnitNumber(Guid id) => id.ToString("N")[31] - '0';
-        private IReadOnlyList<GridPosition> ScoutObjectives => _scenario.Map.AreaById("central-crossing")?.Tiles ?? Array.Empty<GridPosition>();
+        private IReadOnlyList<GridPosition> ScoutObjectives => _scenario.Map.AreaById("contact-rally")?.Tiles
+            ?? _scenario.Map.AreaById("central-crossing")?.Tiles
+            ?? Array.Empty<GridPosition>();
         private static string RoleName(UnitState unit) => unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? "MEDIC" : "RIFLE";
         private bool IsObservableByBlue(UnitState target, GameState state) => state.Units.Where(unit => unit.FactionId == "blue" && unit.ActivityState == UnitActivityState.Active)
             .Any(observer => VisibilityRules.Observe(_scenario.Map, observer, target).IsObservable);

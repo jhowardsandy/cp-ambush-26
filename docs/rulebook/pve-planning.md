@@ -16,7 +16,7 @@ Resolution: At the start of planning, each active unit is considered in stable u
 
 Planned destinations are reserved while a faction is being planned, so the planner does not knowingly issue two same-side moves to the same tile.
 
-Calculation/example: A unit with two equally distance-reducing movement options chooses cover 2 over cover 0. A medic with a legal adjacent ally at 4/10 vitality and a visible enemy chooses treatment first; a Rifleman without `field-medicine` cannot do so. On Riverside Crossing, units without contact advance toward the authored `central-crossing` area rather than toward a map edge.
+Calculation/example: A unit with two equally distance-reducing movement options chooses cover 2 over cover 0. A medic with a legal adjacent ally at 4/10 vitality and a visible enemy chooses treatment first; a Rifleman without `field-medicine` cannot do so. On Riverside Crossing, units without contact advance toward the authored `contact-rally` point rather than toward a map edge or separate edges of a broad crossing area.
 
 Player-facing explanation: The event/decision log identifies whether the unit chose `heal`, `attack`, `move`, `scout`, or `wait`, and names the reason. The final encounter result still comes solely from the shared resolver, so an intended attack can fail if the board changes before its completion tick.
 
