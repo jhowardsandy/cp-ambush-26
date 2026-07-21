@@ -15,6 +15,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         private readonly Dictionary<Guid, GameObject> _views = new();
         private readonly Dictionary<Guid, List<TacticalAction>> _blueOrders = new();
         private readonly List<string> _lines = new();
+        private readonly Dictionary<Guid, Facing> _armedOverwatch = new();
         private ScenarioDefinition _scenario = null!;
         private EncounterState _encounter = null!;
         private Guid _selectedBlue;
@@ -87,7 +88,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void ResetEncounter()
         {
-            StopAllCoroutines(); _resolving = false; _autoPlaying = false; _blueOrders.Clear(); _lines.Clear();
+            StopAllCoroutines(); _resolving = false; _autoPlaying = false; _blueOrders.Clear(); _lines.Clear(); _armedOverwatch.Clear();
             _encounter = new EncounterState(new EncounterDefinition(_scenario.Id, _scenario.Map, _scenario.ContentVersion, _scenario.Objectives, _scenario.UnitDefinitions, _scenario.FactionDefinitions), _scenario.InitialState);
             _selectedBlue = _scenario.InitialState.Units.First(unit => unit.FactionId == "blue").Id;
             _selectedRed = _scenario.InitialState.Units.First(unit => unit.FactionId == "red").Id;
@@ -242,7 +243,10 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private IEnumerator Resolve(CommandBundle blueCommands)
         {
-            _resolving = true; var before = _encounter.CurrentState; var red = PvePlanner.Plan("red", before, _scenario.Map, Rifle);
+            _resolving = true; _armedOverwatch.Clear(); var before = _encounter.CurrentState; var red = PvePlanner.Plan("red", before, _scenario.Map, Rifle);
+            var overwatchActions = blueCommands.Actions.Concat(red.Commands.Actions)
+                .Where(action => action.Type == TacticalActionType.EnterOverwatch && action.Facing.HasValue)
+                .ToDictionary(action => action.ActionId);
             var result = EncounterResolver.ResolveRound(_encounter, new[] { blueCommands, red.Commands }, new RoundConfiguration(10), (uint)(20260721 + _encounter.CompletedRounds), effects: new[] { FieldMedKit }, attackProfiles: new[] { Rifle });
             _blueOrders.Clear(); _lines.Clear(); Render(before);
             foreach (var group in result.Resolution.Events.GroupBy(@event => @event.Tick).OrderBy(group => group.Key))
@@ -250,11 +254,14 @@ namespace TacticalStrategyGame.Presentation.Unity
                 foreach (var @event in group)
                 {
                     if (@event.Type == DomainEventType.UnitEnteredTile && @event.UnitId.HasValue && @event.ToPosition is not null) _views[@event.UnitId.Value].transform.position = new Vector3(@event.ToPosition.X, .3f, @event.ToPosition.Y);
+                    if (@event.Type == DomainEventType.OverwatchArmed && @event.UnitId.HasValue && @event.ActionId.HasValue && overwatchActions.TryGetValue(@event.ActionId.Value, out var overwatch))
+                        _armedOverwatch[@event.UnitId.Value] = overwatch.Facing!.Value;
                     _lines.Add($"t{@event.Tick:00} {@event.Type} {@event.FactionId} {@event.Detail}");
                 }
                 yield return new WaitForSeconds(.35f);
             }
             _encounter = result.NextState; Render(_encounter.CurrentState);
+            _armedOverwatch.Clear();
             _lines.Add($"Checksum: {result.Resolution.FinalStateChecksum}");
             _message = _encounter.Outcome?.IsComplete == true ? _encounter.Outcome.Detail : _autoPlaying ? $"Auto-play completed round {_encounter.CompletedRounds}." : $"Round {_encounter.CompletedRounds} complete. Draft next Blue orders.";
             _resolving = false;
@@ -274,6 +281,48 @@ namespace TacticalStrategyGame.Presentation.Unity
         private static Color UnitColor(UnitState unit) => unit.FactionId == "blue"
             ? unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? new Color(.25f, .9f, .65f) : new Color(.2f, .62f, 1f)
             : unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? new Color(1f, .55f, .25f) : new Color(1f, .3f, .25f);
+
+        private TacticalAction? SelectedQueuedOverwatch() =>
+            _blueOrders.TryGetValue(_selectedBlue, out var actions) ? actions.LastOrDefault(action => action.Type == TacticalActionType.EnterOverwatch) : null;
+
+        private void DrawOverwatchOverlay()
+        {
+            var queued = SelectedQueuedOverwatch();
+            if (queued?.Facing is not null)
+                DrawWatchCone(_encounter.CurrentState.FindUnit(_selectedBlue)!, queued.Facing.Value, new Color(1f, .82f, .15f, .28f), "PLANNED");
+            foreach (var armed in _armedOverwatch)
+                DrawWatchCone(_encounter.CurrentState.FindUnit(armed.Key)!, armed.Value, new Color(1f, .5f, .1f, .34f), "ARMED");
+        }
+
+        private void DrawWatchCone(UnitState unit, Facing facing, Color color, string label)
+        {
+            var camera = Camera.main!;
+            var tileSize = Mathf.Abs(camera.WorldToScreenPoint(new Vector3(unit.Position.X + 1, .1f, unit.Position.Y)).x - camera.WorldToScreenPoint(new Vector3(unit.Position.X, .1f, unit.Position.Y)).x) * .82f;
+            var priorColor = GUI.color;
+            GUI.color = color;
+            for (var x = 0; x < _scenario.Map.Width; x++)
+            for (var y = 0; y < _scenario.Map.Height; y++)
+            {
+                var tile = new GridPosition(x, y);
+                if (GridDistance.Manhattan(unit.Position, tile) > Rifle.MaximumRange || !IsInsideWatchCone(unit.Position, facing, tile)) continue;
+                var screen = camera.WorldToScreenPoint(new Vector3(x, .12f, y));
+                GUI.DrawTexture(new Rect(screen.x - tileSize / 2, Screen.height - screen.y - tileSize / 2, tileSize, tileSize), Texture2D.whiteTexture);
+            }
+            GUI.color = priorColor;
+            var unitScreen = camera.WorldToScreenPoint(_views[unit.Id].transform.position + Vector3.up * 1.05f);
+            GUI.Label(new Rect(unitScreen.x - 42, Screen.height - unitScreen.y, 100, 20), $"{label} {FacingSymbol(facing)}");
+        }
+
+        private static bool IsInsideWatchCone(GridPosition origin, Facing facing, GridPosition target) => facing switch
+        {
+            Facing.North => target.Y > origin.Y && Math.Abs(target.X - origin.X) <= target.Y - origin.Y,
+            Facing.South => target.Y < origin.Y && Math.Abs(target.X - origin.X) <= origin.Y - target.Y,
+            Facing.East => target.X > origin.X && Math.Abs(target.Y - origin.Y) <= target.X - origin.X,
+            Facing.West => target.X < origin.X && Math.Abs(target.Y - origin.Y) <= origin.X - target.X,
+            _ => false
+        };
+
+        private static string FacingSymbol(Facing facing) => facing switch { Facing.North => "↑", Facing.East => "→", Facing.South => "↓", Facing.West => "←", _ => "?" };
 
         private string PlannedOrderDescription(UnitState unit)
         {
@@ -335,6 +384,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 GUI.Label(new Rect(28, 206 + i * 20, 970, 20), $"{selected}Blue {i + 1}: {PlannedOrderDescription(blue[i])}");
             }
             var y = 300f; foreach (var line in _lines.Take(15)) { GUI.Label(new Rect(20, y, 990, 20), line); y += 19; }
+            DrawOverwatchOverlay();
             foreach (var unit in _encounter.CurrentState.Units)
             {
                 var screen = Camera.main!.WorldToScreenPoint(_views[unit.Id].transform.position + Vector3.up * .65f);
