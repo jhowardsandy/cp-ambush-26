@@ -188,7 +188,10 @@ public sealed class TimelineResolver
         {
             var definition = effects!.Single(effect => StringComparer.Ordinal.Equals(effect.Id, action.EffectId));
             var target = state.FindUnit(action.TargetUnitId!.Value)!;
-            var application = EffectRules.Apply(target, definition);
+            var resolution = EffectRules.Resolve(unit, target, definition, map);
+            if (resolution.FailureDetail is not null)
+                return new CompletionResult(state, FailureDetail: resolution.FailureDetail);
+            var application = resolution.Application!;
             var afterEffect = state.WithUnit(application.Target);
             return new CompletionResult(ConsumeInventory(afterEffect, unit.Id, definition.RequiredInventoryItemId, definition.InventoryQuantityCost), application, definition, target.HitPoints,
                 InventoryConsumptionDetail: InventoryConsumptionDetail(afterEffect.FindUnit(unit.Id)!, definition.RequiredInventoryItemId, definition.InventoryQuantityCost));
@@ -236,6 +239,8 @@ public sealed class TimelineResolver
                 diagnostics.Add(new("missing-effect-id", "Effect definitions require a stable non-empty ID."));
             if (effect.VitalityDelta == 0)
                 diagnostics.Add(new("zero-vitality-effect", "An effect vitality change cannot be zero."));
+            if (effect.MinimumRange < 0 || effect.MaximumRange < effect.MinimumRange)
+                diagnostics.Add(new("invalid-effect-range", "Effect ranges must be non-negative and ordered."));
             ValidateRequirement(effect.RequiredSkillId, effect.RequiredInventoryItemId, effect.InventoryQuantityCost, "effect", diagnostics);
         }
         if (effects.GroupBy(effect => effect.Id, StringComparer.Ordinal).Any(group => group.Count() > 1))
@@ -283,7 +288,7 @@ public sealed class TimelineResolver
             if (action.Type == TacticalActionType.EnterOverwatch)
                 ValidateOverwatchAction(action, attackProfiles, request.Scenario?.Map, diagnostics);
             if (action.Type == TacticalActionType.ApplyEffect)
-                ValidateEffectAction(action, units, effects, diagnostics);
+                ValidateEffectAction(action, unit, units, effects, request.Scenario?.Map, diagnostics);
             if (action.Type == TacticalActionType.Attack)
                 ValidateAttackAction(action, unit, units, attackProfiles, request.Scenario?.Map, diagnostics);
             ValidateActionEntitlement(action, unit, request.Scenario?.UnitDefinitions, effects, attackProfiles, diagnostics);
@@ -383,12 +388,25 @@ public sealed class TimelineResolver
             diagnostics.Add(new("unknown-attack-profile-id", "Attack references an unknown attack profile.", action.ActionId));
     }
 
-    private static void ValidateEffectAction(TacticalAction action, IReadOnlyDictionary<Guid, UnitState> units, IReadOnlyList<EffectDefinition> effects, ICollection<ValidationDiagnostic> diagnostics)
+    private static void ValidateEffectAction(TacticalAction action, UnitState? source, IReadOnlyDictionary<Guid, UnitState> units, IReadOnlyList<EffectDefinition> effects, GridMapDefinition? map, ICollection<ValidationDiagnostic> diagnostics)
     {
         if (action.TargetUnitId is null)
             diagnostics.Add(new("missing-effect-target", "ApplyEffect requires a target unit.", action.ActionId));
-        else if (!units.ContainsKey(action.TargetUnitId.Value))
+        else if (!units.TryGetValue(action.TargetUnitId.Value, out var target))
             diagnostics.Add(new("unknown-effect-target", "ApplyEffect target must be a unit in the initial state.", action.ActionId));
+
+        else if (!String.IsNullOrWhiteSpace(action.EffectId))
+        {
+            var effect = effects.FirstOrDefault(candidate => StringComparer.Ordinal.Equals(candidate.Id, action.EffectId));
+            if (effect?.RequiresLineOfSight == true && map is null)
+                diagnostics.Add(new("effect-requires-map", "Line-of-sight effect requires a scenario map.", action.ActionId));
+            if (effect?.TargetPolicy == EffectTargetPolicy.Self && source is not null && source.Id != target.Id)
+                diagnostics.Add(new("invalid-effect-target-policy", "Effect requires the acting unit to target itself.", action.ActionId));
+            if (effect?.TargetPolicy == EffectTargetPolicy.Friendly && source is not null && !StringComparer.Ordinal.Equals(source.FactionId, target.FactionId))
+                diagnostics.Add(new("invalid-effect-target-policy", "Effect requires a friendly target.", action.ActionId));
+            if (effect?.TargetPolicy == EffectTargetPolicy.Hostile && source is not null && StringComparer.Ordinal.Equals(source.FactionId, target.FactionId))
+                diagnostics.Add(new("invalid-effect-target-policy", "Effect requires an opposing target.", action.ActionId));
+        }
 
         if (String.IsNullOrWhiteSpace(action.EffectId))
             diagnostics.Add(new("missing-effect-id", "ApplyEffect requires an effect ID.", action.ActionId));

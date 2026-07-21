@@ -946,6 +946,25 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Medic_heal_range_is_checked_at_resolution_without_spending_a_med_kit()
+    {
+        var ally = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var medic = StarterMilitaryContent.CombatMedic.CreateInitialState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East);
+        var allyUnit = new UnitState(ally, "blue", new GridPosition(2, 0), Facing.West, UnitActivityState.Active, HitPoints: 4, MaxHitPoints: 10);
+        var state = new GameState(new[] { medic, allyUnit, new UnitState(RedUnit, "red", new GridPosition(3, 0), Facing.West, UnitActivityState.Active) });
+        var scenario = new ScenarioDefinition("medic-targeting", new GridMapDefinition("medic-targeting-map", 4, 1), state, UnitDefinitions: new[] { StarterMilitaryContent.CombatMedic });
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.ApplyEffect, 0, 1, TargetUnitId: ally, EffectId: "field-med-kit");
+
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(3), 1234u,
+            effects: new[] { StarterMilitaryContent.FieldMedKit }));
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.Events.Single(@event => @event.ActionId == FirstAction && @event.Type == DomainEventType.ActionFailed).Detail, Does.Contain("outside effect range"));
+        Assert.That(allyUnit.HitPoints, Is.EqualTo(4));
+        Assert.That(InventoryRules.QuantityOf(result.FinalState.FindUnit(BlueUnit)!, "med-kit"), Is.EqualTo(2));
+    }
+
+    [Test]
     public void Gated_actions_reject_missing_skills_and_oversubscribed_inventory()
     {
         var untrained = new UnitDefinition("untrained", 10, 5, StartingInventory: new[] { new InventoryItemDefinition("med-kit", 1) });

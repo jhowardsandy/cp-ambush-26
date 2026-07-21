@@ -10,6 +10,7 @@ namespace TacticalStrategyGame.Core
 public enum Facing { North, East, South, West }
 public enum UnitActivityState { Active, Incapacitated }
 public enum UnitPosture { Standing, Crouched, Prone }
+public enum EffectTargetPolicy { Any, Self, Friendly, Hostile }
 public enum TacticalActionType { Wait, Rotate, Move, Aim, Attack, ApplyEffect, ChangePosture, EnterOverwatch }
 
 public sealed record GridPosition(int X, int Y);
@@ -54,7 +55,7 @@ public sealed record TacticalAction(
     UnitPosture? Posture = null);
 
 /// <summary>Setting-neutral, versioned vitality change. Positive values heal; negative values damage.</summary>
-public sealed record EffectDefinition(string Id, int VitalityDelta, int ActionPointCost = 2, string? RequiredSkillId = null, string? RequiredInventoryItemId = null, int InventoryQuantityCost = 0);
+public sealed record EffectDefinition(string Id, int VitalityDelta, int ActionPointCost = 2, string? RequiredSkillId = null, string? RequiredInventoryItemId = null, int InventoryQuantityCost = 0, EffectTargetPolicy TargetPolicy = EffectTargetPolicy.Any, int MinimumRange = 0, int MaximumRange = Int32.MaxValue, bool RequiresLineOfSight = false);
 
 /// <summary>Data-defined direct attack with deterministic, guaranteed-hit damage in the first combat slice.</summary>
 public sealed record AttackProfile(string Id, int MinimumRange, int MaximumRange, int Damage, bool RequiresLineOfSight = true, int ActionPointCost = 2, string? RequiredSkillId = null, string? RequiredInventoryItemId = null, int InventoryQuantityCost = 0);

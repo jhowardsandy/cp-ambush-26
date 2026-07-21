@@ -6,4 +6,6 @@ The player selects one of four Blue units and queues a short left-to-right actio
 
 Riflemen render as capsules and Medics as spheres; labels show role, vitality, and med-kit quantity. A Medic can draft a self-heal, which uses the same skill-gated, consumable core rule as all future healing. The scene intentionally remains narrow: no tile clicking, no player posture/overwatch buttons, no fog, no ally-targeted healing control, no planned-path collision forecasting, and primitive art. It is a graybox validation surface for multi-unit order submission and PvE playback, not the final game UI.
 
+The healing target selector cycles active Blue units independently from the acting Blue selector. Field med kits may target an active friendly unit at Manhattan range 0–1 with direct line of sight; legality is evaluated when the queued heal completes, and an out-of-range/blocked attempt does not consume a kit.
+
 For recording and deterministic visual regression checks, **Auto-play demo** resets the scene then submits up to eight rounds of `PvePlanner` orders for both Blue and Red. It uses the ordinary `EncounterResolver` playback path and pauses early if an objective completes; it does not fabricate movement, combat, or outcomes in Unity.

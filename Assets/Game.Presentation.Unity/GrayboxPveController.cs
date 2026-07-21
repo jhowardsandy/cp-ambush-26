@@ -19,6 +19,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         private EncounterState _encounter = null!;
         private Guid _selectedBlue;
         private Guid _selectedRed;
+        private Guid _selectedHealTarget;
         private bool _resolving;
         private bool _autoPlaying;
         private string _message = string.Empty;
@@ -90,6 +91,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             _encounter = new EncounterState(new EncounterDefinition(_scenario.Id, _scenario.Map, _scenario.ContentVersion, _scenario.Objectives, _scenario.UnitDefinitions, _scenario.FactionDefinitions), _scenario.InitialState);
             _selectedBlue = _scenario.InitialState.Units.First(unit => unit.FactionId == "blue").Id;
             _selectedRed = _scenario.InitialState.Units.First(unit => unit.FactionId == "red").Id;
+            _selectedHealTarget = _selectedBlue;
             _message = "Draft one order for any Blue unit, then submit the round. Red uses deterministic PvE.";
             Render(_encounter.CurrentState);
         }
@@ -122,9 +124,10 @@ namespace TacticalStrategyGame.Presentation.Unity
             _message = $"Queued speculative attack: Blue {UnitNumber(unit.Id)} targets Red {UnitNumber(target.Id)}.";
         }
 
-        private void DraftSelfHeal()
+        private void DraftHealTarget()
         {
             var unit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
+            var target = _encounter.CurrentState.FindUnit(_selectedHealTarget)!;
             if (unit.UnitDefinitionId != StarterMilitaryContent.CombatMedic.Id)
             {
                 _message = "Only a Combat Medic has the field-medicine skill and med kits.";
@@ -135,8 +138,13 @@ namespace TacticalStrategyGame.Presentation.Unity
                 _message = $"Blue {UnitNumber(unit.Id)} has no med kits remaining.";
                 return;
             }
-            QueueAction(unit, TacticalActionType.ApplyEffect, 1, targetUnitId: unit.Id, effectId: FieldMedKit.Id);
-            _message = $"Queued self-heal for Blue {UnitNumber(unit.Id)}. One med kit will be spent on successful resolution.";
+            if (target.ActivityState != UnitActivityState.Active)
+            {
+                _message = "The selected healing target is not active.";
+                return;
+            }
+            QueueAction(unit, TacticalActionType.ApplyEffect, 1, targetUnitId: target.Id, effectId: FieldMedKit.Id);
+            _message = $"Queued heal: Blue {UnitNumber(unit.Id)} targets Blue {UnitNumber(target.Id)}. Range and sight are checked at resolution.";
         }
 
         private List<TacticalAction> PlannedActions(Guid unitId)
@@ -271,8 +279,8 @@ namespace TacticalStrategyGame.Presentation.Unity
             }
             if (action.Type == TacticalActionType.Attack && action.TargetUnitId.HasValue)
                 return $"Attack Red {UnitNumber(action.TargetUnitId.Value)} — checked at resolution";
-            if (action.Type == TacticalActionType.ApplyEffect)
-                return "Self-heal — med kit spent at resolution";
+            if (action.Type == TacticalActionType.ApplyEffect && action.TargetUnitId.HasValue)
+                return $"Heal Blue {UnitNumber(action.TargetUnitId.Value)} — range checked at resolution";
             return action.Type.ToString();
         }
 
@@ -297,7 +305,9 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (GUI.Button(new Rect(615, 76, 100, 24), "Next red")) _selectedRed = NextRed();
             if (GUI.Button(new Rect(725, 76, 60, 24), "Undo")) UndoLastBlueAction();
             if (GUI.Button(new Rect(795, 76, 65, 24), "Clear")) _blueOrders.Remove(_selectedBlue);
-            if (GUI.Button(new Rect(870, 76, 120, 24), "Medic heal self")) DraftSelfHeal();
+            if (GUI.Button(new Rect(300, 104, 115, 24), "Next heal target")) _selectedHealTarget = NextBlueHealTarget();
+            if (GUI.Button(new Rect(425, 104, 115, 24), "Medic heal target")) DraftHealTarget();
+            GUI.Label(new Rect(550, 106, 300, 20), $"Heal target: Blue {UnitNumber(_selectedHealTarget)}");
             GUI.Box(new Rect(12, 138, 1000, 112), $"Round plan — {PlannedActionCount} actions across {_blueOrders.Count} Blue units. Orders resolve left-to-right; Undo removes the selected unit's last action.");
             for (var i = 0; i < blue.Length; i++)
             {
@@ -318,6 +328,12 @@ namespace TacticalStrategyGame.Presentation.Unity
         {
             var red = _encounter.CurrentState.Units.Where(unit => unit.FactionId == "red" && unit.ActivityState == UnitActivityState.Active).OrderBy(unit => unit.Id).ToArray();
             var index = Array.FindIndex(red, unit => unit.Id == _selectedRed); return red.Length == 0 ? _selectedRed : red[(index + 1 + red.Length) % red.Length].Id;
+        }
+
+        private Guid NextBlueHealTarget()
+        {
+            var blue = _encounter.CurrentState.Units.Where(unit => unit.FactionId == "blue" && unit.ActivityState == UnitActivityState.Active).OrderBy(unit => unit.Id).ToArray();
+            var index = Array.FindIndex(blue, unit => unit.Id == _selectedHealTarget); return blue.Length == 0 ? _selectedHealTarget : blue[(index + 1 + blue.Length) % blue.Length].Id;
         }
     }
 }

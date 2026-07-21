@@ -41,4 +41,4 @@ The first two provisional military archetypes are intentionally small and data-d
 | Rifleman | 10 | rifle training, overwatch | service rifle ×1, field dressing ×1 |
 | Combat Medic | 9 | rifle training, field medicine | service rifle ×1, med kit ×2 |
 
-Both use the provisional service-rifle profile (range 1–3, guaranteed 5 damage in the current combat slice). Combat Medic's field med kit restores 4 vitality and costs one med kit. These are vertical-slice content values, not final balance.
+Both use the provisional service-rifle profile (range 1–3, guaranteed 5 damage in the current combat slice). Combat Medic's field med kit restores 4 vitality, costs one med kit, targets an active friendly unit at range 0–1, and requires line of sight at its completion tick. These are vertical-slice content values, not final balance.
