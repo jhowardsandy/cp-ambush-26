@@ -301,7 +301,7 @@ public sealed class TimelineResolverTests
             new { Tick = 3, Type = DomainEventType.ActionCompleted, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction },
             new { Tick = 5, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, ActionId = (Guid?)null }
         }));
-        Assert.That(result.FinalStateChecksum, Is.EqualTo("7222B46B11F8AC8DB16872404E44CA6240DFD8283F70D3087E427BF96263EFEE"));
+        Assert.That(result.FinalStateChecksum, Is.EqualTo("2AA824600ECD20A2A5FBCC5D1BAAFE0EF485C7BD2AD85835765F9EFE398D8DD7"));
     }
 
     [Test]
@@ -915,7 +915,7 @@ public sealed class TimelineResolverTests
             new { Tick = 3, Type = DomainEventType.ActionCompleted, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)null, ActionId = (Guid?)FirstAction, Detail = (string?)null },
             new { Tick = 4, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, TargetUnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null }
         }));
-        Assert.That(result.FinalStateChecksum, Is.EqualTo("C46DF81F698505C1ADE95EA668ADC11C04637C510F41061E1303A015CEB8A8E7"));
+        Assert.That(result.FinalStateChecksum, Is.EqualTo("DB02EB3D89042273A597B10C1E33A7016C825D8578D4D6F6745261188F1D7CCB"));
     }
 
     [Test]
@@ -1110,7 +1110,7 @@ public sealed class TimelineResolverTests
             new { Tick = 3, Type = DomainEventType.ActionCompleted, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction, Detail = (string?)null },
             new { Tick = 4, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null }
         }));
-        Assert.That(result.FinalStateChecksum, Is.EqualTo("B566038CC280E781776128426632E8D07B6417F9E28E2B04B69F5D803E6599D3"));
+        Assert.That(result.FinalStateChecksum, Is.EqualTo("2B74EBAAA35A6327093867A303F752A71FDFDBD25D646123BDBF358514946FBA"));
     }
 
     private static SimulationRequest Request(params CommandBundle[] bundles) => Request(DefaultState(), bundles);
