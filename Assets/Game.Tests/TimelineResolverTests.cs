@@ -699,6 +699,25 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Overwatch_fires_once_when_an_enemy_enters_the_armed_watch_cone()
+    {
+        var state = State(new GridPosition(0, 0), new GridPosition(3, 0));
+        var scenario = new ScenarioDefinition("overwatch", new GridMapDefinition("overwatch-map", 4, 1), state);
+        var overwatch = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.EnterOverwatch, 0, 1, Facing: Facing.East, AttackProfileId: "rifle");
+        var move = new TacticalAction(SecondAction, RedUnit, TacticalActionType.Move, 1, 1, Path: new[] { new GridPosition(2, 0) });
+        var request = ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", overwatch), Bundle("red", move) }, new RoundConfiguration(3), 1234u,
+            attackProfiles: new[] { new AttackProfile("rifle", 1, 3, 5) });
+
+        var result = new TimelineResolver().Resolve(request);
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.Events.Select(@event => @event.Type), Does.Contain(DomainEventType.OverwatchArmed));
+        Assert.That(result.Events.Select(@event => @event.Type), Does.Contain(DomainEventType.ReactionAttackResolved));
+        Assert.That(result.FinalState.FindUnit(RedUnit)!.HitPoints, Is.EqualTo(5));
+        Assert.That(result.FinalState.FindUnit(BlueUnit)!.Overwatch, Is.Null);
+    }
+
+    [Test]
     public void Golden_replay_direct_attack_has_stable_event_sequence_and_checksum()
     {
         var state = new GameState(new[]

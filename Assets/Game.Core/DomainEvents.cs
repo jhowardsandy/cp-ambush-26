@@ -15,6 +15,8 @@ public enum DomainEventType
     EffectApplied,
     AttackResolved,
     PostureChanged,
+    OverwatchArmed,
+    ReactionAttackResolved,
     ActionCompleted,
     ActionFailed,
     RoundCompleted

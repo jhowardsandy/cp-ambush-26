@@ -14,6 +14,7 @@ public static class ActionPointRules
         TacticalActionType.Attack => attacks.FirstOrDefault(profile => StringComparer.Ordinal.Equals(profile.Id, action.AttackProfileId))?.ActionPointCost ?? 0,
         TacticalActionType.ApplyEffect => effects.FirstOrDefault(effect => StringComparer.Ordinal.Equals(effect.Id, action.EffectId))?.ActionPointCost ?? 0,
         TacticalActionType.Rotate or TacticalActionType.Aim or TacticalActionType.ChangePosture => 1,
+        TacticalActionType.EnterOverwatch => 2,
         _ => 0
     };
 }

@@ -45,6 +45,7 @@ public sealed class TimelineResolver
             }
 
             ResolveMovementSteps(tick);
+            ResolveOverwatchReactions(tick);
 
             foreach (var item in scheduled.Where(item => item.Action.StartTick + item.Action.DurationTicks == tick).OrderBy(item => item, ScheduledActionComparer.Instance))
             {
@@ -77,11 +78,15 @@ public sealed class TimelineResolver
                 if (item.Action.Type == TacticalActionType.ChangePosture && item.Action.Posture is not null)
                     AddEvent(tick, DomainEventType.PostureChanged, item.FactionId, unit.Id, item.Action.ActionId,
                         $"posture={item.Action.Posture}", postureAfter: item.Action.Posture);
+                if (item.Action.Type == TacticalActionType.EnterOverwatch && item.Action.Facing is not null)
+                    AddEvent(tick, DomainEventType.OverwatchArmed, item.FactionId, unit.Id, item.Action.ActionId,
+                        $"facing={item.Action.Facing}; profile={item.Action.AttackProfileId}");
                 AddEvent(tick, DomainEventType.ActionCompleted, item.FactionId, unit.Id, item.Action.ActionId);
             }
         }
 
         AddEvent(request.Configuration.TicksPerRound, DomainEventType.RoundCompleted, string.Empty);
+        state = new GameState(state.Units.Select(unit => unit with { Overwatch = null }).ToArray());
         return new SimulationResult(state, events, diagnostics, StateChecksum.Calculate(state));
 
         void ResolveMovementSteps(int tick)
@@ -121,6 +126,43 @@ public sealed class TimelineResolver
             }
         }
 
+        void ResolveOverwatchReactions(int tick)
+        {
+            var enteredUnitIds = events.Where(@event => @event.Tick == tick && @event.Type == DomainEventType.UnitEnteredTile && @event.UnitId.HasValue)
+                .Select(@event => @event.UnitId!.Value).Distinct().ToArray();
+            if (enteredUnitIds.Length == 0)
+                return;
+
+            foreach (var watcher in state.Units.Where(unit => unit.ActivityState == UnitActivityState.Active && unit.Overwatch is { HasFired: false })
+                         .OrderBy(unit => unit.FactionId, StringComparer.Ordinal).ThenBy(unit => unit.Id))
+            {
+                var profile = (request.AttackProfiles ?? Array.Empty<AttackProfile>()).Single(profile => StringComparer.Ordinal.Equals(profile.Id, watcher.Overwatch!.AttackProfileId));
+                var target = enteredUnitIds.Select(unitId => state.FindUnit(unitId)!)
+                    .Where(candidate => candidate.ActivityState == UnitActivityState.Active && !StringComparer.Ordinal.Equals(candidate.FactionId, watcher.FactionId))
+                    .Where(candidate => IsInsideWatchCone(watcher.Position, watcher.Overwatch!.Facing, candidate.Position))
+                    .OrderBy(candidate => candidate.FactionId, StringComparer.Ordinal).ThenBy(candidate => candidate.Id)
+                    .FirstOrDefault(candidate => AttackRules.Resolve(watcher, candidate, profile, request.Scenario!.Map).FailureDetail is null);
+                if (target is null)
+                    continue;
+
+                var resolution = AttackRules.Resolve(watcher, target, profile, request.Scenario!.Map);
+                state = state.WithUnit(resolution.Application!.Target).WithUnit(watcher with { Overwatch = watcher.Overwatch! with { HasFired = true } });
+                AddEvent(tick, DomainEventType.ReactionAttackResolved, watcher.FactionId, watcher.Id, watcher.Overwatch!.ActionId,
+                    $"reaction={profile.Id}; target={target.Id}; distance={resolution.Distance}; damage={profile.Damage}; before={target.HitPoints}; applied={resolution.Application.AppliedVitalityDelta}; after={resolution.Application.Target.HitPoints}",
+                    fromPosition: watcher.Position, toPosition: target.Position, hitPointsAfter: resolution.Application.Target.HitPoints, activityStateAfter: resolution.Application.Target.ActivityState,
+                    targetUnitId: target.Id);
+            }
+        }
+
+        static bool IsInsideWatchCone(GridPosition origin, Facing facing, GridPosition target) => facing switch
+        {
+            Facing.North => target.Y > origin.Y && Math.Abs(target.X - origin.X) <= target.Y - origin.Y,
+            Facing.South => target.Y < origin.Y && Math.Abs(target.X - origin.X) <= origin.Y - target.Y,
+            Facing.East => target.X > origin.X && Math.Abs(target.Y - origin.Y) <= target.X - origin.X,
+            Facing.West => target.X < origin.X && Math.Abs(target.Y - origin.Y) <= origin.X - target.X,
+            _ => false
+        };
+
         void Fail(int tick, MovementIntent intent, string detail)
         {
             failedActions.Add(intent.Scheduled.Action.ActionId);
@@ -138,6 +180,9 @@ public sealed class TimelineResolver
 
         if (action.Type == TacticalActionType.ChangePosture && action.Posture is not null)
             return new CompletionResult(state.WithUnit(unit with { Posture = action.Posture.Value }));
+
+        if (action.Type == TacticalActionType.EnterOverwatch && action.Facing is not null)
+            return new CompletionResult(state.WithUnit(unit with { Overwatch = new OverwatchState(action.ActionId, action.Facing.Value, action.AttackProfileId!) }));
 
         if (action.Type == TacticalActionType.ApplyEffect)
         {
@@ -221,6 +266,8 @@ public sealed class TimelineResolver
                 diagnostics.Add(new("missing-facing", "Rotate requires a facing.", action.ActionId));
             if (action.Type == TacticalActionType.ChangePosture)
                 ValidatePostureAction(action, unit, diagnostics);
+            if (action.Type == TacticalActionType.EnterOverwatch)
+                ValidateOverwatchAction(action, attackProfiles, request.Scenario?.Map, diagnostics);
             if (action.Type == TacticalActionType.ApplyEffect)
                 ValidateEffectAction(action, units, effects, diagnostics);
             if (action.Type == TacticalActionType.Attack)
@@ -286,6 +333,18 @@ public sealed class TimelineResolver
             diagnostics.Add(new("missing-posture", "ChangePosture requires a destination posture.", action.ActionId));
         else if (unit is not null && Math.Abs((int)action.Posture.Value - (int)unit.Posture) != 1)
             diagnostics.Add(new("invalid-posture-transition", "Posture changes must move one step between standing, crouched, and prone.", action.ActionId));
+    }
+
+    private static void ValidateOverwatchAction(TacticalAction action, IReadOnlyList<AttackProfile> profiles, GridMapDefinition? map, ICollection<ValidationDiagnostic> diagnostics)
+    {
+        if (map is null)
+            diagnostics.Add(new("overwatch-requires-map", "EnterOverwatch requires a scenario map.", action.ActionId));
+        if (action.Facing is null)
+            diagnostics.Add(new("overwatch-requires-facing", "EnterOverwatch requires a watched facing.", action.ActionId));
+        if (String.IsNullOrWhiteSpace(action.AttackProfileId))
+            diagnostics.Add(new("overwatch-requires-profile", "EnterOverwatch requires an attack profile.", action.ActionId));
+        else if (!profiles.Any(profile => StringComparer.Ordinal.Equals(profile.Id, action.AttackProfileId)))
+            diagnostics.Add(new("unknown-overwatch-profile-id", "EnterOverwatch references an unknown attack profile.", action.ActionId));
     }
 
     private static void ValidateMovePath(TacticalAction action, UnitState? unit, GridMapDefinition? map, ICollection<ValidationDiagnostic> diagnostics)

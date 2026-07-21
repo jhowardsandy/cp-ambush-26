@@ -10,7 +10,7 @@ namespace TacticalStrategyGame.Core
 public enum Facing { North, East, South, West }
 public enum UnitActivityState { Active, Incapacitated }
 public enum UnitPosture { Standing, Crouched, Prone }
-public enum TacticalActionType { Wait, Rotate, Move, Aim, Attack, ApplyEffect, ChangePosture }
+public enum TacticalActionType { Wait, Rotate, Move, Aim, Attack, ApplyEffect, ChangePosture, EnterOverwatch }
 
 public sealed record GridPosition(int X, int Y);
 
@@ -19,6 +19,8 @@ public static class GridDistance
     public static int Manhattan(GridPosition from, GridPosition to) =>
         Math.Abs(from.X - to.X) + Math.Abs(from.Y - to.Y);
 }
+
+public sealed record OverwatchState(Guid ActionId, Facing Facing, string AttackProfileId, bool HasFired = false);
 
 public sealed record UnitState(
     Guid Id,
@@ -30,7 +32,8 @@ public sealed record UnitState(
     int MaxHitPoints = 10,
     string? UnitDefinitionId = null,
     int ActionPointBudget = 6,
-    UnitPosture Posture = UnitPosture.Standing);
+    UnitPosture Posture = UnitPosture.Standing,
+    OverwatchState? Overwatch = null);
 
 public sealed record TacticalAction(
     Guid ActionId,
