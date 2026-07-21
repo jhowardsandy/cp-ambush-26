@@ -39,18 +39,24 @@ namespace TacticalStrategyGame.Presentation.Unity
             var units = new[]
             {
                 Unit("blue", 1, 1, 1, StarterMilitaryContent.Rifleman), Unit("blue", 2, 3, 1, StarterMilitaryContent.CombatMedic),
-                Unit("blue", 3, 5, 1, StarterMilitaryContent.Rifleman), Unit("blue", 4, 7, 1, StarterMilitaryContent.CombatMedic),
-                Unit("red", 1, 1, 6, StarterMilitaryContent.Rifleman), Unit("red", 2, 3, 6, StarterMilitaryContent.CombatMedic),
-                Unit("red", 3, 5, 6, StarterMilitaryContent.Rifleman), Unit("red", 4, 7, 6, StarterMilitaryContent.CombatMedic)
+                Unit("blue", 3, 1, 3, StarterMilitaryContent.Rifleman), Unit("blue", 4, 4, 2, StarterMilitaryContent.CombatMedic),
+                Unit("red", 1, 14, 10, StarterMilitaryContent.Rifleman), Unit("red", 2, 12, 10, StarterMilitaryContent.CombatMedic),
+                Unit("red", 3, 14, 8, StarterMilitaryContent.Rifleman), Unit("red", 4, 11, 9, StarterMilitaryContent.CombatMedic)
             };
-            _scenario = new ScenarioDefinition("graybox-pve-4v4-01", new GridMapDefinition("graybox-pve-grid", 10, 8, new[]
+            _scenario = new ScenarioDefinition("riverside-crossing-4v4-01", new GridMapDefinition("riverside-crossing-16x12", 16, 12, new[]
             {
-                new TerrainCellDefinition(new GridPosition(4, 3), IsPassable: false, BlocksLineOfSight: true, CoverValue: 3),
-                new TerrainCellDefinition(new GridPosition(5, 3), IsPassable: false, BlocksLineOfSight: true, CoverValue: 3),
-                new TerrainCellDefinition(new GridPosition(4, 4), IsPassable: false, BlocksLineOfSight: true, CoverValue: 3),
-                new TerrainCellDefinition(new GridPosition(5, 4), IsPassable: false, BlocksLineOfSight: true, CoverValue: 3),
-                new TerrainCellDefinition(new GridPosition(2, 3), MovementTicks: 2, ConcealmentValue: 2),
-                new TerrainCellDefinition(new GridPosition(7, 4), MovementTicks: 2, ConcealmentValue: 2)
+                new TerrainCellDefinition(new GridPosition(7, 5), IsPassable: false, BlocksLineOfSight: true, CoverValue: 3), new TerrainCellDefinition(new GridPosition(8, 5), IsPassable: false, BlocksLineOfSight: true, CoverValue: 3),
+                new TerrainCellDefinition(new GridPosition(7, 6), IsPassable: false, BlocksLineOfSight: true, CoverValue: 3), new TerrainCellDefinition(new GridPosition(8, 6), IsPassable: false, BlocksLineOfSight: true, CoverValue: 3),
+                new TerrainCellDefinition(new GridPosition(5, 5), IsPassable: false, BlocksLineOfSight: true, CoverValue: 2), new TerrainCellDefinition(new GridPosition(5, 6), IsPassable: false, BlocksLineOfSight: true, CoverValue: 2),
+                new TerrainCellDefinition(new GridPosition(10, 5), IsPassable: false, BlocksLineOfSight: true, CoverValue: 2), new TerrainCellDefinition(new GridPosition(10, 6), IsPassable: false, BlocksLineOfSight: true, CoverValue: 2),
+                new TerrainCellDefinition(new GridPosition(3, 4), MovementTicks: 2, ConcealmentValue: 2), new TerrainCellDefinition(new GridPosition(3, 5), MovementTicks: 2, ConcealmentValue: 2), new TerrainCellDefinition(new GridPosition(4, 5), MovementTicks: 2, ConcealmentValue: 2),
+                new TerrainCellDefinition(new GridPosition(12, 6), MovementTicks: 2, ConcealmentValue: 2), new TerrainCellDefinition(new GridPosition(12, 7), MovementTicks: 2, ConcealmentValue: 2), new TerrainCellDefinition(new GridPosition(11, 6), MovementTicks: 2, ConcealmentValue: 2),
+                new TerrainCellDefinition(new GridPosition(6, 3), CoverValue: 2), new TerrainCellDefinition(new GridPosition(7, 3), CoverValue: 2), new TerrainCellDefinition(new GridPosition(8, 8), CoverValue: 2), new TerrainCellDefinition(new GridPosition(9, 8), CoverValue: 2)
+            }, new[]
+            {
+                new MapAreaDefinition("blue-deployment", new[] { new GridPosition(1, 1), new GridPosition(3, 1), new GridPosition(1, 3), new GridPosition(4, 2) }),
+                new MapAreaDefinition("red-deployment", new[] { new GridPosition(14, 10), new GridPosition(12, 10), new GridPosition(14, 8), new GridPosition(11, 9) }),
+                new MapAreaDefinition("central-crossing", new[] { new GridPosition(6, 4), new GridPosition(7, 4), new GridPosition(8, 4), new GridPosition(9, 4), new GridPosition(6, 7), new GridPosition(7, 7), new GridPosition(8, 7), new GridPosition(9, 7) })
             }), new GameState(units), Objectives: new[] { new ObjectiveDefinition("eliminate-red", ObjectiveType.IncapacitateAllOpposingUnits, "blue") },
                 UnitDefinitions: new[] { StarterMilitaryContent.Rifleman, StarterMilitaryContent.CombatMedic },
                 FactionDefinitions: new[]
@@ -71,7 +77,17 @@ namespace TacticalStrategyGame.Presentation.Unity
                 var tile = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 tile.transform.SetParent(transform, false); tile.transform.position = new Vector3(x, 0, y); tile.transform.localScale = new Vector3(.92f, .08f, .92f);
                 var terrain = _scenario.Map.CellAt(new GridPosition(x, y));
-                tile.GetComponent<Renderer>().material.color = !terrain.IsPassable ? new Color(.33f, .27f, .22f) : terrain.ConcealmentValue > 0 ? new Color(.22f, .38f, .22f) : new Color(.22f, .27f, .32f);
+                if (!terrain.IsPassable)
+                {
+                    tile.transform.position += Vector3.up * .28f;
+                    tile.transform.localScale = new Vector3(.82f, .58f, .82f);
+                }
+                else if (terrain.CoverValue > 0)
+                {
+                    tile.transform.position += Vector3.up * .07f;
+                    tile.transform.localScale = new Vector3(.88f, .18f, .88f);
+                }
+                tile.GetComponent<Renderer>().material.color = !terrain.IsPassable ? new Color(.34f, .25f, .16f) : terrain.ConcealmentValue > 0 ? new Color(.16f, .42f, .2f) : terrain.CoverValue > 0 ? new Color(.45f, .45f, .38f) : new Color(.22f, .27f, .32f);
             }
             foreach (var unit in _scenario.InitialState.Units)
             {
@@ -82,7 +98,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             }
             var cameraObject = new GameObject("Graybox PvE Camera");
             var camera = cameraObject.AddComponent<Camera>(); camera.tag = "MainCamera"; camera.orthographic = true; camera.orthographicSize = 5.6f;
-            cameraObject.transform.position = new Vector3(4.5f, 10, 3.5f); cameraObject.transform.rotation = Quaternion.Euler(90, 0, 0);
+            cameraObject.transform.position = new Vector3(7.5f, 12, 5.5f); camera.orthographicSize = 8.1f; cameraObject.transform.rotation = Quaternion.Euler(90, 0, 0);
             new GameObject("Graybox Light").AddComponent<Light>().type = LightType.Directional;
         }
 
@@ -222,7 +238,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private IEnumerator AutoPlay()
         {
-            const int maximumDemoRounds = 8;
+            const int maximumDemoRounds = 12;
             for (var round = 0; round < maximumDemoRounds && _encounter.Outcome?.IsComplete != true; round++)
             {
                 _message = $"Auto-play demo: planning round {_encounter.CompletedRounds + 1}.";
@@ -350,7 +366,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void OnGUI()
         {
-            GUI.Box(new Rect(12, 12, 1000, 160), "Graybox 4v4 PvE — player Blue vs deterministic Red");
+            GUI.Box(new Rect(12, 12, 1000, 160), "Riverside Crossing 4v4 — player Blue vs deterministic Red");
             if (GUI.Button(new Rect(24, 44, 120, 26), "Submit round")) Submit();
             if (GUI.Button(new Rect(154, 44, 80, 26), "Reset")) ResetEncounter();
             if (GUI.Button(new Rect(244, 44, 120, 26), "Auto-play demo")) StartAutoPlay();
