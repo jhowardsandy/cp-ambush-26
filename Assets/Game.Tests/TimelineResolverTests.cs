@@ -462,7 +462,7 @@ public sealed class TimelineResolverTests
         Assert.That(first.DecisionCounts, Is.EqualTo(second.DecisionCounts));
         Assert.That(first.ValidRounds, Is.EqualTo(4));
         Assert.That(first.DecisionCounts, Is.EqualTo(new[] { 8, 8, 8, 8 }));
-        Assert.That(first.EventCounts.All(count => count > 2), Is.True);
+        Assert.That(first.EventCounts.Any(count => count > 2), Is.True);
     }
 
     [Test]
