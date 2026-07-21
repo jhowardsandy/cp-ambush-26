@@ -16,6 +16,8 @@ namespace TacticalStrategyGame.Presentation.Unity
         private readonly Dictionary<Guid, List<TacticalAction>> _blueOrders = new();
         private readonly List<string> _lines = new();
         private readonly Dictionary<Guid, Facing> _armedOverwatch = new();
+        private readonly Dictionary<Guid, int> _displayHitPoints = new();
+        private readonly List<FeedbackPulse> _feedback = new();
         private ScenarioDefinition _scenario = null!;
         private EncounterState _encounter = null!;
         private Guid _selectedBlue;
@@ -25,6 +27,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         private bool _autoPlaying;
         private bool _manualRoute;
         private string _message = string.Empty;
+        private string _roundSummary = "No round resolved yet.";
         private static readonly AttackProfile Rifle = StarterMilitaryContent.ServiceRifle;
         private static readonly EffectDefinition FieldMedKit = StarterMilitaryContent.FieldMedKit;
 
@@ -115,7 +118,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void ResetEncounter()
         {
-            StopAllCoroutines(); _resolving = false; _autoPlaying = false; _manualRoute = false; _blueOrders.Clear(); _lines.Clear(); _armedOverwatch.Clear();
+            StopAllCoroutines(); _resolving = false; _autoPlaying = false; _manualRoute = false; _blueOrders.Clear(); _lines.Clear(); _armedOverwatch.Clear(); _feedback.Clear(); _roundSummary = "No round resolved yet.";
             _encounter = new EncounterState(new EncounterDefinition(_scenario.Id, _scenario.Map, _scenario.ContentVersion, _scenario.Objectives, _scenario.UnitDefinitions, _scenario.FactionDefinitions), _scenario.InitialState);
             _selectedBlue = _scenario.InitialState.Units.First(unit => unit.FactionId == "blue").Id;
             _selectedRed = _scenario.InitialState.Units.First(unit => unit.FactionId == "red").Id;
@@ -352,13 +355,26 @@ namespace TacticalStrategyGame.Presentation.Unity
                     if (@event.Type == DomainEventType.UnitEnteredTile && @event.UnitId.HasValue && @event.ToPosition is not null) _views[@event.UnitId.Value].transform.position = new Vector3(@event.ToPosition.X, .3f, @event.ToPosition.Y);
                     if (@event.Type == DomainEventType.OverwatchArmed && @event.UnitId.HasValue && @event.ActionId.HasValue && overwatchActions.TryGetValue(@event.ActionId.Value, out var overwatch))
                         _armedOverwatch[@event.UnitId.Value] = overwatch.Facing!.Value;
-                    _lines.Add($"t{@event.Tick:00} {@event.Type} {@event.FactionId} {@event.Detail}");
+                    if (@event.Type is DomainEventType.AttackResolved or DomainEventType.ReactionAttackResolved)
+                    {
+                        if (@event.FromPosition is not null && @event.ToPosition is not null)
+                            yield return AnimateProjectile(@event.FromPosition, @event.ToPosition, @event.Type == DomainEventType.ReactionAttackResolved ? new Color(1f, .36f, .1f) : new Color(1f, .82f, .22f));
+                        ApplyVitalityFeedback(@event, @event.TargetUnitId, "DAMAGE", new Color(1f, .25f, .2f));
+                    }
+                    else if (@event.Type == DomainEventType.EffectApplied)
+                        ApplyVitalityFeedback(@event, @event.UnitId, "HEAL", new Color(.25f, 1f, .58f));
+                    else if (@event.Type == DomainEventType.MovementDelayed && @event.UnitId.HasValue)
+                        AddFeedback(@event.UnitId.Value, "DELAYED", new Color(1f, .25f, .78f));
+                    else if (@event.Type == DomainEventType.ActionFailed && @event.UnitId.HasValue)
+                        AddFeedback(@event.UnitId.Value, "FAILED", new Color(1f, .45f, .2f));
+                    _lines.Add(EventLine(@event));
                 }
                 yield return new WaitForSeconds(.35f);
             }
             _encounter = result.NextState; Render(_encounter.CurrentState);
             _armedOverwatch.Clear();
             _lines.Add($"Checksum: {result.Resolution.FinalStateChecksum}");
+            _roundSummary = RoundSummary(result.Resolution.Events, _encounter.CompletedRounds);
             _message = _encounter.Outcome?.IsComplete == true ? _encounter.Outcome.Detail : _autoPlaying ? $"Auto-play completed round {_encounter.CompletedRounds}." : $"Round {_encounter.CompletedRounds} complete. Draft next Blue orders.";
             _resolving = false;
         }
@@ -367,6 +383,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         {
             foreach (var unit in state.Units)
             {
+                _displayHitPoints[unit.Id] = unit.HitPoints;
                 _views[unit.Id].transform.position = new Vector3(unit.Position.X, .3f, unit.Position.Y);
                 var color = unit.ActivityState == UnitActivityState.Incapacitated ? Color.gray : UnitColor(unit);
                 if (unit.FactionId == "red" && !IsObservableByBlue(unit, state)) color = Color.Lerp(color, Color.black, .55f);
@@ -382,6 +399,77 @@ namespace TacticalStrategyGame.Presentation.Unity
         private static Color UnitColor(UnitState unit) => unit.FactionId == "blue"
             ? unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? new Color(.25f, .9f, .65f) : new Color(.2f, .62f, 1f)
             : unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? new Color(1f, .55f, .25f) : new Color(1f, .3f, .25f);
+
+        private void ApplyVitalityFeedback(DomainEvent @event, Guid? targetId, string label, Color color)
+        {
+            if (!targetId.HasValue || !@event.HitPointsAfter.HasValue) return;
+            _displayHitPoints[targetId.Value] = @event.HitPointsAfter.Value;
+            var applied = DetailInteger(@event.Detail, "applied") ?? 0;
+            AddFeedback(targetId.Value, applied == 0 ? label : $"{(applied > 0 ? "+" : String.Empty)}{applied} {label}", color);
+            if (@event.ActivityStateAfter == UnitActivityState.Incapacitated)
+            {
+                _views[targetId.Value].GetComponent<Renderer>().material.color = Color.gray;
+                AddFeedback(targetId.Value, "INCAPACITATED", Color.white);
+            }
+        }
+
+        private void AddFeedback(Guid unitId, string text, Color color)
+        {
+            _feedback.RemoveAll(pulse => pulse.UnitId == unitId);
+            _feedback.Add(new FeedbackPulse(unitId, text, color, Time.time + 1.6f));
+        }
+
+        private static int? DetailInteger(string? detail, string key)
+        {
+            if (String.IsNullOrEmpty(detail)) return null;
+            var marker = key + "=";
+            var start = detail.IndexOf(marker, StringComparison.Ordinal);
+            if (start < 0) return null;
+            start += marker.Length;
+            var end = detail.IndexOf(';', start);
+            return Int32.TryParse(end < 0 ? detail[start..] : detail[start..end], out var value) ? value : null;
+        }
+
+        private static string EventLine(DomainEvent @event)
+        {
+            var label = @event.Type switch
+            {
+                DomainEventType.UnitEnteredTile => "MOVE",
+                DomainEventType.MovementDelayed => "CLASH DELAY",
+                DomainEventType.EffectApplied => "HEAL",
+                DomainEventType.AttackResolved => "ATTACK",
+                DomainEventType.ReactionAttackResolved => "OVERWATCH HIT",
+                DomainEventType.OverwatchArmed => "OVERWATCH ARMED",
+                DomainEventType.ActionFailed => "FAILED",
+                _ => @event.Type.ToString()
+            };
+            return $"t{@event.Tick:00} {label} {@event.FactionId} {@event.Detail}";
+        }
+
+        private static string RoundSummary(IReadOnlyList<DomainEvent> events, int round) =>
+            $"Round {round} result: {events.Count(@event => @event.Type == DomainEventType.UnitEnteredTile)} moves · {events.Count(@event => @event.Type == DomainEventType.AttackResolved)} attacks · {events.Count(@event => @event.Type == DomainEventType.EffectApplied)} heals · {events.Count(@event => @event.Type == DomainEventType.ReactionAttackResolved)} reactions · {events.Count(@event => @event.Type == DomainEventType.MovementDelayed)} delays · {events.Count(@event => @event.Type == DomainEventType.ActionFailed)} failed";
+
+        private void DrawFeedback()
+        {
+            _feedback.RemoveAll(pulse => pulse.ExpiresAt <= Time.time || !_views.ContainsKey(pulse.UnitId));
+            var previousColor = GUI.color;
+            foreach (var pulse in _feedback)
+            {
+                var screen = Camera.main!.WorldToScreenPoint(_views[pulse.UnitId].transform.position + Vector3.up * 1.25f);
+                GUI.color = pulse.Color;
+                GUI.Label(new Rect(screen.x - 72, Screen.height - screen.y, 150, 22), pulse.Text);
+            }
+            GUI.color = previousColor;
+        }
+
+        private sealed class FeedbackPulse
+        {
+            public FeedbackPulse(Guid unitId, string text, Color color, float expiresAt) { UnitId = unitId; Text = text; Color = color; ExpiresAt = expiresAt; }
+            public Guid UnitId { get; }
+            public string Text { get; }
+            public Color Color { get; }
+            public float ExpiresAt { get; }
+        }
 
         private TacticalAction? SelectedQueuedOverwatch() =>
             _blueOrders.TryGetValue(_selectedBlue, out var actions) ? actions.LastOrDefault(action => action.Type == TacticalActionType.EnterOverwatch) : null;
@@ -458,6 +546,24 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private static string FacingSymbol(Facing facing) => facing switch { Facing.North => "↑", Facing.East => "→", Facing.South => "↓", Facing.West => "←", _ => "?" };
 
+        private IEnumerator AnimateProjectile(GridPosition from, GridPosition to, Color color)
+        {
+            var projectile = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            projectile.name = "Resolved attack projectile";
+            projectile.transform.SetParent(transform, false); projectile.transform.localScale = Vector3.one * .20f;
+            projectile.GetComponent<Renderer>().material.color = color;
+            var start = new Vector3(from.X, .65f, from.Y);
+            var end = new Vector3(to.X, .65f, to.Y);
+            const float durationSeconds = .28f;
+            for (var elapsed = 0f; elapsed < durationSeconds; elapsed += Time.deltaTime)
+            {
+                projectile.transform.position = Vector3.Lerp(start, end, elapsed / durationSeconds);
+                yield return null;
+            }
+            projectile.transform.position = end;
+            Destroy(projectile);
+        }
+
         private string PlannedOrderDescription(UnitState unit)
         {
             if (!_blueOrders.TryGetValue(unit.Id, out var actions) || actions.Count == 0) return "No order — waits";
@@ -518,7 +624,8 @@ namespace TacticalStrategyGame.Presentation.Unity
                 var selected = blue[i].Id == _selectedBlue ? "> " : "  ";
                 GUI.Label(new Rect(28, 206 + i * 20, 970, 20), $"{selected}Blue {i + 1}: {PlannedOrderDescription(blue[i])}");
             }
-            var y = 300f; foreach (var line in _lines.Take(15)) { GUI.Label(new Rect(20, y, 990, 20), line); y += 19; }
+            GUI.Box(new Rect(12, 300, 1000, 30), _roundSummary);
+            var y = 338f; foreach (var line in _lines.Take(13)) { GUI.Label(new Rect(20, y, 990, 20), line); y += 19; }
             DrawOverwatchOverlay();
             foreach (var unit in _encounter.CurrentState.Units)
             {
@@ -526,8 +633,10 @@ namespace TacticalStrategyGame.Presentation.Unity
                 var medKits = InventoryRules.QuantityOf(unit, "med-kit");
                 var inventory = medKits > 0 || unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? $" kit:{medKits}" : string.Empty;
                 var visibility = unit.FactionId == "red" ? IsObservableByBlue(unit, _encounter.CurrentState) ? " OBS" : " HIDDEN" : string.Empty;
-                GUI.Label(new Rect(screen.x - 70, Screen.height - screen.y, 180, 20), $"{unit.FactionId.ToUpperInvariant()} {UnitNumber(unit.Id)} {RoleName(unit)} {unit.HitPoints}/{unit.MaxHitPoints}{inventory}{visibility}");
+                var hitPoints = _displayHitPoints.TryGetValue(unit.Id, out var displayHitPoints) ? displayHitPoints : unit.HitPoints;
+                GUI.Label(new Rect(screen.x - 70, Screen.height - screen.y, 180, 20), $"{unit.FactionId.ToUpperInvariant()} {UnitNumber(unit.Id)} {RoleName(unit)} {hitPoints}/{unit.MaxHitPoints}{inventory}{visibility}");
             }
+            DrawFeedback();
         }
 
         private Guid NextRed()

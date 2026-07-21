@@ -41,13 +41,13 @@ Expected: only a legal next adjacent tile extends the manual route. Brush costs 
 
 Plan two Blue routes that arrive on the same open tile on the same tick. Submit the round.
 
-Expected: the shared intended tile is magenta and both affected rows say `seeded clash` before submission. The event log identifies the resolver outcome; one unit can be delayed rather than both occupying the tile. This warning does not claim the plan is invalid.
+Expected: the shared intended tile is magenta and both affected rows say `seeded clash` before submission. The event log identifies the resolver outcome and the delayed unit receives a transient `DELAYED` label; one unit can be delayed rather than both occupying the tile. This warning does not claim the plan is invalid.
 
 ### RC-HUM-005: Speculative attack and terrain sight
 
 Queue a move followed by **Attack red** against the selected Red target. Also try an attack with a building/wall between the units, or where the target is currently `HIDDEN`.
 
-Expected: the plan says the attack is checked at resolution. A legal completion applies visible vitality loss, including target-tile cover mitigation in the event detail. A blocked, hidden, or out-of-range completion fails clearly and does not fabricate damage.
+Expected: the plan says the attack is checked at resolution. A legal completion draws a projectile, shows a transient damage label, and applies visible vitality loss, including target-tile cover mitigation in the event detail. A blocked, hidden, or out-of-range completion shows `FAILED` clearly and does not fabricate damage.
 
 ### RC-HUM-006: Targeted medic action and inventory
 
