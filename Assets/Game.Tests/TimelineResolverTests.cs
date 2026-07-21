@@ -638,6 +638,26 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Planned_actions_cannot_exceed_the_unit_action_point_budget()
+    {
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East, UnitActivityState.Active, ActionPointBudget: 2),
+            new UnitState(RedUnit, "red", new GridPosition(2, 0), Facing.West, UnitActivityState.Active)
+        });
+        var scenario = new ScenarioDefinition("ap-budget", new GridMapDefinition("ap-budget-map", 4, 1), state);
+        var move = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(1, 0) });
+        var attack = new TacticalAction(SecondAction, BlueUnit, TacticalActionType.Attack, 1, 1, TargetUnitId: RedUnit, AttackProfileId: "rifle");
+        var request = ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", move, attack) }, new RoundConfiguration(3), 1234u,
+            attackProfiles: new[] { new AttackProfile("rifle", 1, 3, 5, ActionPointCost: 2) });
+
+        var result = new TimelineResolver().Resolve(request);
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("action-point-budget-exceeded"));
+    }
+
+    [Test]
     public void Golden_replay_direct_attack_has_stable_event_sequence_and_checksum()
     {
         var state = new GameState(new[]
