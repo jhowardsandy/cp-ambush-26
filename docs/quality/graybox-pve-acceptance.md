@@ -8,6 +8,10 @@ The acceptance test runs the full encounter twice and requires identical per-rou
 
 Evidence: `Graybox_four_v_four_pve_encounter_is_repeatable_across_multiple_rounds`.
 
+## Human-playtest companion
+
+`riverside-crossing-human-playtest.md` is the active player-facing companion protocol. It verifies observable intent and clarity for routing, AP/tick previews, terrain, clashes, speculative targeting, medic inventory, overwatch, observation feedback, event playback, and reset/auto-play. A failed calculation becomes an automated regression; a correct but unclear interaction becomes a presentation finding.
+
 ## Manual mixed-roster scene check
 
 In the player-operated scene, each side must visibly contain two capsule Riflemen and two sphere Combat Medics. A damaged Blue Medic can draft `Medic heal self`; successful resolution restores vitality and decrements the displayed med-kit count by one. This is presentation validation of core rules already covered by the deterministic inventory tests.
