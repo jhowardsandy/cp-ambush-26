@@ -24,6 +24,10 @@ public sealed class TimelineResolver
             .ToArray();
         var events = new List<DomainEvent>();
         var failedActions = new HashSet<Guid>();
+        var startedActions = new HashSet<Guid>();
+        var completedActions = new HashSet<Guid>();
+        var timelineDelays = new Dictionary<Guid, int>();
+        var random = new Random(unchecked((int)request.RandomSeed));
         var state = request.InitialState;
         var sequence = 0;
 
@@ -31,8 +35,9 @@ public sealed class TimelineResolver
 
         for (var tick = 0; tick <= request.Configuration.TicksPerRound; tick++)
         {
-            foreach (var item in scheduled.Where(item => item.Action.StartTick == tick).OrderBy(item => item, ScheduledActionComparer.Instance))
+            foreach (var item in scheduled.Where(item => !startedActions.Contains(item.Action.ActionId) && item.Action.StartTick + DelayFor(item.Action.UnitId) <= tick).OrderBy(item => item, ScheduledActionComparer.Instance))
             {
+                startedActions.Add(item.Action.ActionId);
                 var unit = state.FindUnit(item.Action.UnitId)!;
                 if (unit.ActivityState != UnitActivityState.Active)
                 {
@@ -47,7 +52,7 @@ public sealed class TimelineResolver
             ResolveMovementSteps(tick);
             ResolveOverwatchReactions(tick);
 
-            foreach (var item in scheduled.Where(item => item.Action.StartTick + item.Action.DurationTicks == tick).OrderBy(item => item, ScheduledActionComparer.Instance))
+            foreach (var item in scheduled.Where(item => !completedActions.Contains(item.Action.ActionId) && item.Action.StartTick + item.Action.DurationTicks + DelayFor(item.Action.UnitId) == tick).OrderBy(item => item, ScheduledActionComparer.Instance))
             {
                 if (failedActions.Contains(item.Action.ActionId))
                     continue;
@@ -61,6 +66,7 @@ public sealed class TimelineResolver
                     continue;
                 }
                 state = completion.State;
+                completedActions.Add(item.Action.ActionId);
                 if (completion.Effect is not null)
                 {
                     AddEvent(tick, DomainEventType.EffectApplied, item.FactionId, completion.Effect.Target.Id, item.Action.ActionId,
@@ -85,6 +91,12 @@ public sealed class TimelineResolver
             }
         }
 
+        foreach (var item in scheduled.Where(item => startedActions.Contains(item.Action.ActionId) && !completedActions.Contains(item.Action.ActionId) && !failedActions.Contains(item.Action.ActionId)))
+        {
+            failedActions.Add(item.Action.ActionId);
+            AddEvent(request.Configuration.TicksPerRound, DomainEventType.ActionFailed, item.FactionId, item.Action.UnitId, item.Action.ActionId, "Action was delayed beyond the round.");
+        }
+
         AddEvent(request.Configuration.TicksPerRound, DomainEventType.RoundCompleted, string.Empty);
         state = new GameState(state.Units.Select(unit => unit with { Overwatch = null }).ToArray());
         return new SimulationResult(state, events, diagnostics, StateChecksum.Calculate(state));
@@ -93,7 +105,7 @@ public sealed class TimelineResolver
         {
             var intents = scheduled
                 .Where(item => item.Action.Type == TacticalActionType.Move && !failedActions.Contains(item.Action.ActionId))
-                .Select(item => new MovementIntent(item, MovementRules.StepIndexAtTick(item.Action, request.Scenario?.Map, tick)))
+                .Select(item => new MovementIntent(item, MovementRules.StepIndexAtTick(item.Action, request.Scenario?.Map, tick - DelayFor(item.Action.UnitId))))
                 .Where(intent => intent.StepIndex >= 0)
                 .OrderBy(intent => intent.Scheduled, ScheduledActionComparer.Instance)
                 .ToArray();
@@ -102,18 +114,27 @@ public sealed class TimelineResolver
                 return;
 
             var occupiedAtTickStart = state.Units.ToDictionary(unit => unit.Position, unit => unit.Id);
-            var contestedDestinations = intents.GroupBy(intent => intent.Destination).Where(group => group.Count() > 1)
-                .Select(group => group.Key).ToHashSet();
+            var winners = new HashSet<Guid>();
+            foreach (var group in intents.GroupBy(intent => intent.Destination).Where(group => group.Count() > 1))
+            {
+                var contenders = group.OrderBy(intent => intent.Scheduled, ScheduledActionComparer.Instance).ToArray();
+                var winner = contenders[random.Next(contenders.Length)];
+                winners.Add(winner.Scheduled.Action.ActionId);
+                foreach (var loser in contenders.Where(intent => intent.Scheduled.Action.ActionId != winner.Scheduled.Action.ActionId))
+                {
+                    timelineDelays[loser.Scheduled.Action.UnitId] = DelayFor(loser.Scheduled.Action.UnitId) + 1;
+                    AddEvent(tick, DomainEventType.MovementDelayed, loser.Scheduled.FactionId, loser.Scheduled.Action.UnitId, loser.Scheduled.Action.ActionId,
+                        $"Destination ({loser.Destination.X},{loser.Destination.Y}) contested; seeded tie-break selected another mover. Timeline delayed by 1 tick.");
+                }
+            }
+            var movingFrom = intents.Where(intent => !intents.GroupBy(candidate => candidate.Destination).Any(group => group.Count() > 1 && !winners.Contains(intent.Scheduled.Action.ActionId)))
+                .ToDictionary(intent => state.FindUnit(intent.Scheduled.Action.UnitId)!.Position, intent => intent);
 
             foreach (var intent in intents)
             {
-                if (contestedDestinations.Contains(intent.Destination))
-                {
-                    Fail(tick, intent, "Destination contested by simultaneous movement.");
-                    continue;
-                }
+                if (intents.GroupBy(candidate => candidate.Destination).Any(group => group.Count() > 1 && !winners.Contains(intent.Scheduled.Action.ActionId))) continue;
 
-                if (occupiedAtTickStart.ContainsKey(intent.Destination))
+                if (occupiedAtTickStart.TryGetValue(intent.Destination, out var occupantId) && (!movingFrom.TryGetValue(intent.Destination, out var departing) || departing.Destination == state.FindUnit(intent.Scheduled.Action.UnitId)!.Position))
                 {
                     Fail(tick, intent, "Destination was occupied at the start of this tick.");
                     continue;
@@ -162,6 +183,8 @@ public sealed class TimelineResolver
             Facing.West => target.X < origin.X && Math.Abs(target.Y - origin.Y) <= origin.X - target.X,
             _ => false
         };
+
+        int DelayFor(Guid unitId) => timelineDelays.TryGetValue(unitId, out var delay) ? delay : 0;
 
         void Fail(int tick, MovementIntent intent, string detail)
         {

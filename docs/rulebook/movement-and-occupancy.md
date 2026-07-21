@@ -18,21 +18,21 @@ A scenario tile may define a positive movement-tick cost and passability. Enteri
 
 Evidence: `Terrain_movement_ticks_delay_entry_and_determine_action_duration` and `Impassable_terrain_rejects_movement_path`.
 
-## MOV-RES-001: Start-of-tick occupancy
+## MOV-RES-001: Vacated-tile following
 
 Status: accepted.
 
-A unit may enter a tile only if that tile was unoccupied at the start of the tick. A unit cannot follow another into a tile during the same tick, even if the other unit leaves it.
+A unit may enter a tile vacated by another unit during the same tick, provided this is not a direct two-unit swap. This permits a delayed unit to follow the winner of a contested tile once that winner continues along its route.
 
-Evidence: `Move_into_occupied_tile_fails_even_when_occupant_leaves_on_same_tick`.
+Evidence: `Move_into_a_tile_vacated_on_the_same_tick_succeeds`.
 
 ## MOV-RES-002: Simultaneous destination conflict
 
 Status: accepted.
 
-If two or more units attempt to enter the same tile on the same tick, all those movement actions fail. No faction, unit, or action-ID priority resolves the conflict.
+If two or more units attempt to enter the same tile on the same tick, the resolver uses the replay seed to select one deterministic-random winner. Every loser remains in place and its remaining unit timeline is delayed by one tick. The event log records `MovementDelayed`; later movement and queued actions shift with the unit. If that shift exceeds the round, the unit keeps any tiles already entered and the unfinished action fails at round end.
 
-Evidence: `Simultaneous_contested_destination_fails_all_movers_without_priority`.
+Evidence: `Simultaneous_contested_destination_selects_one_seeded_winner_and_delays_the_loser`.
 
 ## MOV-RES-003: No same-tick swaps or crossing
 

@@ -157,28 +157,28 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
-    public void Simultaneous_contested_destination_fails_all_movers_without_priority()
+    public void Simultaneous_contested_destination_selects_one_seeded_winner_and_delays_the_loser()
     {
         var blue = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(0, 1) });
         var red = new TacticalAction(SecondAction, RedUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(0, 1) });
 
         var result = new TimelineResolver().Resolve(Request(State(new GridPosition(0, 0), new GridPosition(0, 2)), Bundle("blue", blue), Bundle("red", red)));
 
-        Assert.That(result.Events.Where(e => e.Type == DomainEventType.ActionFailed).Select(e => e.ActionId), Is.EquivalentTo(new[] { FirstAction, SecondAction }));
-        Assert.That(result.FinalState.FindUnit(BlueUnit)!.Position, Is.EqualTo(new GridPosition(0, 0)));
-        Assert.That(result.FinalState.FindUnit(RedUnit)!.Position, Is.EqualTo(new GridPosition(0, 2)));
+        Assert.That(result.Events.Count(e => e.Type == DomainEventType.MovementDelayed), Is.EqualTo(1));
+        Assert.That(result.Events.Count(e => e.Type == DomainEventType.UnitEnteredTile && e.ToPosition == new GridPosition(0, 1)), Is.EqualTo(1));
+        Assert.That(result.FinalState.Units.Count(unit => unit.Position == new GridPosition(0, 1)), Is.EqualTo(1));
     }
 
     [Test]
-    public void Move_into_occupied_tile_fails_even_when_occupant_leaves_on_same_tick()
+    public void Move_into_a_tile_vacated_on_the_same_tick_succeeds()
     {
         var blue = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(1, 0) });
         var red = new TacticalAction(SecondAction, RedUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(2, 0) });
 
         var result = new TimelineResolver().Resolve(Request(Bundle("blue", blue), Bundle("red", red)));
 
-        Assert.That(result.Events.Where(e => e.ActionId == FirstAction).Select(e => e.Type), Does.Contain(DomainEventType.ActionFailed));
-        Assert.That(result.FinalState.FindUnit(BlueUnit)!.Position, Is.EqualTo(new GridPosition(0, 0)));
+        Assert.That(result.Events.Where(e => e.ActionId == FirstAction).Select(e => e.Type), Does.Contain(DomainEventType.ActionCompleted));
+        Assert.That(result.FinalState.FindUnit(BlueUnit)!.Position, Is.EqualTo(new GridPosition(1, 0)));
         Assert.That(result.FinalState.FindUnit(RedUnit)!.Position, Is.EqualTo(new GridPosition(2, 0)));
     }
 

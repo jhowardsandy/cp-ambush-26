@@ -12,6 +12,7 @@ public enum DomainEventType
     ActionStarted,
     UnitExitedTile,
     UnitEnteredTile,
+    MovementDelayed,
     EffectApplied,
     AttackResolved,
     PostureChanged,
