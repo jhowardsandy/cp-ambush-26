@@ -45,16 +45,19 @@ public static class PvePlanner
                 continue;
             }
 
-            var destination = MovementPreference.Select(delta => new GridPosition(unit.Position.X + delta.X, unit.Position.Y + delta.Y))
+            var candidates = MovementPreference.Select(delta => new GridPosition(unit.Position.X + delta.X, unit.Position.Y + delta.Y))
                 .Where(candidate => map.Contains(candidate) && map.CellAt(candidate).IsPassable && !reservedDestinations.Contains(candidate))
-                .Where(candidate => GridDistance.Manhattan(candidate, target.Position) < GridDistance.Manhattan(unit.Position, target.Position))
-                .Where(candidate => map.CellAt(candidate).ActionPointCost <= unit.ActionPointBudget)
-                .FirstOrDefault();
+                .Where(candidate => map.CellAt(candidate).ActionPointCost <= unit.ActionPointBudget);
+            var destination = candidates.FirstOrDefault(candidate => GridDistance.Manhattan(candidate, target.Position) < GridDistance.Manhattan(unit.Position, target.Position))
+                ?? candidates.FirstOrDefault();
             if (destination is not null)
             {
                 reservedDestinations.Add(destination);
                 actions.Add(new TacticalAction(unit.Id, unit.Id, TacticalActionType.Move, 0, map.CellAt(destination).MovementTicks, Path: new[] { destination }));
-                decisions.Add(new PveDecision(unit.Id, "move", $"Nearest target is {target.Id}; move to ({destination.X},{destination.Y}) reduces distance."));
+                var improvesDistance = GridDistance.Manhattan(destination, target.Position) < GridDistance.Manhattan(unit.Position, target.Position);
+                decisions.Add(new PveDecision(unit.Id, "move", improvesDistance
+                    ? $"Nearest target is {target.Id}; move to ({destination.X},{destination.Y}) reduces distance."
+                    : $"Nearest target is {target.Id}; move to ({destination.X},{destination.Y}) to clear the formation."));
                 continue;
             }
 
