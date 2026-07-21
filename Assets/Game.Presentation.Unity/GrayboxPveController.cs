@@ -105,7 +105,13 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void Submit()
         {
-            if (!_resolving && _blueOrders.Count > 0 && _encounter.Outcome?.IsComplete != true) StartCoroutine(Resolve());
+            if (_resolving || _encounter.Outcome?.IsComplete == true) return;
+            if (_blueOrders.Count == 0)
+            {
+                _message = "Draft at least one Blue order first. Units without an order wait this round.";
+                return;
+            }
+            StartCoroutine(Resolve());
         }
 
         private IEnumerator Resolve()
@@ -139,6 +145,19 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private static int UnitNumber(Guid id) => id.ToString("N")[31] - '0';
 
+        private string PlannedOrderDescription(UnitState unit)
+        {
+            if (!_blueOrders.TryGetValue(unit.Id, out var action)) return "No order — waits";
+            if (action.Type == TacticalActionType.Move && action.Path is { Count: > 0 })
+            {
+                var destination = action.Path[^1];
+                return $"Move to ({destination.X},{destination.Y})";
+            }
+            if (action.Type == TacticalActionType.Attack && action.TargetUnitId.HasValue)
+                return $"Attack Red {UnitNumber(action.TargetUnitId.Value)} — checked at resolution";
+            return action.Type.ToString();
+        }
+
         private void OnGUI()
         {
             GUI.Box(new Rect(12, 12, 1000, 118), "Graybox 4v4 PvE — player Blue vs deterministic Red");
@@ -146,7 +165,11 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (GUI.Button(new Rect(154, 44, 80, 26), "Reset")) ResetEncounter();
             GUI.Label(new Rect(250, 44, 740, 22), _message);
             var blue = _encounter.CurrentState.Units.Where(unit => unit.FactionId == "blue").OrderBy(unit => unit.Id).ToArray();
-            for (var i = 0; i < blue.Length; i++) if (GUI.Button(new Rect(24 + i * 66, 76, 60, 24), $"Blue {i + 1}")) _selectedBlue = blue[i].Id;
+            for (var i = 0; i < blue.Length; i++)
+            {
+                var marker = blue[i].Id == _selectedBlue ? "> " : string.Empty;
+                if (GUI.Button(new Rect(24 + i * 74, 76, 68, 24), $"{marker}Blue {i + 1}")) _selectedBlue = blue[i].Id;
+            }
             if (GUI.Button(new Rect(300, 76, 45, 24), "N")) DraftMove(new GridPosition(0, 1));
             if (GUI.Button(new Rect(350, 76, 45, 24), "S")) DraftMove(new GridPosition(0, -1));
             if (GUI.Button(new Rect(400, 76, 45, 24), "E")) DraftMove(new GridPosition(1, 0));
@@ -154,7 +177,13 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (GUI.Button(new Rect(505, 76, 100, 24), "Attack red")) DraftAttack();
             if (GUI.Button(new Rect(615, 76, 100, 24), "Next red")) _selectedRed = NextRed();
             if (GUI.Button(new Rect(725, 76, 100, 24), "Clear blue")) _blueOrders.Remove(_selectedBlue);
-            var y = 138f; foreach (var line in _lines.Take(15)) { GUI.Label(new Rect(20, y, 990, 20), line); y += 19; }
+            GUI.Box(new Rect(12, 138, 1000, 112), $"Round plan — {_blueOrders.Count}/4 Blue orders queued. Choosing another order for a Blue unit replaces its current order.");
+            for (var i = 0; i < blue.Length; i++)
+            {
+                var selected = blue[i].Id == _selectedBlue ? "> " : "  ";
+                GUI.Label(new Rect(28, 164 + i * 20, 970, 20), $"{selected}Blue {i + 1}: {PlannedOrderDescription(blue[i])}");
+            }
+            var y = 258f; foreach (var line in _lines.Take(15)) { GUI.Label(new Rect(20, y, 990, 20), line); y += 19; }
             foreach (var unit in _encounter.CurrentState.Units)
             {
                 var screen = Camera.main!.WorldToScreenPoint(_views[unit.Id].transform.position + Vector3.up * .65f);
