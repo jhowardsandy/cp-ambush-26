@@ -893,6 +893,41 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Pve_planner_prefers_advancing_cover_when_distance_is_equal()
+    {
+        var state = State(new GridPosition(0, 0), new GridPosition(3, 2));
+        var map = new GridMapDefinition("pve-cover-map", 4, 3, new[]
+        {
+            new TerrainCellDefinition(new GridPosition(0, 1), CoverValue: 2)
+        });
+
+        var plan = PvePlanner.Plan("blue", state, map, new AttackProfile("short", 1, 2, 5));
+
+        Assert.That(MovementRules.PathFor(plan.Commands.Actions.Single()).Single(), Is.EqualTo(new GridPosition(0, 1)));
+        Assert.That(plan.Decisions.Single().Explanation, Does.Contain("cover 2"));
+    }
+
+    [Test]
+    public void Pve_planner_medic_treats_the_most_injured_legal_ally()
+    {
+        var medicId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var allyId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var enemyId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+        var medic = StarterMilitaryContent.CombatMedic.CreateInitialState(medicId, "blue", new GridPosition(0, 0), Facing.North);
+        var ally = StarterMilitaryContent.Rifleman.CreateInitialState(allyId, "blue", new GridPosition(1, 0), Facing.North) with { HitPoints = 4 };
+        var enemy = StarterMilitaryContent.Rifleman.CreateInitialState(enemyId, "red", new GridPosition(2, 0), Facing.South);
+
+        var plan = PvePlanner.Plan("blue", new GameState(new[] { medic, ally, enemy }), new GridMapDefinition("pve-heal-map", 4, 1),
+            StarterMilitaryContent.ServiceRifle, StarterMilitaryContent.FieldMedKit, new[] { StarterMilitaryContent.Rifleman, StarterMilitaryContent.CombatMedic });
+
+        var action = plan.Commands.Actions.Single(action => action.UnitId == medicId);
+        Assert.That(action.Type, Is.EqualTo(TacticalActionType.ApplyEffect));
+        Assert.That(action.TargetUnitId, Is.EqualTo(allyId));
+        Assert.That(action.EffectId, Is.EqualTo(StarterMilitaryContent.FieldMedKit.Id));
+        Assert.That(plan.Decisions.Single(decision => decision.UnitId == medicId).Decision, Is.EqualTo("heal"));
+    }
+
+    [Test]
     public void Golden_replay_direct_attack_has_stable_event_sequence_and_checksum()
     {
         var state = new GameState(new[]

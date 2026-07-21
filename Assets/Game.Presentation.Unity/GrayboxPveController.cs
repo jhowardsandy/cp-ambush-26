@@ -322,7 +322,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             for (var round = 0; round < maximumDemoRounds && _encounter.Outcome?.IsComplete != true; round++)
             {
                 _message = $"Auto-play demo: planning round {_encounter.CompletedRounds + 1}.";
-                var blue = PvePlanner.Plan("blue", _encounter.CurrentState, _scenario.Map, Rifle);
+                var blue = PvePlanner.Plan("blue", _encounter.CurrentState, _scenario.Map, Rifle, FieldMedKit, _scenario.UnitDefinitions);
                 yield return StartCoroutine(Resolve(blue.Commands));
                 if (_encounter.Outcome?.IsComplete != true)
                     yield return new WaitForSeconds(.65f);
@@ -339,7 +339,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private IEnumerator Resolve(CommandBundle blueCommands)
         {
-            _resolving = true; _armedOverwatch.Clear(); var before = _encounter.CurrentState; var red = PvePlanner.Plan("red", before, _scenario.Map, Rifle);
+            _resolving = true; _armedOverwatch.Clear(); var before = _encounter.CurrentState; var red = PvePlanner.Plan("red", before, _scenario.Map, Rifle, FieldMedKit, _scenario.UnitDefinitions);
             var overwatchActions = blueCommands.Actions.Concat(red.Commands.Actions)
                 .Where(action => action.Type == TacticalActionType.EnterOverwatch && action.Facing.HasValue)
                 .ToDictionary(action => action.ActionId);
