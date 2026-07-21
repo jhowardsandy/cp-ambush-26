@@ -10,6 +10,7 @@
 | MOV-RES-002 | accepted | `rulebook/movement-and-occupancy.md` | Contested destination test | Add named golden movement fixtures with the fixture harness. |
 | MOV-RES-003 | accepted | `rulebook/movement-and-occupancy.md` | Swap rejection test | Add named golden movement fixtures with the fixture harness. |
 | MOV-TRN-001 | accepted | `rulebook/movement-and-occupancy.md` | Terrain timing and impassable-path tests | `GR-MOV-001` terrain-delay golden replay. |
+| TRN-PRT-001 | accepted | `rulebook/terrain-protection.md` | Portable cover/concealment and invalid-content test | Scenario JSON round-trip coverage. |
 | SCN-MAP-001 | accepted | `technical-design/content-schema.md` | Scenario map dimension and starting-position validation test | Scenario definition survives replay serialization. |
 | SCN-MAP-002 | accepted | `technical-design/content-schema.md` | Movement-out-of-bounds scenario test | Add map-boundary golden fixture with the fixture harness. |
 | SCN-MAP-003 | accepted | `technical-design/content-schema.md` | Named map-area JSON round-trip and invalid-area validation test | Add an objective scenario replay when capture/search rules are accepted. |
