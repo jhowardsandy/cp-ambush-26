@@ -490,12 +490,31 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void DrawOverwatchOverlay()
         {
+            DrawObjectiveOverlay();
             DrawPlannedRouteOverlay();
             var queued = SelectedQueuedOverwatch();
             if (queued?.Facing is not null)
                 DrawWatchCone(_encounter.CurrentState.FindUnit(_selectedBlue)!, queued.Facing.Value, new Color(1f, .82f, .15f, .28f), "PLANNED");
             foreach (var armed in _armedOverwatch)
                 DrawWatchCone(_encounter.CurrentState.FindUnit(armed.Key)!, armed.Value, new Color(1f, .5f, .1f, .34f), "ARMED");
+        }
+
+        private void DrawObjectiveOverlay()
+        {
+            var area = _scenario.Map.AreaById("central-crossing");
+            if (area is null) return;
+            var camera = Camera.main!;
+            var tileSize = Mathf.Abs(camera.WorldToScreenPoint(new Vector3(1, .1f, 0)).x - camera.WorldToScreenPoint(new Vector3(0, .1f, 0)).x) * .76f;
+            var previousColor = GUI.color;
+            GUI.color = new Color(.22f, .95f, .72f, .16f);
+            foreach (var position in area.Tiles)
+            {
+                var screen = camera.WorldToScreenPoint(new Vector3(position.X, .105f, position.Y));
+                GUI.DrawTexture(new Rect(screen.x - tileSize / 2, Screen.height - screen.y - tileSize / 2, tileSize, tileSize), Texture2D.whiteTexture);
+            }
+            var labelPosition = camera.WorldToScreenPoint(new Vector3(area.Tiles[0].X, .12f, area.Tiles[0].Y));
+            GUI.Label(new Rect(labelPosition.x - 34, Screen.height - labelPosition.y - 22, 100, 20), "HOLD AREA");
+            GUI.color = previousColor;
         }
 
         private void DrawPlannedRouteOverlay()
