@@ -20,6 +20,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         private Guid _selectedBlue;
         private Guid _selectedRed;
         private bool _resolving;
+        private bool _autoPlaying;
         private string _message = string.Empty;
         private static readonly AttackProfile Rifle = StarterMilitaryContent.ServiceRifle;
         private static readonly EffectDefinition FieldMedKit = StarterMilitaryContent.FieldMedKit;
@@ -85,7 +86,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void ResetEncounter()
         {
-            StopAllCoroutines(); _resolving = false; _blueOrders.Clear(); _lines.Clear();
+            StopAllCoroutines(); _resolving = false; _autoPlaying = false; _blueOrders.Clear(); _lines.Clear();
             _encounter = new EncounterState(new EncounterDefinition(_scenario.Id, _scenario.Map, _scenario.ContentVersion, _scenario.Objectives, _scenario.UnitDefinitions, _scenario.FactionDefinitions), _scenario.InitialState);
             _selectedBlue = _scenario.InitialState.Units.First(unit => unit.FactionId == "blue").Id;
             _selectedRed = _scenario.InitialState.Units.First(unit => unit.FactionId == "red").Id;
@@ -140,10 +141,39 @@ namespace TacticalStrategyGame.Presentation.Unity
             StartCoroutine(Resolve());
         }
 
+        private void StartAutoPlay()
+        {
+            if (_resolving || _autoPlaying) return;
+            ResetEncounter();
+            _autoPlaying = true;
+            StartCoroutine(AutoPlay());
+        }
+
+        private IEnumerator AutoPlay()
+        {
+            const int maximumDemoRounds = 8;
+            for (var round = 0; round < maximumDemoRounds && _encounter.Outcome?.IsComplete != true; round++)
+            {
+                _message = $"Auto-play demo: planning round {_encounter.CompletedRounds + 1}.";
+                var blue = PvePlanner.Plan("blue", _encounter.CurrentState, _scenario.Map, Rifle);
+                yield return StartCoroutine(Resolve(blue.Commands));
+                if (_encounter.Outcome?.IsComplete != true)
+                    yield return new WaitForSeconds(.65f);
+            }
+            _autoPlaying = false;
+            if (_encounter.Outcome?.IsComplete != true)
+                _message = $"Auto-play demo paused after {maximumDemoRounds} rounds. Reset to replay.";
+        }
+
         private IEnumerator Resolve()
         {
+            yield return Resolve(new CommandBundle("blue", _blueOrders.Values.ToArray()));
+        }
+
+        private IEnumerator Resolve(CommandBundle blueCommands)
+        {
             _resolving = true; var before = _encounter.CurrentState; var red = PvePlanner.Plan("red", before, _scenario.Map, Rifle);
-            var result = EncounterResolver.ResolveRound(_encounter, new[] { new CommandBundle("blue", _blueOrders.Values.ToArray()), red.Commands }, new RoundConfiguration(10), (uint)(20260721 + _encounter.CompletedRounds), effects: new[] { FieldMedKit }, attackProfiles: new[] { Rifle });
+            var result = EncounterResolver.ResolveRound(_encounter, new[] { blueCommands, red.Commands }, new RoundConfiguration(10), (uint)(20260721 + _encounter.CompletedRounds), effects: new[] { FieldMedKit }, attackProfiles: new[] { Rifle });
             _blueOrders.Clear(); _lines.Clear(); Render(before);
             foreach (var group in result.Resolution.Events.GroupBy(@event => @event.Tick).OrderBy(group => group.Key))
             {
@@ -156,7 +186,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             }
             _encounter = result.NextState; Render(_encounter.CurrentState);
             _lines.Add($"Checksum: {result.Resolution.FinalStateChecksum}");
-            _message = _encounter.Outcome?.IsComplete == true ? _encounter.Outcome.Detail : $"Round {_encounter.CompletedRounds} complete. Draft next Blue orders.";
+            _message = _encounter.Outcome?.IsComplete == true ? _encounter.Outcome.Detail : _autoPlaying ? $"Auto-play completed round {_encounter.CompletedRounds}." : $"Round {_encounter.CompletedRounds} complete. Draft next Blue orders.";
             _resolving = false;
         }
 
@@ -195,7 +225,8 @@ namespace TacticalStrategyGame.Presentation.Unity
             GUI.Box(new Rect(12, 12, 1000, 118), "Graybox 4v4 PvE — player Blue vs deterministic Red");
             if (GUI.Button(new Rect(24, 44, 120, 26), "Submit round")) Submit();
             if (GUI.Button(new Rect(154, 44, 80, 26), "Reset")) ResetEncounter();
-            GUI.Label(new Rect(250, 44, 740, 22), _message);
+            if (GUI.Button(new Rect(244, 44, 120, 26), "Auto-play demo")) StartAutoPlay();
+            GUI.Label(new Rect(375, 44, 625, 22), _message);
             var blue = _encounter.CurrentState.Units.Where(unit => unit.FactionId == "blue").OrderBy(unit => unit.Id).ToArray();
             for (var i = 0; i < blue.Length; i++)
             {
