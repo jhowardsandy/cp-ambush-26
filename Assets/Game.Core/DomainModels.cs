@@ -27,7 +27,8 @@ public sealed record UnitState(
     UnitActivityState ActivityState,
     int HitPoints = 10,
     int MaxHitPoints = 10,
-    string? UnitDefinitionId = null);
+    string? UnitDefinitionId = null,
+    int ActionPointBudget = 6);
 
 public sealed record TacticalAction(
     Guid ActionId,
@@ -43,10 +44,10 @@ public sealed record TacticalAction(
     string? AttackProfileId = null);
 
 /// <summary>Setting-neutral, versioned vitality change. Positive values heal; negative values damage.</summary>
-public sealed record EffectDefinition(string Id, int VitalityDelta);
+public sealed record EffectDefinition(string Id, int VitalityDelta, int ActionPointCost = 2);
 
 /// <summary>Data-defined direct attack with deterministic, guaranteed-hit damage in the first combat slice.</summary>
-public sealed record AttackProfile(string Id, int MinimumRange, int MaximumRange, int Damage, bool RequiresLineOfSight = true);
+public sealed record AttackProfile(string Id, int MinimumRange, int MaximumRange, int Damage, bool RequiresLineOfSight = true, int ActionPointCost = 2);
 
 public sealed record CommandBundle(string FactionId, IReadOnlyList<TacticalAction> Actions);
 

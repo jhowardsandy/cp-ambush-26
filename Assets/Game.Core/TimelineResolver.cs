@@ -230,6 +230,13 @@ public sealed class TimelineResolver
 
             if (group.Count(action => action.Type == TacticalActionType.Move) > 1)
                 diagnostics.Add(new("multiple-move-actions", "Milestone 2 permits at most one Move action per unit per round.", group.First(action => action.Type == TacticalActionType.Move).ActionId));
+
+            if (units.TryGetValue(group.Key, out var unit))
+            {
+                var spent = group.Sum(action => ActionPointRules.CostFor(action, request.Scenario?.Map, effects, attackProfiles));
+                if (spent > unit.ActionPointBudget)
+                    diagnostics.Add(new("action-point-budget-exceeded", $"Planned actions cost {spent} AP but the unit budget is {unit.ActionPointBudget} AP.", group.First().ActionId));
+            }
         }
 
         return diagnostics;

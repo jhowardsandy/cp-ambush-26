@@ -11,7 +11,8 @@ public sealed record TerrainCellDefinition(
     GridPosition Position,
     int MovementTicks = 1,
     bool IsPassable = true,
-    bool BlocksLineOfSight = false);
+    bool BlocksLineOfSight = false,
+    int ActionPointCost = 1);
 
 /// <summary>Named set of map tiles for objectives, deployment, buildings, extraction, or spawn rules.</summary>
 public sealed record MapAreaDefinition(string Id, IReadOnlyList<GridPosition> Tiles);
@@ -73,6 +74,8 @@ public static class ScenarioValidator
         {
             if (!scenario.Map.Contains(unit.Position))
                 diagnostics.Add(new("unit-out-of-bounds", "Scenario unit position must be inside its map."));
+            if (unit.ActionPointBudget < 0)
+                diagnostics.Add(new("negative-unit-action-points", "Scenario unit action-point budget cannot be negative."));
         }
 
         var unitDefinitions = scenario.UnitDefinitions ?? Array.Empty<UnitDefinition>();
@@ -132,6 +135,8 @@ public static class ScenarioValidator
                 diagnostics.Add(new("terrain-out-of-bounds", "Terrain cell position must be inside its map."));
             if (cell.MovementTicks <= 0)
                 diagnostics.Add(new("invalid-terrain-cost", "Terrain movement ticks must be positive."));
+            if (cell.ActionPointCost < 0)
+                diagnostics.Add(new("negative-terrain-action-points", "Terrain action-point cost cannot be negative."));
         }
         if (terrain.GroupBy(cell => cell.Position).Any(group => group.Count() > 1))
             diagnostics.Add(new("duplicate-terrain-cell", "A map cannot define terrain more than once for the same tile."));
