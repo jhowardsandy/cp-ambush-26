@@ -727,7 +727,8 @@ public sealed class TimelineResolverTests
         var first = PvePlanner.Plan("blue", state, map, rifle);
         var second = PvePlanner.Plan("blue", state, map, rifle);
 
-        Assert.That(second, Is.EqualTo(first));
+        Assert.That(second.Commands.Actions, Is.EqualTo(first.Commands.Actions));
+        Assert.That(second.Decisions, Is.EqualTo(first.Decisions));
         Assert.That(first.Commands.Actions.Single().Type, Is.EqualTo(TacticalActionType.Attack));
         Assert.That(first.Commands.Actions.Single().TargetUnitId, Is.EqualTo(RedUnit));
         Assert.That(first.Decisions.Single().Decision, Is.EqualTo("attack"));
