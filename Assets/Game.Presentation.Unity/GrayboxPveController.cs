@@ -109,7 +109,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 priorActions[^1] = priorMove with { Path = path, DurationTicks = MovementRules.DurationFor(priorMove with { Path = path }, _scenario.Map) };
             }
             else
-                QueueAction(unit, TacticalActionType.Move, _scenario.Map.CellAt(destination).MovementTicks, Path: new[] { destination });
+                QueueAction(unit, TacticalActionType.Move, _scenario.Map.CellAt(destination).MovementTicks, path: new[] { destination });
             _message = $"Queued move for Blue {UnitNumber(unit.Id)} to ({destination.X},{destination.Y}).";
         }
 
@@ -118,7 +118,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             var unit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
             var target = _encounter.CurrentState.FindUnit(_selectedRed)!;
             if (unit.ActivityState != UnitActivityState.Active || target.ActivityState != UnitActivityState.Active) { _message = "Both units must be active."; return; }
-            QueueAction(unit, TacticalActionType.Attack, 1, TargetUnitId: target.Id, AttackProfileId: Rifle.Id);
+            QueueAction(unit, TacticalActionType.Attack, 1, targetUnitId: target.Id, attackProfileId: Rifle.Id);
             _message = $"Queued speculative attack: Blue {UnitNumber(unit.Id)} targets Red {UnitNumber(target.Id)}.";
         }
 
@@ -135,7 +135,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 _message = $"Blue {UnitNumber(unit.Id)} has no med kits remaining.";
                 return;
             }
-            QueueAction(unit, TacticalActionType.ApplyEffect, 1, TargetUnitId: unit.Id, EffectId: FieldMedKit.Id);
+            QueueAction(unit, TacticalActionType.ApplyEffect, 1, targetUnitId: unit.Id, effectId: FieldMedKit.Id);
             _message = $"Queued self-heal for Blue {UnitNumber(unit.Id)}. One med kit will be spent on successful resolution.";
         }
 
