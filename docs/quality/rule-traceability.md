@@ -21,6 +21,7 @@
 | SCN-FAC-001 | accepted | `technical-design/content-schema.md` | Faction roster legality and unknown-faction validation test | Add faction-content scenario coverage when AI planning uses faction rosters. |
 | INV-SKL-001 | accepted | `rulebook/inventory-and-skills.md` | Gated medical action success; missing-skill and missing-item validation | Add a mixed-roster replay after presentation integration. |
 | INV-SKL-002 | accepted | `rulebook/inventory-and-skills.md` | Deterministic med-kit consumption and over-subscription rejection | Add consumable action replay after presentation integration. |
+| PVE-PLAN-001 | accepted | `rulebook/pve-planning.md` | Deterministic attack/move, cover preference, medic triage, and 4v4 repeatability tests | Four-round 4v4 acceptance fixture records matching per-round checksums. |
 | VIS-LOS-001 | accepted | `rulebook/visibility.md` | Blocking and symmetry line-of-sight tests | Add visibility golden fixtures after faction knowledge is introduced. |
 | VIS-RNG-001 | accepted | `rulebook/visibility.md` | Range boundary, opaque blocker, active observer, and friendly-visibility tests | Add a visibility golden replay after snapshots are scheduled into round resolution. |
 | EFF-VIT-001 | accepted | `rulebook/effects-and-vitality.md` | Vitality clamp, incapacity, calculation-event, invalid-content, and replay-serialization tests | `GR-EFF-001` vitality-restoration golden replay. |
