@@ -64,7 +64,7 @@ public sealed class TimelineResolver
                 if (completion.Effect is not null)
                 {
                     AddEvent(tick, DomainEventType.EffectApplied, item.FactionId, completion.Effect.Target.Id, item.Action.ActionId,
-                        $"effect={completion.EffectDefinition!.Id}; before={completion.BeforeHitPoints}; requested={completion.EffectDefinition.VitalityDelta}; applied={completion.Effect.AppliedVitalityDelta}; after={completion.Effect.Target.HitPoints}",
+                        $"effect={completion.EffectDefinition!.Id}; before={completion.BeforeHitPoints}; requested={completion.EffectDefinition.VitalityDelta}; applied={completion.Effect.AppliedVitalityDelta}; after={completion.Effect.Target.HitPoints}{completion.InventoryConsumptionDetail}",
                         hitPointsAfter: completion.Effect.Target.HitPoints, activityStateAfter: completion.Effect.Target.ActivityState);
                 }
                 if (completion.Attack is not null)
@@ -189,7 +189,9 @@ public sealed class TimelineResolver
             var definition = effects!.Single(effect => StringComparer.Ordinal.Equals(effect.Id, action.EffectId));
             var target = state.FindUnit(action.TargetUnitId!.Value)!;
             var application = EffectRules.Apply(target, definition);
-            return new CompletionResult(state.WithUnit(application.Target), application, definition, target.HitPoints);
+            var afterEffect = state.WithUnit(application.Target);
+            return new CompletionResult(ConsumeInventory(afterEffect, unit.Id, definition.RequiredInventoryItemId, definition.InventoryQuantityCost), application, definition, target.HitPoints,
+                InventoryConsumptionDetail: InventoryConsumptionDetail(afterEffect.FindUnit(unit.Id)!, definition.RequiredInventoryItemId, definition.InventoryQuantityCost));
         }
 
         if (action.Type == TacticalActionType.Attack)
@@ -199,11 +201,21 @@ public sealed class TimelineResolver
             var resolution = AttackRules.Resolve(unit, target, profile, map!);
             if (resolution.FailureDetail is not null)
                 return new CompletionResult(state, FailureDetail: resolution.FailureDetail);
-            return new CompletionResult(state.WithUnit(resolution.Application!.Target), Attack: resolution, AttackProfile: profile, BeforeHitPoints: target.HitPoints);
+            var afterAttack = state.WithUnit(resolution.Application!.Target);
+            return new CompletionResult(ConsumeInventory(afterAttack, unit.Id, profile.RequiredInventoryItemId, profile.InventoryQuantityCost), Attack: resolution, AttackProfile: profile, BeforeHitPoints: target.HitPoints);
         }
 
         return new CompletionResult(state);
     }
+
+    private static GameState ConsumeInventory(GameState state, Guid unitId, string? itemId, int quantity)
+    {
+        if (String.IsNullOrWhiteSpace(itemId) || quantity <= 0) return state;
+        return state.WithUnit(InventoryRules.Consume(state.FindUnit(unitId)!, itemId, quantity));
+    }
+
+    private static string InventoryConsumptionDetail(UnitState unit, string? itemId, int quantity) =>
+        String.IsNullOrWhiteSpace(itemId) || quantity <= 0 ? String.Empty : $"; item={itemId}; spent={quantity}; remaining={InventoryRules.QuantityOf(unit, itemId) - quantity}";
 
     private static IReadOnlyList<ValidationDiagnostic> Validate(SimulationRequest request)
     {
@@ -224,6 +236,7 @@ public sealed class TimelineResolver
                 diagnostics.Add(new("missing-effect-id", "Effect definitions require a stable non-empty ID."));
             if (effect.VitalityDelta == 0)
                 diagnostics.Add(new("zero-vitality-effect", "An effect vitality change cannot be zero."));
+            ValidateRequirement(effect.RequiredSkillId, effect.RequiredInventoryItemId, effect.InventoryQuantityCost, "effect", diagnostics);
         }
         if (effects.GroupBy(effect => effect.Id, StringComparer.Ordinal).Any(group => group.Count() > 1))
             diagnostics.Add(new("duplicate-effect-id", "Effect definition IDs must be unique."));
@@ -235,6 +248,7 @@ public sealed class TimelineResolver
                 diagnostics.Add(new("invalid-attack-range", "Attack profile ranges must be non-negative and ordered."));
             if (profile.Damage <= 0)
                 diagnostics.Add(new("non-positive-attack-damage", "Attack profile damage must be positive."));
+            ValidateRequirement(profile.RequiredSkillId, profile.RequiredInventoryItemId, profile.InventoryQuantityCost, "attack profile", diagnostics);
         }
         if (attackProfiles.GroupBy(profile => profile.Id, StringComparer.Ordinal).Any(group => group.Count() > 1))
             diagnostics.Add(new("duplicate-attack-profile-id", "Attack profile IDs must be unique."));
@@ -272,6 +286,7 @@ public sealed class TimelineResolver
                 ValidateEffectAction(action, units, effects, diagnostics);
             if (action.Type == TacticalActionType.Attack)
                 ValidateAttackAction(action, unit, units, attackProfiles, request.Scenario?.Map, diagnostics);
+            ValidateActionEntitlement(action, unit, request.Scenario?.UnitDefinitions, effects, attackProfiles, diagnostics);
         }
 
         foreach (var group in request.CommandBundles.SelectMany(bundle => bundle.Actions).GroupBy(action => action.UnitId))
@@ -291,10 +306,64 @@ public sealed class TimelineResolver
                 var spent = group.Sum(action => ActionPointRules.CostFor(action, request.Scenario?.Map, effects, attackProfiles));
                 if (spent > unit.ActionPointBudget)
                     diagnostics.Add(new("action-point-budget-exceeded", $"Planned actions cost {spent} AP but the unit budget is {unit.ActionPointBudget} AP.", group.First().ActionId));
+                ValidatePlannedInventory(group, unit, effects, attackProfiles, diagnostics);
             }
         }
 
         return diagnostics;
+    }
+
+    private static void ValidateRequirement(string? skillId, string? itemId, int quantityCost, string contentKind, ICollection<ValidationDiagnostic> diagnostics)
+    {
+        if (quantityCost < 0)
+            diagnostics.Add(new("negative-inventory-cost", $"{contentKind} inventory quantity cost cannot be negative."));
+        if (quantityCost > 0 && String.IsNullOrWhiteSpace(itemId))
+            diagnostics.Add(new("inventory-cost-without-item", $"{contentKind} inventory quantity cost requires an inventory item ID."));
+    }
+
+    private static void ValidateActionEntitlement(TacticalAction action, UnitState? unit, IReadOnlyList<UnitDefinition>? definitions, IReadOnlyList<EffectDefinition> effects, IReadOnlyList<AttackProfile> profiles, ICollection<ValidationDiagnostic> diagnostics)
+    {
+        if (unit is null || action.Type is not (TacticalActionType.Attack or TacticalActionType.ApplyEffect)) return;
+        var requirement = action.Type == TacticalActionType.Attack
+            ? profiles.FirstOrDefault(profile => StringComparer.Ordinal.Equals(profile.Id, action.AttackProfileId))
+            : null;
+        var effect = action.Type == TacticalActionType.ApplyEffect
+            ? effects.FirstOrDefault(candidate => StringComparer.Ordinal.Equals(candidate.Id, action.EffectId))
+            : null;
+        var skillId = requirement?.RequiredSkillId ?? effect?.RequiredSkillId;
+        var itemId = requirement?.RequiredInventoryItemId ?? effect?.RequiredInventoryItemId;
+        if (String.IsNullOrWhiteSpace(skillId) && String.IsNullOrWhiteSpace(itemId)) return;
+
+        var definition = definitions?.FirstOrDefault(candidate => StringComparer.Ordinal.Equals(candidate.Id, unit.UnitDefinitionId));
+        if (definition is null)
+        {
+            diagnostics.Add(new("action-requires-unit-definition", "A capability- or inventory-gated action requires a unit definition.", action.ActionId));
+            return;
+        }
+        if (!String.IsNullOrWhiteSpace(skillId) && !(definition.SkillIds ?? Array.Empty<string>()).Contains(skillId, StringComparer.Ordinal))
+            diagnostics.Add(new("missing-required-skill", $"Unit does not have required skill '{skillId}'.", action.ActionId));
+        if (!String.IsNullOrWhiteSpace(itemId) && InventoryRules.QuantityOf(unit, itemId) == 0)
+            diagnostics.Add(new("missing-required-inventory-item", $"Unit does not carry required inventory item '{itemId}'.", action.ActionId));
+    }
+
+    private static void ValidatePlannedInventory(IGrouping<Guid, TacticalAction> actions, UnitState unit, IReadOnlyList<EffectDefinition> effects, IReadOnlyList<AttackProfile> profiles, ICollection<ValidationDiagnostic> diagnostics)
+    {
+        var requested = actions
+            .Select(action => action.Type == TacticalActionType.Attack
+                ? profiles.FirstOrDefault(profile => StringComparer.Ordinal.Equals(profile.Id, action.AttackProfileId))?.RequiredInventoryItemId is { } attackItem
+                    ? new InventoryItemDefinition(attackItem, profiles.First(profile => StringComparer.Ordinal.Equals(profile.Id, action.AttackProfileId)).InventoryQuantityCost)
+                    : null
+                : action.Type == TacticalActionType.ApplyEffect
+                    ? effects.FirstOrDefault(effect => StringComparer.Ordinal.Equals(effect.Id, action.EffectId))?.RequiredInventoryItemId is { } effectItem
+                        ? new InventoryItemDefinition(effectItem, effects.First(effect => StringComparer.Ordinal.Equals(effect.Id, action.EffectId)).InventoryQuantityCost)
+                        : null
+                    : null)
+            .Where(item => item is not null && item.Quantity > 0)
+            .Cast<InventoryItemDefinition>()
+            .GroupBy(item => item.ItemId, StringComparer.Ordinal);
+        foreach (var item in requested)
+            if (item.Sum(entry => entry.Quantity) > InventoryRules.QuantityOf(unit, item.Key))
+                diagnostics.Add(new("inventory-quantity-exceeded", $"Planned actions require {item.Sum(entry => entry.Quantity)} '{item.Key}' but the unit has {InventoryRules.QuantityOf(unit, item.Key)}.", actions.First().ActionId));
     }
 
     private static void ValidateAttackAction(TacticalAction action, UnitState? attacker, IReadOnlyDictionary<Guid, UnitState> units, IReadOnlyList<AttackProfile> profiles, GridMapDefinition? map, ICollection<ValidationDiagnostic> diagnostics)
@@ -385,7 +454,7 @@ public sealed class TimelineResolver
         public GridPosition Destination => MovementRules.PathFor(Scheduled.Action)[StepIndex];
     }
 
-    private sealed record CompletionResult(GameState State, EffectApplication? Effect = null, EffectDefinition? EffectDefinition = null, int BeforeHitPoints = 0, AttackResolution? Attack = null, AttackProfile? AttackProfile = null, string? FailureDetail = null);
+    private sealed record CompletionResult(GameState State, EffectApplication? Effect = null, EffectDefinition? EffectDefinition = null, int BeforeHitPoints = 0, AttackResolution? Attack = null, AttackProfile? AttackProfile = null, string? FailureDetail = null, string InventoryConsumptionDetail = "");
 
     private sealed class ScheduledActionComparer : IComparer<ScheduledAction>
     {

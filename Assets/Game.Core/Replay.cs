@@ -30,7 +30,15 @@ public static class StateChecksum
                 .Append(unit.Position.X).Append('|').Append(unit.Position.Y).Append('|')
                 .Append((int)unit.Facing).Append('|').Append((int)unit.ActivityState).Append('|')
                 .Append(unit.HitPoints).Append('|').Append(unit.MaxHitPoints).Append('|')
-                .Append(unit.ActionPointBudget).Append('|').Append((int)unit.Posture).Append('\n');
+                .Append(unit.ActionPointBudget).Append('|').Append((int)unit.Posture);
+            var inventory = (unit.Inventory ?? Array.Empty<InventoryItemState>()).OrderBy(item => item.ItemId, StringComparer.Ordinal).ToArray();
+            if (inventory.Length > 0)
+            {
+                canonical.Append('|');
+                foreach (var item in inventory)
+                    canonical.Append(item.ItemId).Append(':').Append(item.Quantity).Append(',');
+            }
+            canonical.Append('\n');
         }
 
         using (var sha256 = SHA256.Create())

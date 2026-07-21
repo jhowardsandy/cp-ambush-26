@@ -393,6 +393,22 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Starter_military_catalog_defines_a_rifleman_and_combat_medic_with_explicit_loadouts()
+    {
+        var units = new[] { StarterMilitaryContent.Rifleman, StarterMilitaryContent.CombatMedic };
+        var rifleman = StarterMilitaryContent.Rifleman.CreateInitialState(BlueUnit, "blue", new GridPosition(0, 0), Facing.North);
+        var medic = StarterMilitaryContent.CombatMedic.CreateInitialState(RedUnit, "red", new GridPosition(1, 0), Facing.South);
+        var scenario = new ScenarioDefinition("starter-catalog", new GridMapDefinition("starter-catalog-map", 3, 1), new GameState(new[] { rifleman, medic }),
+            UnitDefinitions: units);
+
+        Assert.That(units.Select(unit => unit.Id), Is.EqualTo(new[] { "rifleman", "combat-medic" }));
+        Assert.That(InventoryRules.QuantityOf(rifleman, "service-rifle"), Is.EqualTo(1));
+        Assert.That(InventoryRules.QuantityOf(medic, "med-kit"), Is.EqualTo(2));
+        Assert.That(StarterMilitaryContent.FieldMedKit.RequiredSkillId, Is.EqualTo("field-medicine"));
+        Assert.That(ScenarioValidator.Validate(scenario), Is.Empty);
+    }
+
+    [Test]
     public void Scenario_rejects_invalid_or_unknown_unit_definition_references()
     {
         var invalidDefinition = new UnitDefinition("", 0, -1, 0, new[] { "role", "role" }, new[] { "" });
@@ -857,6 +873,43 @@ public sealed class TimelineResolverTests
         Assert.That(effect.Detail, Is.EqualTo("effect=field-med-kit; before=8; requested=5; applied=2; after=10"));
         Assert.That(effect.HitPointsAfter, Is.EqualTo(10));
         Assert.That(effect.ActivityStateAfter, Is.EqualTo(UnitActivityState.Active));
+    }
+
+    [Test]
+    public void Skill_and_inventory_gated_medical_effect_consumes_a_med_kit_deterministically()
+    {
+        var medic = new UnitDefinition("combat-medic", 9, 5, SkillIds: new[] { "field-medicine" },
+            StartingInventory: new[] { new InventoryItemDefinition("med-kit", 2) });
+        var medicUnit = medic.CreateInitialState(BlueUnit, "blue", new GridPosition(0, 0), Facing.North) with { HitPoints = 6 };
+        var state = new GameState(new[] { medicUnit, new UnitState(RedUnit, "red", new GridPosition(1, 0), Facing.South, UnitActivityState.Active) });
+        var scenario = new ScenarioDefinition("medical-loadout", new GridMapDefinition("medical-loadout-map", 3, 1), state, UnitDefinitions: new[] { medic });
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.ApplyEffect, 0, 1, TargetUnitId: BlueUnit, EffectId: "field-med-kit");
+
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(3), 1234u,
+            effects: new[] { new EffectDefinition("field-med-kit", 3, RequiredSkillId: "field-medicine", RequiredInventoryItemId: "med-kit", InventoryQuantityCost: 1) }));
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.FinalState.FindUnit(BlueUnit)!.HitPoints, Is.EqualTo(9));
+        Assert.That(InventoryRules.QuantityOf(result.FinalState.FindUnit(BlueUnit)!, "med-kit"), Is.EqualTo(1));
+        Assert.That(result.Events.Single(@event => @event.Type == DomainEventType.EffectApplied).Detail,
+            Is.EqualTo("effect=field-med-kit; before=6; requested=3; applied=3; after=9; item=med-kit; spent=1; remaining=1"));
+    }
+
+    [Test]
+    public void Gated_actions_reject_missing_skills_and_oversubscribed_inventory()
+    {
+        var untrained = new UnitDefinition("untrained", 10, 5, StartingInventory: new[] { new InventoryItemDefinition("med-kit", 1) });
+        var unit = untrained.CreateInitialState(BlueUnit, "blue", new GridPosition(0, 0), Facing.North);
+        var state = new GameState(new[] { unit, new UnitState(RedUnit, "red", new GridPosition(1, 0), Facing.South, UnitActivityState.Active) });
+        var scenario = new ScenarioDefinition("invalid-loadout", new GridMapDefinition("invalid-loadout-map", 3, 1), state, UnitDefinitions: new[] { untrained });
+        var first = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.ApplyEffect, 0, 1, TargetUnitId: BlueUnit, EffectId: "field-med-kit");
+        var second = new TacticalAction(SecondAction, BlueUnit, TacticalActionType.ApplyEffect, 1, 1, TargetUnitId: BlueUnit, EffectId: "field-med-kit");
+
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", first, second) }, new RoundConfiguration(3), 1234u,
+            effects: new[] { new EffectDefinition("field-med-kit", 2, RequiredSkillId: "field-medicine", RequiredInventoryItemId: "med-kit", InventoryQuantityCost: 1) }));
+
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("missing-required-skill"));
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("inventory-quantity-exceeded"));
     }
 
     [Test]

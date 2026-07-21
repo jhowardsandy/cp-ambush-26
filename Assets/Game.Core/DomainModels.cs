@@ -22,6 +22,9 @@ public static class GridDistance
 
 public sealed record OverwatchState(Guid ActionId, Facing Facing, string AttackProfileId, bool HasFired = false);
 
+/// <summary>Authoritative per-unit inventory balance. Quantities are never presentation state.</summary>
+public sealed record InventoryItemState(string ItemId, int Quantity);
+
 public sealed record UnitState(
     Guid Id,
     string FactionId,
@@ -33,7 +36,8 @@ public sealed record UnitState(
     string? UnitDefinitionId = null,
     int ActionPointBudget = 6,
     UnitPosture Posture = UnitPosture.Standing,
-    OverwatchState? Overwatch = null);
+    OverwatchState? Overwatch = null,
+    IReadOnlyList<InventoryItemState>? Inventory = null);
 
 public sealed record TacticalAction(
     Guid ActionId,
@@ -50,10 +54,10 @@ public sealed record TacticalAction(
     UnitPosture? Posture = null);
 
 /// <summary>Setting-neutral, versioned vitality change. Positive values heal; negative values damage.</summary>
-public sealed record EffectDefinition(string Id, int VitalityDelta, int ActionPointCost = 2);
+public sealed record EffectDefinition(string Id, int VitalityDelta, int ActionPointCost = 2, string? RequiredSkillId = null, string? RequiredInventoryItemId = null, int InventoryQuantityCost = 0);
 
 /// <summary>Data-defined direct attack with deterministic, guaranteed-hit damage in the first combat slice.</summary>
-public sealed record AttackProfile(string Id, int MinimumRange, int MaximumRange, int Damage, bool RequiresLineOfSight = true, int ActionPointCost = 2);
+public sealed record AttackProfile(string Id, int MinimumRange, int MaximumRange, int Damage, bool RequiresLineOfSight = true, int ActionPointCost = 2, string? RequiredSkillId = null, string? RequiredInventoryItemId = null, int InventoryQuantityCost = 0);
 
 public sealed record CommandBundle(string FactionId, IReadOnlyList<TacticalAction> Actions);
 

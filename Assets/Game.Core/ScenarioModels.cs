@@ -78,6 +78,7 @@ public static class ScenarioValidator
                 diagnostics.Add(new("unit-out-of-bounds", "Scenario unit position must be inside its map."));
             if (unit.ActionPointBudget < 0)
                 diagnostics.Add(new("negative-unit-action-points", "Scenario unit action-point budget cannot be negative."));
+            ValidateInventory(unit.Inventory, "invalid-unit-inventory", "Unit inventory item IDs must be non-empty and unique with non-negative quantities.", diagnostics);
         }
 
         var unitDefinitions = scenario.UnitDefinitions ?? Array.Empty<UnitDefinition>();
@@ -94,6 +95,8 @@ public static class ScenarioValidator
             ValidateIdentifierList(definition.RoleTags, "invalid-unit-role-tag", "Unit role tags must be non-empty and unique.", diagnostics);
             ValidateIdentifierList(definition.AttackProfileIds, "invalid-unit-attack-profile-id", "Unit attack profile IDs must be non-empty and unique.", diagnostics);
             ValidateIdentifierList(definition.EffectIds, "invalid-unit-effect-id", "Unit effect IDs must be non-empty and unique.", diagnostics);
+            ValidateIdentifierList(definition.SkillIds, "invalid-unit-skill-id", "Unit skill IDs must be non-empty and unique.", diagnostics);
+            ValidateInventory(definition.StartingInventory, "invalid-unit-starting-inventory", "Unit starting inventory item IDs must be non-empty and unique with positive quantities.", diagnostics, requirePositiveQuantity: true);
             if (definition.Attributes != null && (definition.Attributes.Any(attribute => String.IsNullOrWhiteSpace(attribute.Id)) || definition.Attributes.GroupBy(attribute => attribute.Id, StringComparer.Ordinal).Any(group => group.Count() > 1)))
                 diagnostics.Add(new("invalid-unit-attribute-id", "Unit attributes require non-empty unique IDs."));
         }
@@ -186,6 +189,17 @@ public static class ScenarioValidator
         if (values == null)
             return;
         if (values.Any(String.IsNullOrWhiteSpace) || values.GroupBy(value => value, StringComparer.Ordinal).Any(group => group.Count() > 1))
+            diagnostics.Add(new(code, message));
+    }
+
+    private static void ValidateInventory(IReadOnlyList<InventoryItemState>? items, string code, string message, ICollection<ValidationDiagnostic> diagnostics) =>
+        ValidateInventory(items?.Select(item => new InventoryItemDefinition(item.ItemId, item.Quantity)).ToArray(), code, message, diagnostics);
+
+    private static void ValidateInventory(IReadOnlyList<InventoryItemDefinition>? items, string code, string message, ICollection<ValidationDiagnostic> diagnostics, bool requirePositiveQuantity = false)
+    {
+        if (items == null) return;
+        if (items.Any(item => String.IsNullOrWhiteSpace(item.ItemId) || (requirePositiveQuantity ? item.Quantity <= 0 : item.Quantity < 0)) ||
+            items.GroupBy(item => item.ItemId, StringComparer.Ordinal).Any(group => group.Count() > 1))
             diagnostics.Add(new(code, message));
     }
 }

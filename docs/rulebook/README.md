@@ -14,6 +14,7 @@ This folder is the living, player-readable rulebook. It describes accepted behav
 8. `posture.md` — standing, crouched, and prone posture transitions.
 9. `terrain-protection.md` — generic cover and concealment terrain data.
 10. `overwatch.md` — one-shot movement-triggered watch cones.
+11. `inventory-and-skills.md` — inventory balances and content-defined skill/item entitlements.
 
 ## Planned chapters
 

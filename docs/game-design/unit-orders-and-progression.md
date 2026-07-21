@@ -2,7 +2,7 @@
 
 Status: proposed design directions. Nothing in this document is an accepted simulation rule yet.
 
-Update: the portable `UnitDefinition` catalog foundation is implemented for archetype ID, maximum vitality, vision, base movement timing, role tags, listed attack/effect IDs, and extensible named numeric attributes. `FactionDefinition` declares which unit definitions a country/culture/race-style content package can field. Their listed capability bindings and progression behavior remain proposed.
+Update: the portable `UnitDefinition` catalog foundation is implemented for archetype ID, maximum vitality, vision, base movement timing, role tags, listed attack/effect IDs, extensible named numeric attributes, skill IDs, and starting inventory. `FactionDefinition` declares which unit definitions a country/culture/race-style content package can field. Capability binding is now accepted for explicitly gated attacks/effects; progression behavior remains proposed.
 
 ## Tactical order language
 
@@ -71,7 +71,7 @@ Examples include a stronger medical kit, a longer-range optic, protective equipm
 
 Each unit should eventually be authored with an inventory/loadout and an explicit skill list rather than inheriting every action from a hard-coded class. Inventory entries need stable IDs, quantities, charges/ammunition, and content references for health packs, weapons, armor, tools, or fantasy equivalents. Weapon content will define accuracy, range bands, damage, AP cost, ammunition, delivery behavior, and presentation references. Skills/capabilities will grant actions such as overwatch, scoped overwatch, medical treatment, artillery calls, or setting-equivalent abilities.
 
-The current engine deliberately has a generic overwatch rule but no per-unit entitlement check yet. Before capability binding, define availability/consumption rules, inventory stacking, reload/resupply policy, equipment prerequisites, skill cooldown/charges, action ownership, and deterministic validation/replay records. Basic movement and posture remain generic core actions unless a future content rule explicitly restricts them.
+The current engine validates explicitly gated attacks/effects against the actor's archetype skill IDs and authoritative inventory. It validates planned item totals before a round, spends a positive item cost only after successful completion, and includes non-empty inventory balances in the final checksum. The first transparent catalog is Rifleman and Combat Medic; see `rulebook/inventory-and-skills.md`. Reload/resupply policy, equipment slots, cooldowns/charges, action ownership beyond the current action types, overwatch entitlement, and progression remain future rule work. Basic movement and posture remain generic core actions unless a future content rule explicitly restricts them.
 
 ## Delivery sequence
 
