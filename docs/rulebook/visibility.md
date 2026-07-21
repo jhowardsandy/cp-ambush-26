@@ -1,5 +1,13 @@
 # Visibility
 
+## VIS-CON-001: Concealment-limited observation
+
+Status: accepted.
+
+A unit observes a target when Manhattan distance is at most `observer vision range − target-tile concealment`, never below zero. Direct attacks require this observation check in addition to weapon range and line of sight. PvE only selects observable targets; without one, it advances to scout rather than targeting hidden units.
+
+Evidence: `Concealment_reduces_observation_range_and_blocks_direct_attack`.
+
 ## VIS-LOS-001: Terrain line of sight
 
 Status: accepted.
