@@ -67,6 +67,12 @@ Future campaign and match-economy systems may permit purchasing or earning bette
 
 Examples include a stronger medical kit, a longer-range optic, protective equipment, improved movement gear, a new ability, or a fantasy equivalent. Balance and unlock economy are future design work; the first vertical slice should use a small, transparent fixed catalog.
 
+## Proposed inventory and skill capability catalog
+
+Each unit should eventually be authored with an inventory/loadout and an explicit skill list rather than inheriting every action from a hard-coded class. Inventory entries need stable IDs, quantities, charges/ammunition, and content references for health packs, weapons, armor, tools, or fantasy equivalents. Weapon content will define accuracy, range bands, damage, AP cost, ammunition, delivery behavior, and presentation references. Skills/capabilities will grant actions such as overwatch, scoped overwatch, medical treatment, artillery calls, or setting-equivalent abilities.
+
+The current engine deliberately has a generic overwatch rule but no per-unit entitlement check yet. Before capability binding, define availability/consumption rules, inventory stacking, reload/resupply policy, equipment prerequisites, skill cooldown/charges, action ownership, and deterministic validation/replay records. Basic movement and posture remain generic core actions unless a future content rule explicitly restricts them.
+
 ## Delivery sequence
 
 1. Player unit selection and round-order authoring over the existing encounter state.
