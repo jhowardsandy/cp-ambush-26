@@ -295,7 +295,7 @@ public sealed class TimelineResolverTests
     {
         var scenario = new ScenarioDefinition("json-scenario", new GridMapDefinition("json-map", 4, 3, new[]
         {
-            new TerrainCellDefinition(new GridPosition(1, 1), MovementTicks: 2),
+            new TerrainCellDefinition(new GridPosition(1, 1), MovementTicks: 2, CoverValue: 2, ConcealmentValue: 3),
             new TerrainCellDefinition(new GridPosition(2, 2), IsPassable: false)
         }, new[]
         {
@@ -319,6 +319,24 @@ public sealed class TimelineResolverTests
         Assert.That(decoded.InitialState.Units, Is.EqualTo(scenario.InitialState.Units));
         Assert.That(decoded.ContentVersion, Is.EqualTo(scenario.ContentVersion));
         Assert.That(decoded.Objectives, Is.EqualTo(scenario.Objectives));
+    }
+
+    [Test]
+    public void Terrain_protection_values_are_portable_and_reject_negative_content()
+    {
+        var map = new GridMapDefinition("protection-map", 2, 1, new[]
+        {
+            new TerrainCellDefinition(new GridPosition(1, 0), CoverValue: 2, ConcealmentValue: 3)
+        });
+        var protection = TerrainProtectionRules.At(map, new GridPosition(1, 0));
+        var invalid = new ScenarioDefinition("invalid-protection", new GridMapDefinition("invalid-protection-map", 1, 1, new[]
+        {
+            new TerrainCellDefinition(new GridPosition(0, 0), CoverValue: -1, ConcealmentValue: -1)
+        }), DefaultState());
+
+        Assert.That(protection, Is.EqualTo(new TerrainProtection(2, 3)));
+        Assert.That(ScenarioValidator.Validate(invalid).Select(diagnostic => diagnostic.Code), Does.Contain("negative-terrain-cover"));
+        Assert.That(ScenarioValidator.Validate(invalid).Select(diagnostic => diagnostic.Code), Does.Contain("negative-terrain-concealment"));
     }
 
     [Test]

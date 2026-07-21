@@ -8,7 +8,7 @@
 
 ## Deferred schema
 
-`TerrainCellDefinition` is the first generic scenario extension. It supplies a cell position, positive movement-tick cost, and passability. The movement resolver derives timing directly from these fields.
+`TerrainCellDefinition` is the first generic scenario extension. It supplies a cell position, positive movement-tick cost, passability, AP traversal cost, and non-negative cover/concealment values. The movement resolver derives timing directly from these fields; cover and concealment currently round-trip as validated terrain data only, awaiting their accepted attack/visibility calculations.
 
 `ScenarioSerializer` reads and writes portable JSON without requiring Unity. The example at `docs/examples/scenarios/movement-sandbox-01.json` demonstrates a reusable map, terrain, units, and content version. Unity scenes may render a scenario, but they are not the authoritative scenario data format.
 

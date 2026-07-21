@@ -12,7 +12,9 @@ public sealed record TerrainCellDefinition(
     int MovementTicks = 1,
     bool IsPassable = true,
     bool BlocksLineOfSight = false,
-    int ActionPointCost = 1);
+    int ActionPointCost = 1,
+    int CoverValue = 0,
+    int ConcealmentValue = 0);
 
 /// <summary>Named set of map tiles for objectives, deployment, buildings, extraction, or spawn rules.</summary>
 public sealed record MapAreaDefinition(string Id, IReadOnlyList<GridPosition> Tiles);
@@ -137,6 +139,10 @@ public static class ScenarioValidator
                 diagnostics.Add(new("invalid-terrain-cost", "Terrain movement ticks must be positive."));
             if (cell.ActionPointCost < 0)
                 diagnostics.Add(new("negative-terrain-action-points", "Terrain action-point cost cannot be negative."));
+            if (cell.CoverValue < 0)
+                diagnostics.Add(new("negative-terrain-cover", "Terrain cover value cannot be negative."));
+            if (cell.ConcealmentValue < 0)
+                diagnostics.Add(new("negative-terrain-concealment", "Terrain concealment value cannot be negative."));
         }
         if (terrain.GroupBy(cell => cell.Position).Any(group => group.Count() > 1))
             diagnostics.Add(new("duplicate-terrain-cell", "A map cannot define terrain more than once for the same tile."));
