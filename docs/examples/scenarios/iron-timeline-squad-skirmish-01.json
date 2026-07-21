@@ -24,14 +24,14 @@
   },
   "InitialState": {
     "Units": [
-      { "Id": "10000000-0000-0000-0000-000000000001", "FactionId": "blue", "Position": { "X": 1, "Y": 1 }, "Facing": 1, "ActivityState": 0, "HitPoints": 10, "MaxHitPoints": 10, "UnitDefinitionId": "rifle-team" },
-      { "Id": "10000000-0000-0000-0000-000000000002", "FactionId": "blue", "Position": { "X": 1, "Y": 2 }, "Facing": 1, "ActivityState": 0, "HitPoints": 8, "MaxHitPoints": 8, "UnitDefinitionId": "scout" },
-      { "Id": "10000000-0000-0000-0000-000000000003", "FactionId": "blue", "Position": { "X": 2, "Y": 1 }, "Facing": 1, "ActivityState": 0, "HitPoints": 9, "MaxHitPoints": 9, "UnitDefinitionId": "medic" },
-      { "Id": "10000000-0000-0000-0000-000000000004", "FactionId": "blue", "Position": { "X": 2, "Y": 2 }, "Facing": 1, "ActivityState": 0, "HitPoints": 11, "MaxHitPoints": 11, "UnitDefinitionId": "commander" },
-      { "Id": "20000000-0000-0000-0000-000000000001", "FactionId": "red", "Position": { "X": 13, "Y": 9 }, "Facing": 3, "ActivityState": 0, "HitPoints": 10, "MaxHitPoints": 10, "UnitDefinitionId": "rifle-team" },
-      { "Id": "20000000-0000-0000-0000-000000000002", "FactionId": "red", "Position": { "X": 13, "Y": 10 }, "Facing": 3, "ActivityState": 0, "HitPoints": 8, "MaxHitPoints": 8, "UnitDefinitionId": "scout" },
-      { "Id": "20000000-0000-0000-0000-000000000003", "FactionId": "red", "Position": { "X": 14, "Y": 9 }, "Facing": 3, "ActivityState": 0, "HitPoints": 9, "MaxHitPoints": 9, "UnitDefinitionId": "medic" },
-      { "Id": "20000000-0000-0000-0000-000000000004", "FactionId": "red", "Position": { "X": 14, "Y": 10 }, "Facing": 3, "ActivityState": 0, "HitPoints": 11, "MaxHitPoints": 11, "UnitDefinitionId": "commander" }
+      { "Id": "10000000-0000-0000-0000-000000000001", "FactionId": "blue", "Position": { "X": 1, "Y": 1 }, "Facing": 1, "ActivityState": 0, "HitPoints": 10, "MaxHitPoints": 10, "UnitDefinitionId": "rifle-team", "ActionPointBudget": 6 },
+      { "Id": "10000000-0000-0000-0000-000000000002", "FactionId": "blue", "Position": { "X": 1, "Y": 2 }, "Facing": 1, "ActivityState": 0, "HitPoints": 8, "MaxHitPoints": 8, "UnitDefinitionId": "scout", "ActionPointBudget": 6 },
+      { "Id": "10000000-0000-0000-0000-000000000003", "FactionId": "blue", "Position": { "X": 2, "Y": 1 }, "Facing": 1, "ActivityState": 0, "HitPoints": 9, "MaxHitPoints": 9, "UnitDefinitionId": "medic", "ActionPointBudget": 6 },
+      { "Id": "10000000-0000-0000-0000-000000000004", "FactionId": "blue", "Position": { "X": 2, "Y": 2 }, "Facing": 1, "ActivityState": 0, "HitPoints": 11, "MaxHitPoints": 11, "UnitDefinitionId": "commander", "ActionPointBudget": 6 },
+      { "Id": "20000000-0000-0000-0000-000000000001", "FactionId": "red", "Position": { "X": 13, "Y": 9 }, "Facing": 3, "ActivityState": 0, "HitPoints": 10, "MaxHitPoints": 10, "UnitDefinitionId": "rifle-team", "ActionPointBudget": 6 },
+      { "Id": "20000000-0000-0000-0000-000000000002", "FactionId": "red", "Position": { "X": 13, "Y": 10 }, "Facing": 3, "ActivityState": 0, "HitPoints": 8, "MaxHitPoints": 8, "UnitDefinitionId": "scout", "ActionPointBudget": 6 },
+      { "Id": "20000000-0000-0000-0000-000000000003", "FactionId": "red", "Position": { "X": 14, "Y": 9 }, "Facing": 3, "ActivityState": 0, "HitPoints": 9, "MaxHitPoints": 9, "UnitDefinitionId": "medic", "ActionPointBudget": 6 },
+      { "Id": "20000000-0000-0000-0000-000000000004", "FactionId": "red", "Position": { "X": 14, "Y": 10 }, "Facing": 3, "ActivityState": 0, "HitPoints": 11, "MaxHitPoints": 11, "UnitDefinitionId": "commander", "ActionPointBudget": 6 }
     ]
   },
   "ContentVersion": "squad-skirmish-01",
