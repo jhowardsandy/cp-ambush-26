@@ -393,6 +393,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (!_blueOrders.TryGetValue(_selectedBlue, out var actions)) return;
             var move = actions.LastOrDefault(action => action.Type == TacticalActionType.Move);
             if (move?.Path is not { Count: > 0 }) return;
+            var conflicts = PlannedMovementConflicts();
             var camera = Camera.main!;
             var tileSize = Mathf.Abs(camera.WorldToScreenPoint(new Vector3(1, .1f, 0)).x - camera.WorldToScreenPoint(new Vector3(0, .1f, 0)).x) * .62f;
             var priorColor = GUI.color;
@@ -401,11 +402,23 @@ namespace TacticalStrategyGame.Presentation.Unity
             {
                 var position = move.Path[index];
                 var screen = camera.WorldToScreenPoint(new Vector3(position.X, .13f, position.Y));
+                var arrivalTick = MoveArrivalTick(move, index);
+                GUI.color = conflicts.Contains((position, arrivalTick)) ? new Color(1f, .15f, .75f, .58f) : new Color(.2f, .9f, 1f, .42f);
                 GUI.DrawTexture(new Rect(screen.x - tileSize / 2, Screen.height - screen.y - tileSize / 2, tileSize, tileSize), Texture2D.whiteTexture);
                 GUI.Label(new Rect(screen.x - 9, Screen.height - screen.y - 9, 25, 20), (index + 1).ToString());
             }
             GUI.color = priorColor;
         }
+
+        private HashSet<(GridPosition Position, int Tick)> PlannedMovementConflicts() => _blueOrders.Values.SelectMany(actions => actions)
+            .Where(action => action.Type == TacticalActionType.Move)
+            .SelectMany(action => MovementRules.PathFor(action).Select((position, index) => (Position: position, Tick: MoveArrivalTick(action, index))))
+            .GroupBy(intent => intent)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToHashSet();
+
+        private int MoveArrivalTick(TacticalAction move, int index) => move.StartTick + MovementRules.PathFor(move).Take(index + 1).Sum(position => _scenario.Map.CellAt(position).MovementTicks);
 
         private void DrawWatchCone(UnitState unit, Facing facing, Color color, string label)
         {
@@ -443,7 +456,9 @@ namespace TacticalStrategyGame.Presentation.Unity
             var descriptions = actions.Select(action => ActionDescription(action)).ToArray();
             var spent = actions.Sum(action => ActionPointRules.CostFor(action, _scenario.Map, new[] { FieldMedKit }, new[] { Rifle }));
             var finalTick = actions.Max(action => action.StartTick + action.DurationTicks);
-            return $"{String.Join(" → ", descriptions)}  [{spent}/{unit.ActionPointBudget} AP; t0–{finalTick}/10]";
+            var conflicts = PlannedMovementConflicts();
+            var hasConflict = actions.Where(action => action.Type == TacticalActionType.Move).SelectMany(action => MovementRules.PathFor(action).Select((position, index) => (position, MoveArrivalTick(action, index)))).Any(intent => conflicts.Contains(intent));
+            return $"{String.Join(" → ", descriptions)}  [{spent}/{unit.ActionPointBudget} AP; t0–{finalTick}/10]{(hasConflict ? " ⚠ seeded clash" : String.Empty)}";
         }
 
         private static string ActionDescription(TacticalAction action)

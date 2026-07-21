@@ -170,6 +170,20 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Seeded_movement_contention_is_replayable()
+    {
+        var blue = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(0, 1) });
+        var red = new TacticalAction(SecondAction, RedUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(0, 1) });
+        var request = Request(State(new GridPosition(0, 0), new GridPosition(0, 2)), Bundle("blue", blue), Bundle("red", red));
+
+        var first = new TimelineResolver().Resolve(request);
+        var second = new TimelineResolver().Resolve(request);
+
+        Assert.That(first.Events, Is.EqualTo(second.Events));
+        Assert.That(first.FinalStateChecksum, Is.EqualTo(second.FinalStateChecksum));
+    }
+
+    [Test]
     public void Move_into_a_tile_vacated_on_the_same_tick_succeeds()
     {
         var blue = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(1, 0) });

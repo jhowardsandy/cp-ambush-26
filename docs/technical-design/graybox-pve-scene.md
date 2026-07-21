@@ -10,4 +10,6 @@ The healing target selector cycles active Blue units independently from the acti
 
 The **Overwatch zone** buttons queue a Rifleman's 90-degree cardinal watch cone after any preceding queued action. The board renders every tile in the selected cone within the rifle's maximum range, and shows a `PLANNED` directional marker above the selected unit. Once the timeline arms the order, the marker becomes `ARMED` during playback; a movement entry in that cone can consume the one reaction shot through the core resolver. Combat Medics intentionally show an explanatory message instead of queuing this skill-gated order.
 
+If two planned Blue movement paths reach the same tile on the same tick, the shared route preview colors that tile magenta and the affected plan row shows `seeded clash`. This is a warning, not an invalid-plan claim: the resolver’s replay seed decides the movement winner and delays the other timeline by one tick.
+
 For recording and deterministic visual regression checks, **Auto-play demo** resets the scene then submits up to eight rounds of `PvePlanner` orders for both Blue and Red. It uses the ordinary `EncounterResolver` playback path and pauses early if an objective completes; it does not fabricate movement, combat, or outcomes in Unity.
