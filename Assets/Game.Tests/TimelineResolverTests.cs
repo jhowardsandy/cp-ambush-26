@@ -301,7 +301,7 @@ public sealed class TimelineResolverTests
             new { Tick = 3, Type = DomainEventType.ActionCompleted, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction },
             new { Tick = 5, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, ActionId = (Guid?)null }
         }));
-        Assert.That(result.FinalStateChecksum, Is.EqualTo("2AA824600ECD20A2A5FBCC5D1BAAFE0EF485C7BD2AD85835765F9EFE398D8DD7"));
+        Assert.That(result.FinalStateChecksum, Is.EqualTo("122F94BD53F813983EA5DE264DD4489A4D7F198EEFC6EB8392FB21D55617AAC9"));
     }
 
     [Test]
@@ -432,6 +432,7 @@ public sealed class TimelineResolverTests
         Assert.That(units.Select(unit => unit.Id), Is.EqualTo(new[] { "rifleman", "combat-medic" }));
         Assert.That(InventoryRules.QuantityOf(rifleman, "service-rifle"), Is.EqualTo(1));
         Assert.That(InventoryRules.QuantityOf(rifleman, "rifle-ammo"), Is.EqualTo(8));
+        Assert.That(rifleman.ArmorValue, Is.EqualTo(1));
         Assert.That(InventoryRules.QuantityOf(medic, "med-kit"), Is.EqualTo(2));
         Assert.That(StarterMilitaryContent.FieldMedKit.RequiredSkillId, Is.EqualTo("field-medicine"));
         Assert.That(ScenarioValidator.Validate(scenario), Is.Empty);
@@ -666,7 +667,7 @@ public sealed class TimelineResolverTests
         Assert.That(attack.TargetUnitId, Is.EqualTo(RedUnit));
         Assert.That(attack.FromPosition, Is.EqualTo(new GridPosition(0, 0)));
         Assert.That(attack.ToPosition, Is.EqualTo(new GridPosition(3, 0)));
-        Assert.That(attack.Detail, Is.EqualTo("attack=training-rifle; distance=3; accuracy=100; roll=40; result=hit; damage=5; cover=0; effective=5; before=4; applied=-4; after=0"));
+        Assert.That(attack.Detail, Is.EqualTo("attack=training-rifle; distance=3; accuracy=100; roll=40; result=hit; damage=5; cover=0; armor=0; effective=5; before=4; applied=-4; after=0"));
     }
 
     [Test]
@@ -706,7 +707,7 @@ public sealed class TimelineResolverTests
         Assert.That(result.IsValid, Is.True);
         Assert.That(InventoryRules.QuantityOf(result.FinalState.FindUnit(BlueUnit)!, "training-ammo"), Is.EqualTo(0));
         Assert.That(result.Events.Single(@event => @event.Type == DomainEventType.AttackResolved).Detail,
-            Does.Contain("result=miss; damage=5; cover=0; effective=0; before=10; applied=0; after=10; item=training-ammo; spent=1; remaining=0"));
+            Does.Contain("result=miss; damage=5; cover=0; armor=0; effective=0; before=10; applied=0; after=10; item=training-ammo; spent=1; remaining=0"));
     }
 
     [Test]
@@ -815,7 +816,7 @@ public sealed class TimelineResolverTests
         Assert.That(result.Events.Where(@event => @event.ActionId == FirstAction).Select(@event => @event.Type),
             Is.EqualTo(new[] { DomainEventType.ActionStarted, DomainEventType.AttackResolved, DomainEventType.ActionCompleted }));
         Assert.That(result.Events.Single(@event => @event.ActionId == FirstAction && @event.Type == DomainEventType.AttackResolved).Detail,
-            Is.EqualTo("attack=short-rifle; distance=2; accuracy=100; roll=40; result=hit; damage=5; cover=0; effective=5; before=10; applied=-5; after=5"));
+            Is.EqualTo("attack=short-rifle; distance=2; accuracy=100; roll=40; result=hit; damage=5; cover=0; armor=0; effective=5; before=10; applied=-5; after=5"));
     }
 
     [Test]
@@ -849,7 +850,27 @@ public sealed class TimelineResolverTests
 
         Assert.That(result.FinalState.FindUnit(RedUnit)!.HitPoints, Is.EqualTo(9));
         Assert.That(result.Events.Single(@event => @event.Type == DomainEventType.AttackResolved).Detail,
-            Is.EqualTo("attack=rifle; distance=2; accuracy=100; roll=40; result=hit; damage=5; cover=4; effective=1; before=10; applied=-1; after=9"));
+            Is.EqualTo("attack=rifle; distance=2; accuracy=100; roll=40; result=hit; damage=5; cover=4; armor=0; effective=1; before=10; applied=-1; after=9"));
+    }
+
+    [Test]
+    public void Target_armor_stacks_with_cover_and_damage_never_falls_below_one()
+    {
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East, UnitActivityState.Active),
+            new UnitState(RedUnit, "red", new GridPosition(2, 0), Facing.West, UnitActivityState.Active, ArmorValue: 2)
+        });
+        var map = new GridMapDefinition("armor-map", 3, 1, new[] { new TerrainCellDefinition(new GridPosition(2, 0), CoverValue: 2) });
+        var scenario = new ScenarioDefinition("armor-attack", map, state);
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 0, 1, TargetUnitId: RedUnit, AttackProfileId: "rifle");
+
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(3), 1234u,
+            attackProfiles: new[] { new AttackProfile("rifle", 1, 3, 5) }));
+
+        Assert.That(result.FinalState.FindUnit(RedUnit)!.HitPoints, Is.EqualTo(9));
+        Assert.That(result.Events.Single(@event => @event.Type == DomainEventType.AttackResolved).Detail,
+            Is.EqualTo("attack=rifle; distance=2; accuracy=100; roll=40; result=hit; damage=5; cover=2; armor=2; effective=1; before=10; applied=-1; after=9"));
     }
 
     [Test]
@@ -1138,11 +1159,11 @@ public sealed class TimelineResolverTests
         {
             new { Tick = 0, Type = DomainEventType.RoundStarted, UnitId = (Guid?)null, TargetUnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null },
             new { Tick = 1, Type = DomainEventType.ActionStarted, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)null, ActionId = (Guid?)FirstAction, Detail = (string?)null },
-            new { Tick = 3, Type = DomainEventType.AttackResolved, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)RedUnit, ActionId = (Guid?)FirstAction, Detail = "attack=golden-rifle; distance=3; accuracy=100; roll=74; result=hit; damage=5; cover=0; effective=5; before=4; applied=-4; after=0" },
+            new { Tick = 3, Type = DomainEventType.AttackResolved, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)RedUnit, ActionId = (Guid?)FirstAction, Detail = "attack=golden-rifle; distance=3; accuracy=100; roll=74; result=hit; damage=5; cover=0; armor=0; effective=5; before=4; applied=-4; after=0" },
             new { Tick = 3, Type = DomainEventType.ActionCompleted, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)null, ActionId = (Guid?)FirstAction, Detail = (string?)null },
             new { Tick = 4, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, TargetUnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null }
         }));
-        Assert.That(result.FinalStateChecksum, Is.EqualTo("DB02EB3D89042273A597B10C1E33A7016C825D8578D4D6F6745261188F1D7CCB"));
+        Assert.That(result.FinalStateChecksum, Is.EqualTo("932CCE1AA7AAC8A4B05996446489B49045D065223852CA8E98DA98015762B312"));
     }
 
     [Test]
@@ -1379,7 +1400,7 @@ public sealed class TimelineResolverTests
             new { Tick = 3, Type = DomainEventType.ActionCompleted, UnitId = (Guid?)BlueUnit, ActionId = (Guid?)FirstAction, Detail = (string?)null },
             new { Tick = 4, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null }
         }));
-        Assert.That(result.FinalStateChecksum, Is.EqualTo("2B74EBAAA35A6327093867A303F752A71FDFDBD25D646123BDBF358514946FBA"));
+        Assert.That(result.FinalStateChecksum, Is.EqualTo("73758DE00F956953B2F5EE7F7A4EF1EED0F90ED6A2B19832BE19AF67CBFFD329"));
     }
 
     private static SimulationRequest Request(params CommandBundle[] bundles) => Request(DefaultState(), bundles);

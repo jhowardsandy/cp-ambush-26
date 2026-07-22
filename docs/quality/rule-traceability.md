@@ -14,6 +14,7 @@
 | TRN-PRT-001 | accepted | `rulebook/terrain-protection.md` | Portable cover/concealment and invalid-content test | Scenario JSON round-trip coverage. |
 | ATK-COV-001 | accepted | `rulebook/direct-attacks.md` | Cover mitigation and minimum-one-damage test | Add a cover-focused Riverside Crossing replay. |
 | ATK-ACC-001 | accepted | `rulebook/direct-attacks.md` | Zero-accuracy miss, seeded replay, invalid percentage, and direct-fire hit tests | `GR-ATK-001` now records seeded attack result detail; expand to a multi-shot seed corpus during hardening. |
+| ATK-ARM-001 | accepted | `rulebook/direct-attacks.md` | Armor-plus-cover mitigation and minimum-one-damage test | Golden state checksums revised because armor is authoritative state. |
 | RXN-OW-001 | accepted | `rulebook/overwatch.md` | One-shot movement-triggered reaction test | Add an overwatch replay fixture after scenario fixture extraction. |
 | SCN-MAP-001 | accepted | `technical-design/content-schema.md` | Scenario map dimension and starting-position validation test | Scenario definition survives replay serialization. |
 | SCN-MAP-002 | accepted | `technical-design/content-schema.md` | Movement-out-of-bounds scenario test | Add map-boundary golden fixture with the fixture harness. |

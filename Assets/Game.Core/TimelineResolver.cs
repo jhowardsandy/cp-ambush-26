@@ -251,7 +251,7 @@ public sealed class TimelineResolver
         String.IsNullOrWhiteSpace(itemId) || quantity <= 0 ? String.Empty : $"; item={itemId}; spent={quantity}; remaining={InventoryRules.QuantityOf(unit, itemId) - quantity}";
 
     private static string AttackDetail(string kind, AttackProfile profile, AttackResolution resolution, int beforeHitPoints, int afterHitPoints) =>
-        $"{kind}={profile.Id}; distance={resolution.Distance}; accuracy={resolution.AccuracyPercent}; roll={resolution.AccuracyRoll}; result={(resolution.Hit ? "hit" : "miss")}; damage={profile.Damage}; cover={resolution.CoverMitigation}; effective={resolution.EffectiveDamage}; before={beforeHitPoints}; applied={resolution.Application?.AppliedVitalityDelta ?? 0}; after={afterHitPoints}";
+        $"{kind}={profile.Id}; distance={resolution.Distance}; accuracy={resolution.AccuracyPercent}; roll={resolution.AccuracyRoll}; result={(resolution.Hit ? "hit" : "miss")}; damage={profile.Damage}; cover={resolution.CoverMitigation}; armor={resolution.ArmorMitigation}; effective={resolution.EffectiveDamage}; before={beforeHitPoints}; applied={resolution.Application?.AppliedVitalityDelta ?? 0}; after={afterHitPoints}";
 
     private static IReadOnlyList<ValidationDiagnostic> Validate(SimulationRequest request)
     {

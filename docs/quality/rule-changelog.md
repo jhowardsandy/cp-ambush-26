@@ -18,6 +18,14 @@ Compatibility note: this changes event detail and combat outcome behavior for pr
 
 Compatibility note: starter military content now requires its declared ammunition. Scenario and replay content using those profiles must carry matching ammo inventory; standalone profiles that omit ammunition remain compatible.
 
+## 2026-07-22 — Target armor mitigation
+
+- Added non-negative authoritative `ArmorValue` to unit state and unit definitions; it is included in the deterministic state checksum and shown for armored graybox units.
+- A hit now calculates `max(1, base damage − target-tile cover − target armor)` and logs the armor component. Misses record armor but apply no damage.
+- Added armor-plus-cover regression coverage and updated golden checksum fixtures for the authoritative-state schema change. Starter Rifleman armor is provisionally 1.
+
+Compatibility note: all replay/state checksums change because armor is part of canonical state. Existing scenario data without armor remains valid at armor 0.
+
 ## 2026-07-20 — Initial deterministic engine foundation
 
 - Added timeline ordering/validation, cardinal terrain-aware movement, and strict same-tick occupancy policy.

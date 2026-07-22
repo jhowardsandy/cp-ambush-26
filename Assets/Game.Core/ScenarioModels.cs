@@ -78,6 +78,8 @@ public static class ScenarioValidator
                 diagnostics.Add(new("unit-out-of-bounds", "Scenario unit position must be inside its map."));
             if (unit.ActionPointBudget < 0)
                 diagnostics.Add(new("negative-unit-action-points", "Scenario unit action-point budget cannot be negative."));
+            if (unit.ArmorValue < 0)
+                diagnostics.Add(new("negative-unit-armor", "Scenario unit armor cannot be negative."));
             ValidateInventory(unit.Inventory, "invalid-unit-inventory", "Unit inventory item IDs must be non-empty and unique with non-negative quantities.", diagnostics);
         }
 
@@ -92,6 +94,8 @@ public static class ScenarioValidator
                 diagnostics.Add(new("negative-unit-definition-vision", "Unit definition vision range cannot be negative."));
             if (definition.BaseMovementTicks <= 0)
                 diagnostics.Add(new("non-positive-unit-definition-movement", "Unit definition base movement ticks must be positive."));
+            if (definition.ArmorValue < 0)
+                diagnostics.Add(new("negative-unit-definition-armor", "Unit definition armor cannot be negative."));
             ValidateIdentifierList(definition.RoleTags, "invalid-unit-role-tag", "Unit role tags must be non-empty and unique.", diagnostics);
             ValidateIdentifierList(definition.AttackProfileIds, "invalid-unit-attack-profile-id", "Unit attack profile IDs must be non-empty and unique.", diagnostics);
             ValidateIdentifierList(definition.EffectIds, "invalid-unit-effect-id", "Unit effect IDs must be non-empty and unique.", diagnostics);

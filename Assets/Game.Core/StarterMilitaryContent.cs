@@ -17,7 +17,8 @@ public static class StarterMilitaryContent
         RoleTags: new[] { "line", "rifle" },
         AttackProfileIds: new[] { ServiceRifle.Id },
         SkillIds: new[] { "rifle-training", "overwatch" },
-        StartingInventory: new[] { new InventoryItemDefinition("service-rifle", 1), new InventoryItemDefinition("rifle-ammo", 8), new InventoryItemDefinition("field-dressing", 1) });
+        StartingInventory: new[] { new InventoryItemDefinition("service-rifle", 1), new InventoryItemDefinition("rifle-ammo", 8), new InventoryItemDefinition("field-dressing", 1) },
+        ArmorValue: 1);
 
     public static readonly UnitDefinition CombatMedic = new(
         "combat-medic",
