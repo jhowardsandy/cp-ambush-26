@@ -4,7 +4,7 @@
 
 Status: accepted.
 
-A unit observes a target when Manhattan distance is at most `observer vision range − target-tile concealment`, never below zero. Direct attacks require this observation check in addition to weapon range and line of sight. PvE only selects observable targets; without one, it advances to scout rather than targeting hidden units.
+A unit observes a target when Manhattan distance is at most `observer vision range − target-tile concealment − target posture concealment`, never below zero. Standing adds 0 posture concealment, crouched adds 1, and prone adds 2. Direct attacks require this observation check in addition to weapon range and line of sight. PvE only selects observable targets; without one, it advances to scout rather than targeting hidden units.
 
 Evidence: `Concealment_reduces_observation_range_and_blocks_direct_attack`.
 

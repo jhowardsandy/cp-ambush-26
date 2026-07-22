@@ -26,6 +26,14 @@ Compatibility note: starter military content now requires its declared ammunitio
 
 Compatibility note: all replay/state checksums change because armor is part of canonical state. Existing scenario data without armor remains valid at armor 0.
 
+## 2026-07-22 — Posture concealment
+
+- Added deterministic posture concealment to observation: standing 0, crouched 1, prone 2; this stacks with target-tile concealment.
+- Direct targeting and PvE target selection inherit the effect through the shared observation rule. The graybox can queue legal adjacent posture transitions and labels unit posture.
+- Added posture-concealment calculation coverage and expanded posture event detail.
+
+Compatibility note: no state-schema or checksum change; replay outcomes can change when a request resolves against a crouched/prone target because posture now affects visibility.
+
 ## 2026-07-20 — Initial deterministic engine foundation
 
 - Added timeline ordering/validation, cardinal terrain-aware movement, and strict same-tick occupancy policy.

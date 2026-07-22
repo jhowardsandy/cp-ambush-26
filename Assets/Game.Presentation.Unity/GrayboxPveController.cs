@@ -267,6 +267,22 @@ namespace TacticalStrategyGame.Presentation.Unity
             _message = $"Queued {RoleName(unit)} overwatch for Blue {UnitNumber(unit.Id)}: 90° {facing} watch cone; one reaction shot if an enemy enters it.";
         }
 
+        private void DraftPosture(UnitPosture posture)
+        {
+            var unit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
+            if (unit.ActivityState != UnitActivityState.Active) { _message = "The selected unit is not active."; return; }
+            var current = PlannedActions(unit.Id).LastOrDefault(action => action.Type == TacticalActionType.ChangePosture)?.Posture ?? unit.Posture;
+            if (current == posture) { _message = $"Blue {UnitNumber(unit.Id)} is already planned to be {posture}."; return; }
+            if (Math.Abs((int)posture - (int)current) != 1)
+            {
+                _message = "Posture changes must move one step: standing ↔ crouched ↔ prone.";
+                return;
+            }
+            PrepareManualOrder(unit);
+            QueueAction(unit, TacticalActionType.ChangePosture, 1, posture: posture);
+            _message = $"Queued Blue {UnitNumber(unit.Id)} posture {posture}; target concealment becomes {VisibilityRules.ConcealmentFromPosture(posture)}.";
+        }
+
         private List<TacticalAction> PlannedActions(Guid unitId)
         {
             if (_blueOrders.TryGetValue(unitId, out var actions)) return actions;
@@ -275,7 +291,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             return actions;
         }
 
-        private void QueueAction(UnitState unit, TacticalActionType type, int durationTicks, GridPosition? destination = null, IReadOnlyList<GridPosition>? path = null, Guid? targetUnitId = null, string? effectId = null, string? attackProfileId = null, Facing? facing = null)
+        private void QueueAction(UnitState unit, TacticalActionType type, int durationTicks, GridPosition? destination = null, IReadOnlyList<GridPosition>? path = null, Guid? targetUnitId = null, string? effectId = null, string? attackProfileId = null, Facing? facing = null, UnitPosture? posture = null)
         {
             var actions = PlannedActions(unit.Id);
             var startTick = actions.Count == 0 ? 0 : actions[^1].StartTick + actions[^1].DurationTicks;
@@ -284,7 +300,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 _message = "That action would extend beyond this 10-tick round. Undo or clear an earlier order.";
                 return;
             }
-            actions.Add(new TacticalAction(PlannedActionId(unit.Id, actions.Count + 1), unit.Id, type, startTick, durationTicks, destination, Facing: facing, Path: path, TargetUnitId: targetUnitId, EffectId: effectId, AttackProfileId: attackProfileId));
+            actions.Add(new TacticalAction(PlannedActionId(unit.Id, actions.Count + 1), unit.Id, type, startTick, durationTicks, destination, Facing: facing, Path: path, TargetUnitId: targetUnitId, EffectId: effectId, AttackProfileId: attackProfileId, Posture: posture));
         }
 
         private static Guid PlannedActionId(Guid unitId, int sequence)
@@ -723,6 +739,10 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (GUI.Button(new Rect(335, 132, 45, 24), "E")) DraftOverwatch(Facing.East);
             if (GUI.Button(new Rect(390, 132, 45, 24), "S")) DraftOverwatch(Facing.South);
             if (GUI.Button(new Rect(445, 132, 45, 24), "W")) DraftOverwatch(Facing.West);
+            GUI.Label(new Rect(515, 134, 60, 20), "Posture:");
+            if (GUI.Button(new Rect(575, 132, 65, 24), "Stand")) DraftPosture(UnitPosture.Standing);
+            if (GUI.Button(new Rect(648, 132, 75, 24), "Crouch")) DraftPosture(UnitPosture.Crouched);
+            if (GUI.Button(new Rect(731, 132, 65, 24), "Prone")) DraftPosture(UnitPosture.Prone);
             GUI.Label(new Rect(24, 162, 120, 20), "Doctrine:");
             if (GUI.Button(new Rect(92, 158, 88, 24), "Aggressive")) SetDoctrine(TacticalDoctrine.Aggressive);
             if (GUI.Button(new Rect(188, 158, 92, 24), "Hold")) SetDoctrine(TacticalDoctrine.HoldObjective);
@@ -753,7 +773,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 inventory += unit.ArmorValue > 0 ? $" armor:{unit.ArmorValue}" : string.Empty;
                 var visibility = unit.FactionId == "red" ? IsObservableByBlue(unit, _encounter.CurrentState) ? " OBS" : " HIDDEN" : string.Empty;
                 var hitPoints = _displayHitPoints.TryGetValue(unit.Id, out var displayHitPoints) ? displayHitPoints : unit.HitPoints;
-                GUI.Label(new Rect(screen.x - 70, Screen.height - screen.y, 180, 20), $"{unit.FactionId.ToUpperInvariant()} {UnitNumber(unit.Id)} {RoleName(unit)} {hitPoints}/{unit.MaxHitPoints}{inventory}{visibility}");
+                GUI.Label(new Rect(screen.x - 70, Screen.height - screen.y, 200, 20), $"{unit.FactionId.ToUpperInvariant()} {UnitNumber(unit.Id)} {RoleName(unit)} {hitPoints}/{unit.MaxHitPoints} {unit.Posture}{inventory}{visibility}");
             }
             DrawFeedback();
         }

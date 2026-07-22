@@ -84,7 +84,7 @@ public sealed class TimelineResolver
                 }
                 if (item.Action.Type == TacticalActionType.ChangePosture && item.Action.Posture is not null)
                     AddEvent(tick, DomainEventType.PostureChanged, item.FactionId, unit.Id, item.Action.ActionId,
-                        $"posture={item.Action.Posture}", postureAfter: item.Action.Posture);
+                        $"posture={item.Action.Posture}; concealment={VisibilityRules.ConcealmentFromPosture(item.Action.Posture.Value)}", postureAfter: item.Action.Posture);
                 if (item.Action.Type == TacticalActionType.EnterOverwatch && item.Action.Facing is not null)
                     AddEvent(tick, DomainEventType.OverwatchArmed, item.FactionId, unit.Id, item.Action.ActionId,
                         $"facing={item.Action.Facing}; profile={item.Action.AttackProfileId}");

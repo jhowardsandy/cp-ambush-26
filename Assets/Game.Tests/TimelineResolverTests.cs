@@ -368,6 +368,26 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Crouched_and_prone_postures_add_to_target_tile_concealment_for_observation()
+    {
+        var observer = new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East, UnitActivityState.Active, VisionRange: 5);
+        var crouchedTarget = new UnitState(RedUnit, "red", new GridPosition(4, 0), Facing.West, UnitActivityState.Active, Posture: UnitPosture.Crouched);
+        var proneTarget = crouchedTarget with { Posture = UnitPosture.Prone };
+        var map = new GridMapDefinition("posture-concealment-map", 5, 1, new[] { new TerrainCellDefinition(new GridPosition(4, 0), ConcealmentValue: 1) });
+
+        var crouched = VisibilityRules.Observe(map, observer, crouchedTarget);
+        var prone = VisibilityRules.Observe(map, observer, proneTarget);
+
+        Assert.That(crouched.IsObservable, Is.False);
+        Assert.That(crouched.TerrainConcealment, Is.EqualTo(1));
+        Assert.That(crouched.PostureConcealment, Is.EqualTo(1));
+        Assert.That(crouched.EffectiveRange, Is.EqualTo(3));
+        Assert.That(prone.PostureConcealment, Is.EqualTo(2));
+        Assert.That(prone.Concealment, Is.EqualTo(3));
+        Assert.That(prone.EffectiveRange, Is.EqualTo(2));
+    }
+
+    [Test]
     public void Scenario_rejects_invalid_named_map_areas()
     {
         var scenario = new ScenarioDefinition("invalid-areas", new GridMapDefinition("invalid-areas-map", 3, 3, Areas: new[]
@@ -924,7 +944,7 @@ public sealed class TimelineResolverTests
         Assert.That(result.FinalState.FindUnit(BlueUnit)!.Posture, Is.EqualTo(UnitPosture.Crouched));
         var posture = result.Events.Single(@event => @event.Type == DomainEventType.PostureChanged);
         Assert.That(posture.PostureAfter, Is.EqualTo(UnitPosture.Crouched));
-        Assert.That(posture.Detail, Is.EqualTo("posture=Crouched"));
+        Assert.That(posture.Detail, Is.EqualTo("posture=Crouched; concealment=1"));
     }
 
     [Test]
