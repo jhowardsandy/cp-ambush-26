@@ -176,6 +176,14 @@ namespace TacticalStrategyGame.Presentation.Unity
                 return;
             }
             if (route.Count == 0) { _message = "That unit is already on this tile."; return; }
+            var existingCost = PlannedApCost(unit.Id);
+            var replacedMoveCost = previousMove is null ? 0 : ActionPointRules.CostFor(previousMove, _scenario.Map, new[] { FieldMedKit }, AttackProfiles);
+            var proposedMoveCost = (previousMove?.Path ?? Array.Empty<GridPosition>()).Concat(route).Sum(position => _scenario.Map.CellAt(position).ActionPointCost);
+            if (existingCost - replacedMoveCost + proposedMoveCost > unit.ActionPointBudget)
+            {
+                _message = $"That route needs {existingCost - replacedMoveCost + proposedMoveCost}/{unit.ActionPointBudget} AP. Choose fewer or cheaper tiles, or undo an action.";
+                return;
+            }
             if (actions.LastOrDefault()?.Type == TacticalActionType.Move && previousMove is not null)
             {
                 var path = previousMove.Path!.Concat(route).ToArray();
@@ -222,7 +230,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (unit.ActivityState != UnitActivityState.Active || target.ActivityState != UnitActivityState.Active) { _message = "Both units must be active."; return; }
             PrepareManualOrder(unit);
             var profile = AttackProfileFor(unit);
-            QueueAction(unit, TacticalActionType.Attack, 1, targetUnitId: target.Id, attackProfileId: profile.Id);
+            if (!QueueAction(unit, TacticalActionType.Attack, 1, targetUnitId: target.Id, attackProfileId: profile.Id)) return;
             var observation = VisibilityRules.Observe(_scenario.Map, unit, target);
             _message = observation.IsObservable
                 ? $"Queued {profile.Id} attack: Blue {UnitNumber(unit.Id)} targets observable Red {UnitNumber(target.Id)}. Range and sight resolve later."
@@ -249,7 +257,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 return;
             }
             PrepareManualOrder(unit);
-            QueueAction(unit, TacticalActionType.ApplyEffect, 1, targetUnitId: target.Id, effectId: FieldMedKit.Id);
+            if (!QueueAction(unit, TacticalActionType.ApplyEffect, 1, targetUnitId: target.Id, effectId: FieldMedKit.Id)) return;
             _message = $"Queued heal: Blue {UnitNumber(unit.Id)} targets Blue {UnitNumber(target.Id)}. Range and sight are checked at resolution.";
         }
 
@@ -263,7 +271,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 return;
             }
             PrepareManualOrder(unit);
-            QueueAction(unit, TacticalActionType.EnterOverwatch, 1, attackProfileId: AttackProfileFor(unit).Id, facing: facing);
+            if (!QueueAction(unit, TacticalActionType.EnterOverwatch, 1, attackProfileId: AttackProfileFor(unit).Id, facing: facing)) return;
             _message = $"Queued {RoleName(unit)} overwatch for Blue {UnitNumber(unit.Id)}: 90° {facing} watch cone; one reaction shot if an enemy enters it.";
         }
 
@@ -279,7 +287,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 return;
             }
             PrepareManualOrder(unit);
-            QueueAction(unit, TacticalActionType.ChangePosture, 1, posture: posture);
+            if (!QueueAction(unit, TacticalActionType.ChangePosture, 1, posture: posture)) return;
             _message = $"Queued Blue {UnitNumber(unit.Id)} posture {posture}; target concealment becomes {VisibilityRules.ConcealmentFromPosture(posture)}.";
         }
 
@@ -291,17 +299,27 @@ namespace TacticalStrategyGame.Presentation.Unity
             return actions;
         }
 
-        private void QueueAction(UnitState unit, TacticalActionType type, int durationTicks, GridPosition? destination = null, IReadOnlyList<GridPosition>? path = null, Guid? targetUnitId = null, string? effectId = null, string? attackProfileId = null, Facing? facing = null, UnitPosture? posture = null)
+        private bool QueueAction(UnitState unit, TacticalActionType type, int durationTicks, GridPosition? destination = null, IReadOnlyList<GridPosition>? path = null, Guid? targetUnitId = null, string? effectId = null, string? attackProfileId = null, Facing? facing = null, UnitPosture? posture = null)
         {
             var actions = PlannedActions(unit.Id);
             var startTick = actions.Count == 0 ? 0 : actions[^1].StartTick + actions[^1].DurationTicks;
             if (startTick + durationTicks > 10)
             {
                 _message = "That action would extend beyond this 10-tick round. Undo or clear an earlier order.";
-                return;
+                return false;
             }
-            actions.Add(new TacticalAction(PlannedActionId(unit.Id, actions.Count + 1), unit.Id, type, startTick, durationTicks, destination, Facing: facing, Path: path, TargetUnitId: targetUnitId, EffectId: effectId, AttackProfileId: attackProfileId, Posture: posture));
+            var action = new TacticalAction(PlannedActionId(unit.Id, actions.Count + 1), unit.Id, type, startTick, durationTicks, destination, Facing: facing, Path: path, TargetUnitId: targetUnitId, EffectId: effectId, AttackProfileId: attackProfileId, Posture: posture);
+            var proposedCost = PlannedApCost(unit.Id) + ActionPointRules.CostFor(action, _scenario.Map, new[] { FieldMedKit }, AttackProfiles);
+            if (proposedCost > unit.ActionPointBudget)
+            {
+                _message = $"That action needs {proposedCost}/{unit.ActionPointBudget} AP. Undo or clear an earlier order.";
+                return false;
+            }
+            actions.Add(action);
+            return true;
         }
+
+        private int PlannedApCost(Guid unitId) => PlannedActions(unitId).Sum(action => ActionPointRules.CostFor(action, _scenario.Map, new[] { FieldMedKit }, AttackProfiles));
 
         private static Guid PlannedActionId(Guid unitId, int sequence)
         {
@@ -733,7 +751,9 @@ namespace TacticalStrategyGame.Presentation.Unity
                 var marker = blue[i].Id == _selectedBlue ? "> " : string.Empty;
                 if (GUI.Button(new Rect(24 + i * 74, 76, 68, 24), $"{marker}Blue {i + 1}")) _selectedBlue = blue[i].Id;
             }
-            GUI.Label(new Rect(300, 78, 200, 20), "Click a map tile to preview route");
+            var selectedUnit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
+            var spentAp = PlannedApCost(selectedUnit.Id);
+            GUI.Label(new Rect(300, 78, 200, 20), $"Route tiles · AP remaining {selectedUnit.ActionPointBudget - spentAp}/{selectedUnit.ActionPointBudget}");
             if (GUI.Button(new Rect(505, 76, 100, 24), "Attack red")) DraftAttack();
             if (GUI.Button(new Rect(615, 76, 100, 24), "Next red")) _selectedRed = NextRed();
             if (GUI.Button(new Rect(725, 76, 60, 24), "Undo")) UndoLastBlueAction();
