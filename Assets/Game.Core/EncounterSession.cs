@@ -3,6 +3,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace TacticalStrategyGame.Core
 {
@@ -14,7 +16,10 @@ public sealed record EncounterDefinition(
     string ContentVersion = "1",
     IReadOnlyList<ObjectiveDefinition>? Objectives = null,
     IReadOnlyList<UnitDefinition>? UnitDefinitions = null,
-    IReadOnlyList<FactionDefinition>? FactionDefinitions = null);
+    IReadOnlyList<FactionDefinition>? FactionDefinitions = null,
+    IReadOnlyList<ReinforcementSchedule>? Reinforcements = null);
+
+public sealed record ReinforcementSchedule(string Id, int SpawnAfterCompletedRound, string FactionId, string UnitDefinitionId, string SpawnAreaId, string? DisableWhenCapturedAreaId = null, string? DisableWhenCapturedByFactionId = null);
 
 /// <summary>Authoritative state at the planning boundary before a new round is ordered.</summary>
 public sealed record EncounterState(EncounterDefinition Definition, GameState CurrentState, int CompletedRounds = 0, EncounterOutcome? Outcome = null, IReadOnlyList<ObjectiveProgress>? ObjectiveProgress = null, IReadOnlyList<FactionKnowledgeState>? FactionKnowledge = null);
@@ -42,8 +47,10 @@ public static class EncounterResolver
             encounter.Definition.Objectives, encounter.Definition.UnitDefinitions, encounter.Definition.FactionDefinitions);
         var request = ScenarioFactory.CreateRequest(scenario, commandBundles, configuration, randomSeed, simulationVersion, effects, attackProfiles);
         var resolution = new TimelineResolver().Resolve(request);
+        var reinforced = resolution.IsValid ? ApplyReinforcements(encounter, resolution.FinalState, encounter.CompletedRounds + 1, configuration, resolution) : (resolution.FinalState, resolution);
+        resolution = reinforced.Item2;
         var evaluation = resolution.IsValid
-            ? ObjectiveRules.Evaluate(encounter.Definition.Objectives, encounter.Definition.Map, resolution.FinalState, encounter.ObjectiveProgress)
+            ? ObjectiveRules.Evaluate(encounter.Definition.Objectives, encounter.Definition.Map, reinforced.Item1, encounter.ObjectiveProgress)
             : null;
         var outcome = resolution.IsValid ? evaluation!.Outcome : encounter.Outcome;
         if (!resolution.IsValid)
@@ -51,10 +58,29 @@ public static class EncounterResolver
 
         var completedRounds = encounter.CompletedRounds + 1;
         resolution = AppendRescueEvents(encounter, evaluation!.Progress, configuration, resolution);
-        var knowledge = UpdateKnowledge(encounter, resolution.FinalState, completedRounds, configuration, resolution);
-        var nextState = encounter with { CurrentState = resolution.FinalState, CompletedRounds = completedRounds, Outcome = outcome, ObjectiveProgress = evaluation!.Progress, FactionKnowledge = knowledge.Knowledge };
+        var knowledge = UpdateKnowledge(encounter, reinforced.Item1, completedRounds, configuration, resolution);
+        var nextState = encounter with { CurrentState = reinforced.Item1, CompletedRounds = completedRounds, Outcome = outcome, ObjectiveProgress = evaluation!.Progress, FactionKnowledge = knowledge.Knowledge };
         return new EncounterRoundResult(nextState, knowledge.Resolution);
     }
+
+    private static (GameState, SimulationResult) ApplyReinforcements(EncounterState encounter, GameState state, int completedRounds, RoundConfiguration configuration, SimulationResult resolution)
+    {
+        var events = resolution.Events.ToList();
+        foreach (var schedule in (encounter.Definition.Reinforcements ?? Array.Empty<ReinforcementSchedule>()).Where(item => item.SpawnAfterCompletedRound == completedRounds).OrderBy(item => item.Id, StringComparer.Ordinal))
+        {
+            var disabled = schedule.DisableWhenCapturedAreaId is { } disableArea && encounter.Definition.Map.AreaById(disableArea) is { } area && state.Units.Any(unit => unit.ActivityState == UnitActivityState.Active && StringComparer.Ordinal.Equals(unit.FactionId, schedule.DisableWhenCapturedByFactionId) && area.Tiles.Contains(unit.Position));
+            if (disabled) { events.Add(new DomainEvent(events.Count, configuration.TicksPerRound, DomainEventType.ReinforcementDisabled, schedule.FactionId, Detail: $"schedule={schedule.Id}; area={schedule.DisableWhenCapturedAreaId}")); continue; }
+            var position = encounter.Definition.Map.AreaById(schedule.SpawnAreaId)?.Tiles.Where(tile => encounter.Definition.Map.CellAt(tile).IsPassable && !state.Units.Any(unit => unit.Position == tile)).OrderBy(tile => tile.X).ThenBy(tile => tile.Y).FirstOrDefault();
+            var definition = encounter.Definition.UnitDefinitions?.SingleOrDefault(item => item.Id == schedule.UnitDefinitionId);
+            if (position is null || definition is null) continue;
+            var id = DeterministicGuid($"{encounter.Definition.Id}|{schedule.Id}|{completedRounds}");
+            state = new GameState(state.Units.Append(definition.CreateInitialState(id, schedule.FactionId, position, Facing.North)).ToArray());
+            events.Add(new DomainEvent(events.Count, configuration.TicksPerRound, DomainEventType.ReinforcementSpawned, schedule.FactionId, id, Detail: $"schedule={schedule.Id}; definition={schedule.UnitDefinitionId}; position=({position.X},{position.Y})", ToPosition: position));
+        }
+        return (state, resolution with { FinalState = state, Events = events, FinalStateChecksum = StateChecksum.Calculate(state) });
+    }
+
+    private static Guid DeterministicGuid(string value) { using var sha = SHA256.Create(); return new Guid(sha.ComputeHash(Encoding.UTF8.GetBytes(value)).Take(16).ToArray()); }
 
     private static (IReadOnlyList<FactionKnowledgeState> Knowledge, SimulationResult Resolution) UpdateKnowledge(EncounterState encounter, GameState finalState, int completedRounds, RoundConfiguration configuration, SimulationResult resolution)
     {

@@ -1274,6 +1274,24 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Reinforcement_schedule_spawns_a_catalog_unit_at_the_first_free_area_tile_or_is_disabled_by_capture()
+    {
+        var rifleman = new UnitDefinition("rifleman", 10, 4);
+        var map = new GridMapDefinition("reinforcement-map", 4, 1, Areas: new[] { new MapAreaDefinition("spawn", new[] { new GridPosition(1, 0), new GridPosition(2, 0) }), new MapAreaDefinition("control", new[] { new GridPosition(3, 0) }) });
+        var schedule = new ReinforcementSchedule("red-wave", 1, "red", "rifleman", "spawn", "control", "blue");
+        var baseState = new GameState(new[] { new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East, UnitActivityState.Active), new UnitState(RedUnit, "red", new GridPosition(1, 0), Facing.West, UnitActivityState.Active) });
+        var definition = new EncounterDefinition("reinforcement", map, UnitDefinitions: new[] { rifleman }, Reinforcements: new[] { schedule });
+        var spawned = EncounterResolver.ResolveRound(new EncounterState(definition, baseState), Array.Empty<CommandBundle>(), new RoundConfiguration(2), 1u);
+        Assert.That(spawned.NextState.CurrentState.Units.Count, Is.EqualTo(3));
+        Assert.That(spawned.Resolution.Events.Any(@event => @event.Type == DomainEventType.ReinforcementSpawned && @event.ToPosition == new GridPosition(2, 0)), Is.True);
+
+        var controlledState = new GameState(new[] { new UnitState(BlueUnit, "blue", new GridPosition(3, 0), Facing.East, UnitActivityState.Active), new UnitState(RedUnit, "red", new GridPosition(1, 0), Facing.West, UnitActivityState.Active) });
+        var disabled = EncounterResolver.ResolveRound(new EncounterState(definition, controlledState), Array.Empty<CommandBundle>(), new RoundConfiguration(2), 1u);
+        Assert.That(disabled.NextState.CurrentState.Units.Count, Is.EqualTo(2));
+        Assert.That(disabled.Resolution.Events.Any(@event => @event.Type == DomainEventType.ReinforcementDisabled), Is.True);
+    }
+
+    [Test]
     public void Eliminate_all_opponents_objective_remains_incomplete_while_an_enemy_is_active()
     {
         var state = DefaultState();
