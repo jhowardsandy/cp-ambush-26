@@ -88,7 +88,7 @@ public sealed class TimelineResolver
                         var targetAfter = state.FindUnit(impact.TargetUnitId)!;
                         var beforeHitPoints = completion.AreaBeforeHitPoints![impact.TargetUnitId];
                         AddEvent(tick, DomainEventType.AttackResolved, item.FactionId, unit.Id, item.Action.ActionId,
-                            $"{AreaAttackDetail(completion.AttackProfile!, completion.AreaAttack, impact.Resolution, beforeHitPoints, targetAfter.HitPoints)}{completion.InventoryConsumptionDetail}",
+                            $"{AreaAttackDetail(completion.AttackProfile!, completion.AreaAttack, impact, beforeHitPoints, targetAfter.HitPoints)}{completion.InventoryConsumptionDetail}",
                             fromPosition: unit.Position, toPosition: item.Action.TargetPosition,
                             hitPointsAfter: targetAfter.HitPoints, activityStateAfter: targetAfter.ActivityState,
                             targetUnitId: targetAfter.Id);
@@ -290,8 +290,8 @@ public sealed class TimelineResolver
     private static string AttackDetail(string kind, AttackProfile profile, AttackResolution resolution, int beforeHitPoints, int afterHitPoints) =>
         $"{kind}={profile.Id}; distance={resolution.Distance}; accuracy={resolution.AccuracyPercent}; roll={resolution.AccuracyRoll}; result={(resolution.Hit ? "hit" : "miss")}; damage={profile.Damage}; cover={resolution.CoverMitigation}; armor={resolution.ArmorMitigation}; effective={resolution.EffectiveDamage}; before={beforeHitPoints}; applied={resolution.Application?.AppliedVitalityDelta ?? 0}; after={afterHitPoints}";
 
-    private static string AreaAttackDetail(AttackProfile profile, AreaAttackResolution area, AttackResolution resolution, int beforeHitPoints, int afterHitPoints) =>
-        $"area-attack={profile.Id}; target-distance={area.Distance}; radius={profile.AreaRadius}; accuracy={resolution.AccuracyPercent}; roll={resolution.AccuracyRoll}; result={(resolution.Hit ? "hit" : "miss")}; damage={profile.Damage}; cover={resolution.CoverMitigation}; armor={resolution.ArmorMitigation}; effective={resolution.EffectiveDamage}; before={beforeHitPoints}; applied={resolution.Application?.AppliedVitalityDelta ?? 0}; after={afterHitPoints}";
+    private static string AreaAttackDetail(AttackProfile profile, AreaAttackResolution area, AreaAttackImpact impact, int beforeHitPoints, int afterHitPoints) =>
+        $"area-attack={profile.Id}; target-distance={area.Distance}; radius={profile.AreaRadius}; blast-distance={impact.DistanceFromCenter}; falloff={profile.AreaFalloffDamagePerTile}; accuracy={impact.Resolution.AccuracyPercent}; roll={impact.Resolution.AccuracyRoll}; result={(impact.Resolution.Hit ? "hit" : "miss")}; damage={profile.Damage}; cover={impact.Resolution.CoverMitigation}; armor={impact.Resolution.ArmorMitigation}; effective={impact.Resolution.EffectiveDamage}; before={beforeHitPoints}; applied={impact.Resolution.Application?.AppliedVitalityDelta ?? 0}; after={afterHitPoints}";
 
     private static IReadOnlyList<ValidationDiagnostic> Validate(SimulationRequest request)
     {
@@ -330,8 +330,12 @@ public sealed class TimelineResolver
                 diagnostics.Add(new("invalid-attack-accuracy", "Attack profile accuracy must be between 0 and 100 inclusive."));
             if (profile.AreaRadius < 0)
                 diagnostics.Add(new("negative-area-radius", "Area attack radius cannot be negative."));
+            if (profile.AreaFalloffDamagePerTile < 0)
+                diagnostics.Add(new("negative-area-falloff", "Area attack falloff damage cannot be negative."));
             if (profile.Delivery == AttackDeliveryType.Direct && profile.AreaRadius != 0)
                 diagnostics.Add(new("direct-attack-area-radius", "Direct attack profiles must use area radius 0."));
+            if (profile.Delivery == AttackDeliveryType.Direct && profile.AreaFalloffDamagePerTile != 0)
+                diagnostics.Add(new("direct-attack-area-falloff", "Direct attack profiles must use area falloff 0."));
             ValidateRequirement(profile.RequiredSkillId, profile.RequiredInventoryItemId, profile.InventoryQuantityCost, "attack profile", diagnostics);
             ValidateRequirement(null, profile.AmmunitionItemId, profile.AmmunitionQuantityCost, "attack ammunition", diagnostics);
         }

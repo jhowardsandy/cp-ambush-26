@@ -452,6 +452,10 @@ public sealed class TimelineResolverTests
         Assert.That(units.Select(unit => unit.Id), Is.EqualTo(new[] { "rifleman", "combat-medic" }));
         Assert.That(InventoryRules.QuantityOf(rifleman, "service-rifle"), Is.EqualTo(1));
         Assert.That(InventoryRules.QuantityOf(rifleman, "rifle-ammo"), Is.EqualTo(8));
+        Assert.That(InventoryRules.QuantityOf(rifleman, "fragmentation-grenade"), Is.EqualTo(1));
+        Assert.That(StarterMilitaryContent.Rifleman.AttackProfileIds, Does.Contain(StarterMilitaryContent.FragmentationGrenade.Id));
+        Assert.That(StarterMilitaryContent.FragmentationGrenade.Delivery, Is.EqualTo(AttackDeliveryType.Area));
+        Assert.That(StarterMilitaryContent.FragmentationGrenade.AreaRadius, Is.EqualTo(1));
         Assert.That(rifleman.ArmorValue, Is.EqualTo(1));
         Assert.That(InventoryRules.QuantityOf(medic, "med-kit"), Is.EqualTo(2));
         Assert.That(StarterMilitaryContent.FieldMedKit.RequiredSkillId, Is.EqualTo("field-medicine"));
@@ -752,6 +756,28 @@ public sealed class TimelineResolverTests
 
         Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("missing-area-attack-target"));
         Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("area-attack-target-unit"));
+    }
+
+    [Test]
+    public void Area_attack_falls_off_from_its_center_and_buildings_block_blast_propagation()
+    {
+        var center = RedUnit;
+        var edge = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var shielded = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var attacker = new UnitState(BlueUnit, "blue", new GridPosition(0, 1), Facing.East, UnitActivityState.Active);
+        var map = new GridMapDefinition("blast-protection", 5, 3, new[] { new TerrainCellDefinition(new GridPosition(3, 1), IsPassable: false, BlocksLineOfSight: true) });
+        var profile = new AttackProfile("grenade", 1, 4, 5, Delivery: AttackDeliveryType.Area, AreaRadius: 2, AreaFalloffDamagePerTile: 2);
+        var resolution = AreaAttackRules.Resolve(attacker, new GridPosition(2, 1), new[]
+        {
+            attacker,
+            new UnitState(center, "red", new GridPosition(2, 1), Facing.West, UnitActivityState.Active),
+            new UnitState(edge, "red", new GridPosition(2, 2), Facing.West, UnitActivityState.Active),
+            new UnitState(shielded, "red", new GridPosition(4, 1), Facing.West, UnitActivityState.Active)
+        }, profile, map, 1);
+
+        Assert.That(resolution.FailureDetail, Is.Null);
+        Assert.That(resolution.Impacts.Select(impact => impact.TargetUnitId), Is.EqualTo(new[] { center, edge }));
+        Assert.That(resolution.Impacts.Select(impact => impact.Resolution.Application!.AppliedVitalityDelta), Is.EqualTo(new[] { -5, -3 }));
     }
 
     [Test]

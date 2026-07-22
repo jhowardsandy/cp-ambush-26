@@ -35,14 +35,14 @@ public static class AttackRules
             AccuracyPercent: profile.AccuracyPercent, AccuracyRoll: accuracyRoll, Hit: true);
     }
 
-    internal static AttackResolution ResolveAreaImpact(UnitState target, AttackProfile profile, GridMapDefinition map, int? accuracyRoll)
+    internal static AttackResolution ResolveAreaImpact(UnitState target, AttackProfile profile, GridMapDefinition map, int distanceFromCenter, int? accuracyRoll)
     {
         if (accuracyRoll is not null && accuracyRoll > profile.AccuracyPercent)
             return new AttackResolution(0, null, CoverMitigation: TerrainProtectionRules.At(map, target.Position).CoverValue, ArmorMitigation: target.ArmorValue, AccuracyPercent: profile.AccuracyPercent, AccuracyRoll: accuracyRoll, Hit: false);
 
         var coverMitigation = TerrainProtectionRules.At(map, target.Position).CoverValue;
         var armorMitigation = target.ArmorValue;
-        var effectiveDamage = System.Math.Max(1, profile.Damage - coverMitigation - armorMitigation);
+        var effectiveDamage = System.Math.Max(1, profile.Damage - distanceFromCenter * profile.AreaFalloffDamagePerTile - coverMitigation - armorMitigation);
         var application = EffectRules.Apply(target, new EffectDefinition(profile.Id, -effectiveDamage));
         return new AttackResolution(0, application, CoverMitigation: coverMitigation, EffectiveDamage: effectiveDamage, ArmorMitigation: armorMitigation,
             AccuracyPercent: profile.AccuracyPercent, AccuracyRoll: accuracyRoll, Hit: true);

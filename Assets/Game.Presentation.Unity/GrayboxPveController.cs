@@ -31,9 +31,11 @@ namespace TacticalStrategyGame.Presentation.Unity
         private bool _manualRoute;
         private bool _playbackPaused;
         private int _playbackSpeedIndex = 1;
+        private bool _areaTargetMode;
+        private GridPosition? _areaTargetPreview;
         private string _message = string.Empty;
         private string _roundSummary = "No round resolved yet.";
-        private static readonly IReadOnlyList<AttackProfile> AttackProfiles = new[] { StarterMilitaryContent.ServiceRifle, StarterMilitaryContent.MarksmanRifle };
+        private static readonly IReadOnlyList<AttackProfile> AttackProfiles = new[] { StarterMilitaryContent.ServiceRifle, StarterMilitaryContent.MarksmanRifle, StarterMilitaryContent.FragmentationGrenade };
         private static readonly EffectDefinition FieldMedKit = StarterMilitaryContent.FieldMedKit;
 
         private void Start()
@@ -45,12 +47,16 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void Update()
         {
-            if (_resolving || _autoPlaying || !Input.GetMouseButtonDown(0) || Input.mousePosition.y > Screen.height - 220) return;
+            if (_resolving || _autoPlaying || Input.mousePosition.y > Screen.height - 220) return;
             var ray = Camera.main!.ScreenPointToRay(Input.mousePosition);
             if (!new Plane(Vector3.up, Vector3.zero).Raycast(ray, out var distance)) return;
             var point = ray.GetPoint(distance);
             var destination = new GridPosition(Mathf.RoundToInt(point.x), Mathf.RoundToInt(point.z));
-            if (_scenario.Map.Contains(destination)) DraftMoveTo(destination);
+            if (!_scenario.Map.Contains(destination)) return;
+            if (_areaTargetMode) _areaTargetPreview = destination;
+            if (!Input.GetMouseButtonDown(0)) return;
+            if (_areaTargetMode) DraftAreaAttack(destination);
+            else DraftMoveTo(destination);
         }
 
         private void BuildScenario()
@@ -129,7 +135,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void ResetEncounter()
         {
-            StopAllCoroutines(); _resolving = false; _autoPlaying = false; _playbackPaused = false; _manualRoute = false; _blueOrders.Clear(); _lines.Clear(); _armedOverwatch.Clear(); _feedback.Clear(); _blueDoctrines.Clear(); _followTargets.Clear(); _doctrineExplanations.Clear(); _roundSummary = "No round resolved yet.";
+            StopAllCoroutines(); _resolving = false; _autoPlaying = false; _playbackPaused = false; _manualRoute = false; _areaTargetMode = false; _areaTargetPreview = null; _blueOrders.Clear(); _lines.Clear(); _armedOverwatch.Clear(); _feedback.Clear(); _blueDoctrines.Clear(); _followTargets.Clear(); _doctrineExplanations.Clear(); _roundSummary = "No round resolved yet.";
             _encounter = new EncounterState(new EncounterDefinition(_scenario.Id, _scenario.Map, _scenario.ContentVersion, _scenario.Objectives, _scenario.UnitDefinitions, _scenario.FactionDefinitions), _scenario.InitialState);
             _selectedBlue = _scenario.InitialState.Units.First(unit => unit.FactionId == "blue").Id;
             _selectedRed = _scenario.InitialState.Units.First(unit => unit.FactionId == "red").Id;
@@ -239,6 +245,42 @@ namespace TacticalStrategyGame.Presentation.Unity
                 : $"Queued speculative attack: Red {UnitNumber(target.Id)} is currently concealed/out of vision; observation is checked at resolution.";
         }
 
+        private bool CanUseGrenade(UnitState unit)
+        {
+            var definition = _scenario.UnitDefinitions!.Single(candidate => candidate.Id == unit.UnitDefinitionId);
+            return (definition.AttackProfileIds ?? Array.Empty<string>()).Contains(StarterMilitaryContent.FragmentationGrenade.Id, StringComparer.Ordinal)
+                && InventoryRules.QuantityOf(unit, "fragmentation-grenade") > 0;
+        }
+
+        private void StartAreaTargeting()
+        {
+            var unit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
+            if (!CanUseGrenade(unit))
+            {
+                _message = "This unit has no fragmentation grenade available.";
+                return;
+            }
+            _areaTargetMode = true;
+            _areaTargetPreview = null;
+            _message = "Grenade target mode: click a map tile within range 1–4. The radius-1 blast affects opposing active units only.";
+        }
+
+        private void DraftAreaAttack(GridPosition targetPosition)
+        {
+            var unit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
+            if (!CanUseGrenade(unit))
+            {
+                _areaTargetMode = false;
+                _message = "This unit has no fragmentation grenade available.";
+                return;
+            }
+            PrepareManualOrder(unit);
+            if (!QueueAction(unit, TacticalActionType.Attack, 1, attackProfileId: StarterMilitaryContent.FragmentationGrenade.Id, targetPosition: targetPosition)) return;
+            _areaTargetMode = false;
+            _areaTargetPreview = null;
+            _message = $"Queued fragmentation grenade at ({targetPosition.X},{targetPosition.Y}): range/line of sight resolve later; opposing units in radius 1 are affected.";
+        }
+
         private void DraftHealTarget()
         {
             var unit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
@@ -301,7 +343,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             return actions;
         }
 
-        private bool QueueAction(UnitState unit, TacticalActionType type, int durationTicks, GridPosition? destination = null, IReadOnlyList<GridPosition>? path = null, Guid? targetUnitId = null, string? effectId = null, string? attackProfileId = null, Facing? facing = null, UnitPosture? posture = null)
+        private bool QueueAction(UnitState unit, TacticalActionType type, int durationTicks, GridPosition? destination = null, IReadOnlyList<GridPosition>? path = null, Guid? targetUnitId = null, string? effectId = null, string? attackProfileId = null, Facing? facing = null, UnitPosture? posture = null, GridPosition? targetPosition = null)
         {
             var actions = PlannedActions(unit.Id);
             var startTick = actions.Count == 0 ? 0 : actions[^1].StartTick + actions[^1].DurationTicks;
@@ -310,7 +352,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 _message = "That action would extend beyond this 10-tick round. Undo or clear an earlier order.";
                 return false;
             }
-            var action = new TacticalAction(PlannedActionId(unit.Id, actions.Count + 1), unit.Id, type, startTick, durationTicks, destination, Facing: facing, Path: path, TargetUnitId: targetUnitId, EffectId: effectId, AttackProfileId: attackProfileId, Posture: posture);
+            var action = new TacticalAction(PlannedActionId(unit.Id, actions.Count + 1), unit.Id, type, startTick, durationTicks, destination, Facing: facing, Path: path, TargetUnitId: targetUnitId, EffectId: effectId, AttackProfileId: attackProfileId, Posture: posture, TargetPosition: targetPosition);
             var proposedCost = PlannedApCost(unit.Id) + ActionPointRules.CostFor(action, _scenario.Map, new[] { FieldMedKit }, AttackProfiles);
             if (proposedCost > unit.ActionPointBudget)
             {
@@ -605,6 +647,23 @@ namespace TacticalStrategyGame.Presentation.Unity
                 DrawWatchCone(_encounter.CurrentState.FindUnit(armed.Key)!, armed.Value, new Color(1f, .5f, .1f, .34f), "ARMED");
         }
 
+        private void DrawAreaTargetPreview()
+        {
+            if (!_areaTargetMode || _areaTargetPreview is null) return;
+            var prior = GUI.color;
+            for (var x = 0; x < _scenario.Map.Width; x++)
+            for (var y = 0; y < _scenario.Map.Height; y++)
+            {
+                var tile = new GridPosition(x, y);
+                var distance = GridDistance.Manhattan(tile, _areaTargetPreview);
+                if (distance > StarterMilitaryContent.FragmentationGrenade.AreaRadius) continue;
+                var screen = Camera.main!.WorldToScreenPoint(new Vector3(x, .2f, y));
+                GUI.color = distance == 0 ? new Color(1f, .78f, .15f, .72f) : new Color(1f, .32f, .12f, .58f);
+                GUI.Box(new Rect(screen.x - 19, Screen.height - screen.y - 19, 38, 38), distance == 0 ? "TARGET" : "BLAST");
+            }
+            GUI.color = prior;
+        }
+
         private void DrawObjectiveOverlay()
         {
             var area = _scenario.Map.AreaById("central-crossing");
@@ -744,6 +803,8 @@ namespace TacticalStrategyGame.Presentation.Unity
             }
             if (action.Type == TacticalActionType.Attack && action.TargetUnitId.HasValue)
                 return $"Attack Red {UnitNumber(action.TargetUnitId.Value)} — checked at resolution";
+            if (action.Type == TacticalActionType.Attack && action.TargetPosition is not null)
+                return $"Grenade at ({action.TargetPosition.X},{action.TargetPosition.Y}) — radius 1, checked at resolution";
             if (action.Type == TacticalActionType.ApplyEffect && action.TargetUnitId.HasValue)
                 return $"Heal Blue {UnitNumber(action.TargetUnitId.Value)} — range checked at resolution";
             if (action.Type == TacticalActionType.EnterOverwatch && action.Facing.HasValue)
@@ -771,10 +832,17 @@ namespace TacticalStrategyGame.Presentation.Unity
             var selectedUnit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
             var spentAp = PlannedApCost(selectedUnit.Id);
             GUI.Label(new Rect(300, 78, 200, 20), $"Route tiles · AP remaining {selectedUnit.ActionPointBudget - spentAp}/{selectedUnit.ActionPointBudget}");
-            if (GUI.Button(new Rect(505, 76, 100, 24), "Attack red")) DraftAttack();
-            if (GUI.Button(new Rect(615, 76, 100, 24), "Next red")) _selectedRed = NextRed();
-            if (GUI.Button(new Rect(725, 76, 60, 24), "Undo")) UndoLastBlueAction();
-            if (GUI.Button(new Rect(795, 76, 65, 24), "Clear")) ClearSelectedOrder();
+            if (GUI.Button(new Rect(505, 76, 90, 24), "Attack red")) DraftAttack();
+            GUI.enabled = CanUseGrenade(selectedUnit);
+            if (GUI.Button(new Rect(605, 76, 120, 24), _areaTargetMode ? "Cancel grenade" : "Grenade target"))
+            {
+                if (_areaTargetMode) { _areaTargetMode = false; _message = "Grenade target mode cancelled."; }
+                else StartAreaTargeting();
+            }
+            GUI.enabled = true;
+            if (GUI.Button(new Rect(735, 76, 90, 24), "Next red")) _selectedRed = NextRed();
+            if (GUI.Button(new Rect(835, 76, 60, 24), "Undo")) UndoLastBlueAction();
+            if (GUI.Button(new Rect(905, 76, 65, 24), "Clear")) ClearSelectedOrder();
             if (GUI.Button(new Rect(300, 104, 115, 24), "Next heal target")) _selectedHealTarget = NextBlueHealTarget();
             if (GUI.Button(new Rect(425, 104, 115, 24), "Medic heal target")) DraftHealTarget();
             GUI.Label(new Rect(550, 106, 300, 20), $"Heal target: Blue {UnitNumber(_selectedHealTarget)}");
@@ -808,6 +876,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             GUI.Box(new Rect(12, 336, 1000, 30), _roundSummary);
             var y = 374f; foreach (var line in _lines.Take(11)) { GUI.Label(new Rect(20, y, 990, 20), line); y += 19; }
             DrawOverwatchOverlay();
+            DrawAreaTargetPreview();
             foreach (var unit in _encounter.CurrentState.Units)
             {
                 var screen = Camera.main!.WorldToScreenPoint(_views[unit.Id].transform.position + Vector3.up * .65f);
