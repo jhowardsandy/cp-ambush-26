@@ -73,6 +73,12 @@ Move at least one active Blue unit into the named central-crossing tiles while n
 
 Expected: the objective line progresses from `0/3` to `1/3`, then `2/3`, then Blue wins at `3/3`. A Red unit entering any central-crossing tile, or Blue leaving it empty, resets the count to `0/3`. Elimination of Red remains an alternative Blue victory condition.
 
+### RC-HUM-010: Inspectable doctrine order and manual override
+
+Select a Blue unit, choose **Hold**, **Keep range**, or **Support**, optionally choose **Next follow unit**, then press **Auto-plan selected**. Inspect the generated Round-plan action and rationale. Use **Undo**, **Clear**, or a manual order afterward.
+
+Expected: selection alone changes no state. Auto-plan adds only the selected unit’s ordinary legal action and explains the choice. A manual order explicitly replaces the auto-generated action; it does not combine into an opaque second authority path. A Marksman crowded inside range 2–5 shows a reposition intent; Support moves toward its chosen ally when no legal heal is available.
+
 ## Session log template
 
 | Field | Record |

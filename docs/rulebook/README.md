@@ -16,6 +16,7 @@ This folder is the living, player-readable rulebook. It describes accepted behav
 10. `overwatch.md` — one-shot movement-triggered watch cones.
 11. `inventory-and-skills.md` — inventory balances and content-defined skill/item entitlements.
 12. `pve-planning.md` — explainable terrain-aware computer-controlled orders.
+13. `doctrine-control.md` — player-selected, inspectable auto-generated unit orders.
 
 ## Planned chapters
 

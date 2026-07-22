@@ -18,6 +18,9 @@ namespace TacticalStrategyGame.Presentation.Unity
         private readonly Dictionary<Guid, Facing> _armedOverwatch = new();
         private readonly Dictionary<Guid, int> _displayHitPoints = new();
         private readonly List<FeedbackPulse> _feedback = new();
+        private readonly Dictionary<Guid, TacticalDoctrine> _blueDoctrines = new();
+        private readonly Dictionary<Guid, Guid> _followTargets = new();
+        private readonly Dictionary<Guid, string> _doctrineExplanations = new();
         private ScenarioDefinition _scenario = null!;
         private EncounterState _encounter = null!;
         private Guid _selectedBlue;
@@ -40,7 +43,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void Update()
         {
-            if (_resolving || _autoPlaying || !Input.GetMouseButtonDown(0) || Input.mousePosition.y > Screen.height - 180) return;
+            if (_resolving || _autoPlaying || !Input.GetMouseButtonDown(0) || Input.mousePosition.y > Screen.height - 220) return;
             var ray = Camera.main!.ScreenPointToRay(Input.mousePosition);
             if (!new Plane(Vector3.up, Vector3.zero).Raycast(ray, out var distance)) return;
             var point = ray.GetPoint(distance);
@@ -124,11 +127,12 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void ResetEncounter()
         {
-            StopAllCoroutines(); _resolving = false; _autoPlaying = false; _manualRoute = false; _blueOrders.Clear(); _lines.Clear(); _armedOverwatch.Clear(); _feedback.Clear(); _roundSummary = "No round resolved yet.";
+            StopAllCoroutines(); _resolving = false; _autoPlaying = false; _manualRoute = false; _blueOrders.Clear(); _lines.Clear(); _armedOverwatch.Clear(); _feedback.Clear(); _blueDoctrines.Clear(); _followTargets.Clear(); _doctrineExplanations.Clear(); _roundSummary = "No round resolved yet.";
             _encounter = new EncounterState(new EncounterDefinition(_scenario.Id, _scenario.Map, _scenario.ContentVersion, _scenario.Objectives, _scenario.UnitDefinitions, _scenario.FactionDefinitions), _scenario.InitialState);
             _selectedBlue = _scenario.InitialState.Units.First(unit => unit.FactionId == "blue").Id;
             _selectedRed = _scenario.InitialState.Units.First(unit => unit.FactionId == "red").Id;
             _selectedHealTarget = _selectedBlue;
+            foreach (var unit in _scenario.InitialState.Units.Where(unit => unit.FactionId == "blue")) _blueDoctrines[unit.Id] = TacticalDoctrine.Aggressive;
             _message = "Draft one order for any Blue unit, then submit the round. Red uses deterministic PvE.";
             Render(_encounter.CurrentState);
         }
@@ -146,6 +150,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         {
             var unit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
             if (unit.ActivityState != UnitActivityState.Active) { _message = "The selected unit is not active."; return; }
+            PrepareManualOrder(unit);
             var actions = PlannedActions(unit.Id);
             if (actions.Any(action => action.Type == TacticalActionType.Move) && actions.Last().Type != TacticalActionType.Move)
             {
@@ -215,6 +220,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             var unit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
             var target = _encounter.CurrentState.FindUnit(_selectedRed)!;
             if (unit.ActivityState != UnitActivityState.Active || target.ActivityState != UnitActivityState.Active) { _message = "Both units must be active."; return; }
+            PrepareManualOrder(unit);
             var profile = AttackProfileFor(unit);
             QueueAction(unit, TacticalActionType.Attack, 1, targetUnitId: target.Id, attackProfileId: profile.Id);
             var observation = VisibilityRules.Observe(_scenario.Map, unit, target);
@@ -242,6 +248,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 _message = "The selected healing target is not active.";
                 return;
             }
+            PrepareManualOrder(unit);
             QueueAction(unit, TacticalActionType.ApplyEffect, 1, targetUnitId: target.Id, effectId: FieldMedKit.Id);
             _message = $"Queued heal: Blue {UnitNumber(unit.Id)} targets Blue {UnitNumber(target.Id)}. Range and sight are checked at resolution.";
         }
@@ -255,6 +262,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 _message = "This unit does not have the overwatch skill.";
                 return;
             }
+            PrepareManualOrder(unit);
             QueueAction(unit, TacticalActionType.EnterOverwatch, 1, attackProfileId: AttackProfileFor(unit).Id, facing: facing);
             _message = $"Queued {RoleName(unit)} overwatch for Blue {UnitNumber(unit.Id)}: 90° {facing} watch cone; one reaction shot if an enemy enters it.";
         }
@@ -287,6 +295,43 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private int PlannedActionCount => _blueOrders.Values.Sum(actions => actions.Count);
 
+        private void PrepareManualOrder(UnitState unit)
+        {
+            if (_doctrineExplanations.Remove(unit.Id))
+            {
+                _blueOrders.Remove(unit.Id);
+                _message = $"Manual order replaces Blue {UnitNumber(unit.Id)}'s doctrine-generated order.";
+            }
+        }
+
+        private TacticalDoctrine DoctrineFor(Guid unitId) => _blueDoctrines.TryGetValue(unitId, out var doctrine) ? doctrine : TacticalDoctrine.Aggressive;
+
+        private void SetDoctrine(TacticalDoctrine doctrine)
+        {
+            _blueDoctrines[_selectedBlue] = doctrine;
+            _message = $"Blue {UnitNumber(_selectedBlue)} doctrine set to {DoctrineLabel(doctrine)}. Use Auto-plan selected to draft its inspectable order.";
+        }
+
+        private void AutoPlanSelected()
+        {
+            var unit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
+            if (unit.ActivityState != UnitActivityState.Active) { _message = "The selected unit is not active."; return; }
+            var plan = PvePlanner.Plan("blue", _encounter.CurrentState, _scenario.Map, AttackProfiles, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives, PlayerDoctrinePolicy);
+            var decision = plan.Decisions.Single(candidate => candidate.UnitId == unit.Id);
+            _blueOrders.Remove(unit.Id);
+            var action = plan.Commands.Actions.SingleOrDefault(candidate => candidate.UnitId == unit.Id);
+            if (action is not null) _blueOrders[unit.Id] = new List<TacticalAction> { action with { ActionId = PlannedActionId(unit.Id, 1) } };
+            _doctrineExplanations[unit.Id] = decision.Explanation;
+            _message = $"Blue {UnitNumber(unit.Id)} {DoctrineLabel(DoctrineFor(unit.Id))}: {decision.Explanation}";
+        }
+
+        private void ClearSelectedOrder()
+        {
+            _blueOrders.Remove(_selectedBlue);
+            _doctrineExplanations.Remove(_selectedBlue);
+            _message = $"Cleared Blue {UnitNumber(_selectedBlue)}'s drafted order.";
+        }
+
         private void UndoLastBlueAction()
         {
             if (!_blueOrders.TryGetValue(_selectedBlue, out var actions) || actions.Count == 0)
@@ -303,7 +348,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 return;
             }
             actions.RemoveAt(actions.Count - 1);
-            if (actions.Count == 0) _blueOrders.Remove(_selectedBlue);
+            if (actions.Count == 0) { _blueOrders.Remove(_selectedBlue); _doctrineExplanations.Remove(_selectedBlue); }
             _message = $"Removed Blue {UnitNumber(_selectedBlue)}'s last queued action.";
         }
 
@@ -406,6 +451,9 @@ namespace TacticalStrategyGame.Presentation.Unity
             ?? _scenario.Map.AreaById("central-crossing")?.Tiles
             ?? Array.Empty<GridPosition>();
         private PvePlanningPolicy BlueHoldPolicy => new(_scenario.Map.AreaById("central-crossing")?.Tiles, HoldWhenOccupied: true);
+        private PvePlanningPolicy PlayerDoctrinePolicy => new(
+            _scenario.Map.AreaById("central-crossing")?.Tiles,
+            DoctrineAssignments: _blueDoctrines.Select(entry => new PveDoctrineAssignment(entry.Key, entry.Value, _followTargets.TryGetValue(entry.Key, out var target) ? target : null)).ToArray());
         private AttackProfile AttackProfileFor(UnitState unit)
         {
             var definition = _scenario.UnitDefinitions!.Single(candidate => candidate.Id == unit.UnitDefinitionId);
@@ -610,14 +658,24 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private string PlannedOrderDescription(UnitState unit)
         {
-            if (!_blueOrders.TryGetValue(unit.Id, out var actions) || actions.Count == 0) return "No order — waits";
+            if (!_blueOrders.TryGetValue(unit.Id, out var actions) || actions.Count == 0)
+                return $"Doctrine {DoctrineLabel(DoctrineFor(unit.Id))} — no generated order; waits";
             var descriptions = actions.Select(action => ActionDescription(action)).ToArray();
             var spent = actions.Sum(action => ActionPointRules.CostFor(action, _scenario.Map, new[] { FieldMedKit }, AttackProfiles));
             var finalTick = actions.Max(action => action.StartTick + action.DurationTicks);
             var conflicts = PlannedMovementConflicts();
             var hasConflict = actions.Where(action => action.Type == TacticalActionType.Move).SelectMany(action => MovementRules.PathFor(action).Select((position, index) => (position, MoveArrivalTick(action, index)))).Any(intent => conflicts.Contains(intent));
-            return $"{String.Join(" → ", descriptions)}  [{spent}/{unit.ActionPointBudget} AP; t0–{finalTick}/10]{(hasConflict ? " ⚠ seeded clash" : String.Empty)}";
+            var rationale = _doctrineExplanations.TryGetValue(unit.Id, out var explanation) ? $" — {explanation}" : String.Empty;
+            return $"{String.Join(" → ", descriptions)}  [{spent}/{unit.ActionPointBudget} AP; t0–{finalTick}/10]{(hasConflict ? " ⚠ seeded clash" : String.Empty)}{rationale}";
         }
+
+        private static string DoctrineLabel(TacticalDoctrine doctrine) => doctrine switch
+        {
+            TacticalDoctrine.HoldObjective => "Hold objective",
+            TacticalDoctrine.KeepRange => "Keep range",
+            TacticalDoctrine.SupportFollow => "Support / follow",
+            _ => "Aggressive"
+        };
 
         private static string ActionDescription(TacticalAction action)
         {
@@ -637,7 +695,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void OnGUI()
         {
-            GUI.Box(new Rect(12, 12, 1000, 160), "Riverside Crossing 4v4 — player Blue vs deterministic Red");
+            GUI.Box(new Rect(12, 12, 1000, 196), "Riverside Crossing 4v4 — player Blue vs deterministic Red");
             if (GUI.Button(new Rect(24, 44, 120, 26), "Submit round")) Submit();
             if (GUI.Button(new Rect(154, 44, 80, 26), "Reset")) ResetEncounter();
             if (GUI.Button(new Rect(244, 44, 120, 26), "Auto-play demo")) StartAutoPlay();
@@ -652,7 +710,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (GUI.Button(new Rect(505, 76, 100, 24), "Attack red")) DraftAttack();
             if (GUI.Button(new Rect(615, 76, 100, 24), "Next red")) _selectedRed = NextRed();
             if (GUI.Button(new Rect(725, 76, 60, 24), "Undo")) UndoLastBlueAction();
-            if (GUI.Button(new Rect(795, 76, 65, 24), "Clear")) _blueOrders.Remove(_selectedBlue);
+            if (GUI.Button(new Rect(795, 76, 65, 24), "Clear")) ClearSelectedOrder();
             if (GUI.Button(new Rect(300, 104, 115, 24), "Next heal target")) _selectedHealTarget = NextBlueHealTarget();
             if (GUI.Button(new Rect(425, 104, 115, 24), "Medic heal target")) DraftHealTarget();
             GUI.Label(new Rect(550, 106, 300, 20), $"Heal target: Blue {UnitNumber(_selectedHealTarget)}");
@@ -662,15 +720,24 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (GUI.Button(new Rect(335, 132, 45, 24), "E")) DraftOverwatch(Facing.East);
             if (GUI.Button(new Rect(390, 132, 45, 24), "S")) DraftOverwatch(Facing.South);
             if (GUI.Button(new Rect(445, 132, 45, 24), "W")) DraftOverwatch(Facing.West);
-            GUI.Box(new Rect(12, 180, 1000, 112), $"Round plan — {PlannedActionCount} actions across {_blueOrders.Count} Blue units. Orders resolve left-to-right; Undo removes the selected unit's last action.");
+            GUI.Label(new Rect(24, 162, 120, 20), "Doctrine:");
+            if (GUI.Button(new Rect(92, 158, 88, 24), "Aggressive")) SetDoctrine(TacticalDoctrine.Aggressive);
+            if (GUI.Button(new Rect(188, 158, 92, 24), "Hold")) SetDoctrine(TacticalDoctrine.HoldObjective);
+            if (GUI.Button(new Rect(288, 158, 92, 24), "Keep range")) SetDoctrine(TacticalDoctrine.KeepRange);
+            if (GUI.Button(new Rect(388, 158, 100, 24), "Support")) SetDoctrine(TacticalDoctrine.SupportFollow);
+            if (GUI.Button(new Rect(498, 158, 120, 24), "Next follow unit")) _followTargets[_selectedBlue] = NextBlueFollowTarget();
+            if (GUI.Button(new Rect(628, 158, 130, 24), "Auto-plan selected")) AutoPlanSelected();
+            var followLabel = _followTargets.TryGetValue(_selectedBlue, out var followTarget) ? $"Follow: Blue {UnitNumber(followTarget)}" : "Follow: nearest ally";
+            GUI.Label(new Rect(768, 162, 220, 20), $"{DoctrineLabel(DoctrineFor(_selectedBlue))}; {followLabel}");
+            GUI.Box(new Rect(12, 216, 1000, 112), $"Round plan — {PlannedActionCount} actions across {_blueOrders.Count} Blue units. Doctrine orders are ordinary editable actions; Undo removes the selected unit's last action.");
             for (var i = 0; i < blue.Length; i++)
             {
                 var selected = blue[i].Id == _selectedBlue ? "> " : "  ";
-                GUI.Label(new Rect(28, 206 + i * 20, 970, 20), $"{selected}Blue {i + 1}: {PlannedOrderDescription(blue[i])}");
+                GUI.Label(new Rect(28, 242 + i * 20, 970, 20), $"{selected}Blue {i + 1}: {PlannedOrderDescription(blue[i])}");
             }
             GUI.Label(new Rect(560, 134, 440, 20), ObjectiveStatus());
-            GUI.Box(new Rect(12, 300, 1000, 30), _roundSummary);
-            var y = 338f; foreach (var line in _lines.Take(13)) { GUI.Label(new Rect(20, y, 990, 20), line); y += 19; }
+            GUI.Box(new Rect(12, 336, 1000, 30), _roundSummary);
+            var y = 374f; foreach (var line in _lines.Take(11)) { GUI.Label(new Rect(20, y, 990, 20), line); y += 19; }
             DrawOverwatchOverlay();
             foreach (var unit in _encounter.CurrentState.Units)
             {
@@ -694,6 +761,15 @@ namespace TacticalStrategyGame.Presentation.Unity
         {
             var blue = _encounter.CurrentState.Units.Where(unit => unit.FactionId == "blue" && unit.ActivityState == UnitActivityState.Active).OrderBy(unit => unit.Id).ToArray();
             var index = Array.FindIndex(blue, unit => unit.Id == _selectedHealTarget); return blue.Length == 0 ? _selectedHealTarget : blue[(index + 1 + blue.Length) % blue.Length].Id;
+        }
+
+        private Guid NextBlueFollowTarget()
+        {
+            var blue = _encounter.CurrentState.Units.Where(unit => unit.FactionId == "blue" && unit.Id != _selectedBlue && unit.ActivityState == UnitActivityState.Active).OrderBy(unit => unit.Id).ToArray();
+            if (blue.Length == 0) return _selectedBlue;
+            var current = _followTargets.TryGetValue(_selectedBlue, out var target) ? target : blue[^1].Id;
+            var index = Array.FindIndex(blue, unit => unit.Id == current);
+            return blue[(index + 1 + blue.Length) % blue.Length].Id;
         }
     }
 }

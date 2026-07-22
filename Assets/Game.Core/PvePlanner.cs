@@ -10,8 +10,14 @@ public sealed record PveDecision(Guid UnitId, string Decision, string Explanatio
 
 public sealed record PvePlan(CommandBundle Commands, IReadOnlyList<PveDecision> Decisions);
 
+public enum TacticalDoctrine { Aggressive, HoldObjective, KeepRange, SupportFollow }
+public sealed record PveDoctrineAssignment(Guid UnitId, TacticalDoctrine Doctrine, Guid? FollowUnitId = null);
+
 /// <summary>Scenario-supplied intent for conventional AI; it is known content, never hidden-opponent information.</summary>
-public sealed record PvePlanningPolicy(IReadOnlyList<GridPosition>? HoldObjectiveTiles = null, bool HoldWhenOccupied = false);
+public sealed record PvePlanningPolicy(
+    IReadOnlyList<GridPosition>? HoldObjectiveTiles = null,
+    bool HoldWhenOccupied = false,
+    IReadOnlyList<PveDoctrineAssignment>? DoctrineAssignments = null);
 
 /// <summary>First deterministic conventional enemy planner. It produces ordinary command bundles; it never resolves outcomes itself.</summary>
 public static class PvePlanner
@@ -56,12 +62,34 @@ public static class PvePlanner
         {
             var definition = (unitDefinitions ?? Array.Empty<UnitDefinition>()).FirstOrDefault(candidate => StringComparer.Ordinal.Equals(candidate.Id, unit.UnitDefinitionId));
             var profile = ProfileFor(unit, definition, profiles);
+            var doctrine = policy?.DoctrineAssignments?.FirstOrDefault(assignment => assignment.UnitId == unit.Id);
             var healTarget = FindHealTarget(unit, state, map, healingEffect, definition);
             if (healTarget is not null && healingEffect is not null)
             {
                 actions.Add(new TacticalAction(unit.Id, unit.Id, TacticalActionType.ApplyEffect, 0, 1, TargetUnitId: healTarget.Id, EffectId: healingEffect.Id));
                 decisions.Add(new PveDecision(unit.Id, "heal", $"Treat injured ally {healTarget.Id} before attacking; {healingEffect.Id} restores up to {healingEffect.VitalityDelta} vitality."));
                 continue;
+            }
+
+            if (doctrine?.Doctrine == TacticalDoctrine.SupportFollow)
+            {
+                var followedUnit = FindFollowTarget(unit, state, doctrine);
+                if (followedUnit is not null && GridDistance.Manhattan(unit.Position, followedUnit.Position) > 1)
+                {
+                    var followDestination = LegalAdjacentCandidates(unit, map, reservedDestinations)
+                        .Where(candidate => GridDistance.Manhattan(candidate, followedUnit.Position) < GridDistance.Manhattan(unit.Position, followedUnit.Position))
+                        .OrderByDescending(candidate => map.CellAt(candidate).CoverValue)
+                        .ThenBy(candidate => GridDistance.Manhattan(candidate, followedUnit.Position))
+                        .ThenBy(candidate => Array.IndexOf(MovementPreference, new GridPosition(candidate.X - unit.Position.X, candidate.Y - unit.Position.Y)))
+                        .FirstOrDefault();
+                    if (followDestination is not null)
+                    {
+                        reservedDestinations.Add(followDestination);
+                        actions.Add(new TacticalAction(unit.Id, unit.Id, TacticalActionType.Move, 0, map.CellAt(followDestination).MovementTicks, Path: new[] { followDestination }));
+                        decisions.Add(new PveDecision(unit.Id, "support", $"Follow doctrine closes toward friendly unit {followedUnit.Id} at ({followDestination.X},{followDestination.Y})."));
+                        continue;
+                    }
+                }
             }
 
             var target = state.Units.Where(candidate => candidate.ActivityState == UnitActivityState.Active && !StringComparer.Ordinal.Equals(candidate.FactionId, factionId))
@@ -92,7 +120,7 @@ public static class PvePlanner
 
             var candidates = LegalAdjacentCandidates(unit, map, reservedDestinations);
             var distanceToTarget = GridDistance.Manhattan(unit.Position, target.Position);
-            var isRanged = (definition?.RoleTags ?? Array.Empty<string>()).Any(tag => StringComparer.Ordinal.Equals(tag, "ranged"));
+            var isRanged = (definition?.RoleTags ?? Array.Empty<string>()).Any(tag => StringComparer.Ordinal.Equals(tag, "ranged")) || doctrine?.Doctrine == TacticalDoctrine.KeepRange;
             if (isRanged && distanceToTarget < profile.MinimumRange)
             {
                 var retreat = candidates.Where(candidate => GridDistance.Manhattan(candidate, target.Position) > distanceToTarget)
@@ -111,7 +139,7 @@ public static class PvePlanner
                 continue;
             }
 
-            if (policy?.HoldWhenOccupied == true && (policy.HoldObjectiveTiles ?? Array.Empty<GridPosition>()).Contains(unit.Position))
+            if ((policy?.HoldWhenOccupied == true || doctrine?.Doctrine == TacticalDoctrine.HoldObjective) && (policy?.HoldObjectiveTiles ?? Array.Empty<GridPosition>()).Contains(unit.Position))
             {
                 decisions.Add(new PveDecision(unit.Id, "hold", "Occupying the authored hold objective; retain position until a legal action is available."));
                 continue;
@@ -166,6 +194,14 @@ public static class PvePlanner
         var permittedIds = definition?.AttackProfileIds ?? Array.Empty<string>();
         return profiles.FirstOrDefault(profile => permittedIds.Any(id => StringComparer.Ordinal.Equals(id, profile.Id)))
             ?? profiles[0];
+    }
+
+    private static UnitState? FindFollowTarget(UnitState unit, GameState state, PveDoctrineAssignment doctrine)
+    {
+        var allies = state.Units.Where(candidate => candidate.Id != unit.Id && candidate.ActivityState == UnitActivityState.Active && StringComparer.Ordinal.Equals(candidate.FactionId, unit.FactionId));
+        if (doctrine.FollowUnitId.HasValue)
+            return allies.FirstOrDefault(candidate => candidate.Id == doctrine.FollowUnitId.Value);
+        return allies.OrderBy(candidate => GridDistance.Manhattan(unit.Position, candidate.Position)).ThenBy(candidate => candidate.Id).FirstOrDefault();
     }
 
     private static UnitState? FindHealTarget(UnitState unit, GameState state, GridMapDefinition map, EffectDefinition? effect, UnitDefinition? definition)

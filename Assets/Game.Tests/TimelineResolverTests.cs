@@ -970,6 +970,37 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Pve_support_follow_doctrine_moves_toward_the_selected_friendly_unit()
+    {
+        var medic = StarterMilitaryContent.CombatMedic.CreateInitialState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East);
+        var rifleman = StarterMilitaryContent.Rifleman.CreateInitialState(FirstAction, "blue", new GridPosition(3, 0), Facing.East);
+        var enemy = StarterMilitaryContent.Rifleman.CreateInitialState(RedUnit, "red", new GridPosition(5, 0), Facing.West);
+        var policy = new PvePlanningPolicy(DoctrineAssignments: new[] { new PveDoctrineAssignment(BlueUnit, TacticalDoctrine.SupportFollow, FirstAction) });
+
+        var plan = PvePlanner.Plan("blue", new GameState(new[] { medic, rifleman, enemy }), new GridMapDefinition("support-doctrine-map", 6, 1), StarterMilitaryContent.ServiceRifle,
+            StarterMilitaryContent.FieldMedKit, new[] { StarterMilitaryContent.Rifleman, StarterMilitaryContent.CombatMedic }, policy: policy);
+
+        var medicAction = plan.Commands.Actions.Single(action => action.UnitId == BlueUnit);
+        Assert.That(medicAction.Type, Is.EqualTo(TacticalActionType.Move));
+        Assert.That(MovementRules.PathFor(medicAction).Single(), Is.EqualTo(new GridPosition(1, 0)));
+        Assert.That(plan.Decisions.Single(decision => decision.UnitId == BlueUnit).Decision, Is.EqualTo("support"));
+    }
+
+    [Test]
+    public void Pve_hold_doctrine_keeps_its_selected_unit_on_the_objective()
+    {
+        var rifleman = StarterMilitaryContent.Rifleman.CreateInitialState(BlueUnit, "blue", new GridPosition(1, 0), Facing.East);
+        var enemy = StarterMilitaryContent.Rifleman.CreateInitialState(RedUnit, "red", new GridPosition(5, 0), Facing.West);
+        var policy = new PvePlanningPolicy(new[] { new GridPosition(1, 0) }, DoctrineAssignments: new[] { new PveDoctrineAssignment(BlueUnit, TacticalDoctrine.HoldObjective) });
+
+        var plan = PvePlanner.Plan("blue", new GameState(new[] { rifleman, enemy }), new GridMapDefinition("hold-doctrine-map", 6, 1), StarterMilitaryContent.ServiceRifle,
+            unitDefinitions: new[] { StarterMilitaryContent.Rifleman }, policy: policy);
+
+        Assert.That(plan.Commands.Actions, Is.Empty);
+        Assert.That(plan.Decisions.Single().Decision, Is.EqualTo("hold"));
+    }
+
+    [Test]
     public void Pve_planner_scouts_toward_an_authored_objective_without_hidden_target_knowledge()
     {
         var blue = new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East, UnitActivityState.Active, VisionRange: 1);
