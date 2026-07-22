@@ -29,6 +29,8 @@ namespace TacticalStrategyGame.Presentation.Unity
         private bool _resolving;
         private bool _autoPlaying;
         private bool _manualRoute;
+        private bool _playbackPaused;
+        private int _playbackSpeedIndex = 1;
         private string _message = string.Empty;
         private string _roundSummary = "No round resolved yet.";
         private static readonly IReadOnlyList<AttackProfile> AttackProfiles = new[] { StarterMilitaryContent.ServiceRifle, StarterMilitaryContent.MarksmanRifle };
@@ -127,7 +129,7 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private void ResetEncounter()
         {
-            StopAllCoroutines(); _resolving = false; _autoPlaying = false; _manualRoute = false; _blueOrders.Clear(); _lines.Clear(); _armedOverwatch.Clear(); _feedback.Clear(); _blueDoctrines.Clear(); _followTargets.Clear(); _doctrineExplanations.Clear(); _roundSummary = "No round resolved yet.";
+            StopAllCoroutines(); _resolving = false; _autoPlaying = false; _playbackPaused = false; _manualRoute = false; _blueOrders.Clear(); _lines.Clear(); _armedOverwatch.Clear(); _feedback.Clear(); _blueDoctrines.Clear(); _followTargets.Clear(); _doctrineExplanations.Clear(); _roundSummary = "No round resolved yet.";
             _encounter = new EncounterState(new EncounterDefinition(_scenario.Id, _scenario.Map, _scenario.ContentVersion, _scenario.Objectives, _scenario.UnitDefinitions, _scenario.FactionDefinitions), _scenario.InitialState);
             _selectedBlue = _scenario.InitialState.Units.First(unit => unit.FactionId == "blue").Id;
             _selectedRed = _scenario.InitialState.Units.First(unit => unit.FactionId == "red").Id;
@@ -418,7 +420,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                 var blue = PvePlanner.Plan("blue", _encounter.CurrentState, _scenario.Map, AttackProfiles, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives, BlueHoldPolicy);
                 yield return StartCoroutine(Resolve(blue.Commands, blue.Decisions));
                 if (_encounter.Outcome?.IsComplete != true)
-                    yield return new WaitForSeconds(.65f);
+                    yield return WaitForPlayback(.65f);
             }
             _autoPlaying = false;
             if (_encounter.Outcome?.IsComplete != true)
@@ -465,7 +467,7 @@ namespace TacticalStrategyGame.Presentation.Unity
                         AddFeedback(@event.UnitId.Value, "FAILED", new Color(1f, .45f, .2f));
                     _lines.Add(EventLine(@event));
                 }
-                yield return new WaitForSeconds(.35f);
+                yield return WaitForPlayback(.35f);
             }
             _encounter = result.NextState; Render(_encounter.CurrentState);
             _armedOverwatch.Clear();
@@ -683,6 +685,17 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private static string FacingSymbol(Facing facing) => facing switch { Facing.North => "↑", Facing.East => "→", Facing.South => "↓", Facing.West => "←", _ => "?" };
 
+        private float PlaybackSpeed => new[] { .5f, 1f, 2f }[_playbackSpeedIndex];
+
+        private IEnumerator WaitForPlayback(float seconds)
+        {
+            for (var elapsed = 0f; elapsed < seconds;)
+            {
+                if (!_playbackPaused) elapsed += Time.deltaTime * PlaybackSpeed;
+                yield return null;
+            }
+        }
+
         private IEnumerator AnimateProjectile(GridPosition from, GridPosition to, Color color)
         {
             var projectile = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -744,7 +757,11 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (GUI.Button(new Rect(24, 44, 120, 26), "Submit round")) Submit();
             if (GUI.Button(new Rect(154, 44, 80, 26), "Reset")) ResetEncounter();
             if (GUI.Button(new Rect(244, 44, 120, 26), "Auto-play demo")) StartAutoPlay();
-            GUI.Label(new Rect(375, 44, 625, 22), _message);
+            GUI.enabled = _resolving;
+            if (GUI.Button(new Rect(375, 44, 80, 26), _playbackPaused ? "Resume" : "Pause")) _playbackPaused = !_playbackPaused;
+            GUI.enabled = true;
+            if (GUI.Button(new Rect(465, 44, 95, 26), $"Speed {PlaybackSpeed:0.#}×")) _playbackSpeedIndex = (_playbackSpeedIndex + 1) % 3;
+            GUI.Label(new Rect(570, 44, 425, 22), _message);
             var blue = _encounter.CurrentState.Units.Where(unit => unit.FactionId == "blue").OrderBy(unit => unit.Id).ToArray();
             for (var i = 0; i < blue.Length; i++)
             {

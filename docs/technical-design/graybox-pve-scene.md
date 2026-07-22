@@ -18,6 +18,8 @@ Red unit labels now expose the Blue faction’s current observation result: `OBS
 
 During playback, Unity translates resolved events into presentation-only feedback: direct and reaction attacks draw a short projectile; damage, healing, movement delay, action failure, and incapacitation display transient unit-local labels; vitality labels update immediately; and a compact round strip totals moves, attacks, heals, reactions, delays, and failed actions. The raw event list remains available, with player-readable labels such as `ATTACK`, `HEAL`, `OVERWATCH HIT`, and `CLASH DELAY`. These indicators never calculate an outcome or replace resolver data.
 
+Playback has pause/resume and 0.5×/1×/2× presentation-speed controls. They only gate Unity's event-display pacing; the already-resolved encounter, event sequence, seed, and checksum do not change.
+
 For recording and deterministic visual regression checks, **Auto-play demo** resets the scene then submits up to twelve rounds of `PvePlanner` orders for both Blue and Red. It uses the ordinary `EncounterResolver` playback path and pauses early if an objective completes; it does not fabricate movement, combat, or outcomes in Unity. The formal operator protocol is `../quality/riverside-crossing-human-playtest.md`.
 
 Before any enemy is observable, both factions receive the authored `contact-rally` position as their public scouting objective. This avoids an artificial faction-direction bias and avoids the opposite-edge deadlock that can occur when a planner chooses merely the nearest tile within a multi-tile crossing area. It is scenario data: another map can expose a patrol route, search points, defensive sectors, or no scouting objective at all.
