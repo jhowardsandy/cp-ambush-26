@@ -64,7 +64,7 @@ These are the seven currently bounded, rule-first slices. They are not a promise
 4. **Rescue/extraction objectives:** add discoverable rescue targets and extraction completion using named map areas and authoritative progress events.
 5. **Scenario scripting/reinforcements:** data-defined scheduled spawns, capture-to-disable spawn points, and deterministic scenario triggers.
 6. **PvE tactical maturation:** overwatch policy, target priority, role coordination, longer multi-action plans, and explainable policy tests.
-7. **Alternate delivery foundation:** accept a generic projectile/area-effect contract for grenades, artillery, fireballs, arrows, and similar setting content before adding visual physics.
+7. **Alternate delivery foundation — implemented:** `AttackProfile` now supports direct or deterministic tile-targeted area delivery; add content and visual physics for grenades, artillery, fireballs, arrows, and similar setting content iteratively.
 
 Cross-cutting work proceeds beside those slices: richer planning/replay inspection, scenario acceptance batches and seed corpus, balance harness, accessibility, art/audio/animation, campaign progression, and eventual PvP coordination. Those are substantial, but they are not all core-rule slices.
 

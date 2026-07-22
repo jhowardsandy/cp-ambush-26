@@ -34,6 +34,7 @@
 | EFF-VIT-001 | accepted | `rulebook/effects-and-vitality.md` | Vitality clamp, incapacity, calculation-event, invalid-content, and replay-serialization tests | `GR-EFF-001` vitality-restoration golden replay. |
 | ENC-LOOP-001 | accepted | `rulebook/encounter-rounds.md` | Valid carry-forward and invalid-plan no-advance tests | Add a two-round golden replay after fixture extraction supports encounter records. |
 | ATK-DIR-001 | accepted | `rulebook/direct-attacks.md` | Legal direct-fire, moving-target into/out-of-range completion, blocked-resolution, invalid-profile, and friendly-target tests | `GR-ATK-001` guaranteed direct-fire golden replay. |
+| ATK-AREA-001 | accepted | `rulebook/direct-attacks.md` | Tile-targeted multi-enemy impact and invalid area-target tests | Add deterministic area-delivery golden replay during combat hardening. |
 | OBJ-ELM-001 | accepted | `rulebook/objectives.md` | Objective completion, incomplete state, completed-encounter protection, and scenario JSON tests | Add a completed-encounter golden replay after encounter fixtures are extracted. |
 | OBJ-HLD-001 | accepted | `rulebook/objectives.md` | Required-round completion and contested reset tests | Add Riverside hold-area multi-round replay. |
 | VIS-* | proposed | Future visibility chapter | Not implemented | Not implemented |
