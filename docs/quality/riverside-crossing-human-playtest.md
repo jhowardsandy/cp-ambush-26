@@ -79,6 +79,12 @@ Select a Blue unit, choose **Hold**, **Keep range**, or **Support**, optionally 
 
 Expected: selection alone changes no state. Auto-plan adds only the selected unit’s ordinary legal action and explains the choice. A manual order explicitly replaces the auto-generated action; it does not combine into an opaque second authority path. A Marksman crowded inside range 2–5 shows a reposition intent; Support moves toward its chosen ally when no legal heal is available.
 
+### RC-HUM-011: Mission briefing and authoritative debrief
+
+Read the mission briefing before drafting any order. Complete either the hold objective or elimination objective, then inspect the status line.
+
+Expected: a new player can state both winning paths before play. Completion names the winning faction and resolver-provided objective result; it does not claim that a presentation animation or AI intent decided the outcome.
+
 ## Session log template
 
 | Field | Record |
