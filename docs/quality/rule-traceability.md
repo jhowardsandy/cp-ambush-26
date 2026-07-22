@@ -16,6 +16,7 @@
 | ATK-ACC-001 | accepted | `rulebook/direct-attacks.md` | Zero-accuracy miss, seeded replay, invalid percentage, and direct-fire hit tests | `GR-ATK-001` now records seeded attack result detail; expand to a multi-shot seed corpus during hardening. |
 | ATK-ARM-001 | accepted | `rulebook/direct-attacks.md` | Armor-plus-cover mitigation and minimum-one-damage test | Golden state checksums revised because armor is authoritative state. |
 | PST-CON-001 | accepted | `rulebook/posture.md` | Crouched/prone observation-concealment calculation and posture-transition event test | Add posture/visibility replay during faction-memory slice. |
+| VIS-MEM-001 | accepted | `rulebook/visibility.md` | Two-round contact reveal/loss and last-known-position test | Add a multi-contact replay corpus during hardening. |
 | RXN-OW-001 | accepted | `rulebook/overwatch.md` | One-shot movement-triggered reaction test | Add an overwatch replay fixture after scenario fixture extraction. |
 | SCN-MAP-001 | accepted | `technical-design/content-schema.md` | Scenario map dimension and starting-position validation test | Scenario definition survives replay serialization. |
 | SCN-MAP-002 | accepted | `technical-design/content-schema.md` | Movement-out-of-bounds scenario test | Add map-boundary golden fixture with the fixture harness. |

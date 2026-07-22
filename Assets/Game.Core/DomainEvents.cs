@@ -18,6 +18,8 @@ public enum DomainEventType
     PostureChanged,
     OverwatchArmed,
     ReactionAttackResolved,
+    ContactRevealed,
+    ContactLost,
     ActionCompleted,
     ActionFailed,
     RoundCompleted

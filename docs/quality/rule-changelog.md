@@ -34,6 +34,12 @@ Compatibility note: all replay/state checksums change because armor is part of c
 
 Compatibility note: no state-schema or checksum change; replay outcomes can change when a request resolves against a crouched/prone target because posture now affects visibility.
 
+## 2026-07-22 — Faction contact memory
+
+- Added planning-boundary faction knowledge snapshots with visible enemies and durable last-known contacts.
+- Added deterministic faction-scoped `ContactRevealed` and `ContactLost` events; invalid rounds leave knowledge unchanged.
+- PvE remains bound to current observation and cannot target remembered contacts as if they were visible.
+
 ## 2026-07-20 — Initial deterministic engine foundation
 
 - Added timeline ordering/validation, cardinal terrain-aware movement, and strict same-tick occupancy policy.

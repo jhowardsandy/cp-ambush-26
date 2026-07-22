@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace TacticalStrategyGame.Core
 {
@@ -16,7 +17,7 @@ public sealed record EncounterDefinition(
     IReadOnlyList<FactionDefinition>? FactionDefinitions = null);
 
 /// <summary>Authoritative state at the planning boundary before a new round is ordered.</summary>
-public sealed record EncounterState(EncounterDefinition Definition, GameState CurrentState, int CompletedRounds = 0, EncounterOutcome? Outcome = null, IReadOnlyList<ObjectiveProgress>? ObjectiveProgress = null);
+public sealed record EncounterState(EncounterDefinition Definition, GameState CurrentState, int CompletedRounds = 0, EncounterOutcome? Outcome = null, IReadOnlyList<ObjectiveProgress>? ObjectiveProgress = null, IReadOnlyList<FactionKnowledgeState>? FactionKnowledge = null);
 
 public sealed record EncounterRoundResult(EncounterState NextState, SimulationResult Resolution);
 
@@ -45,10 +46,42 @@ public static class EncounterResolver
             ? ObjectiveRules.Evaluate(encounter.Definition.Objectives, encounter.Definition.Map, resolution.FinalState, encounter.ObjectiveProgress)
             : null;
         var outcome = resolution.IsValid ? evaluation!.Outcome : encounter.Outcome;
-        var nextState = resolution.IsValid
-            ? encounter with { CurrentState = resolution.FinalState, CompletedRounds = encounter.CompletedRounds + 1, Outcome = outcome, ObjectiveProgress = evaluation!.Progress }
-            : encounter;
-        return new EncounterRoundResult(nextState, resolution);
+        if (!resolution.IsValid)
+            return new EncounterRoundResult(encounter, resolution);
+
+        var completedRounds = encounter.CompletedRounds + 1;
+        var knowledge = UpdateKnowledge(encounter, resolution.FinalState, completedRounds, configuration, resolution);
+        var nextState = encounter with { CurrentState = resolution.FinalState, CompletedRounds = completedRounds, Outcome = outcome, ObjectiveProgress = evaluation!.Progress, FactionKnowledge = knowledge.Knowledge };
+        return new EncounterRoundResult(nextState, knowledge.Resolution);
+    }
+
+    private static (IReadOnlyList<FactionKnowledgeState> Knowledge, SimulationResult Resolution) UpdateKnowledge(EncounterState encounter, GameState finalState, int completedRounds, RoundConfiguration configuration, SimulationResult resolution)
+    {
+        var previous = encounter.FactionKnowledge ?? Array.Empty<FactionKnowledgeState>();
+        var events = resolution.Events.ToList();
+        var knowledge = new List<FactionKnowledgeState>();
+        foreach (var factionId in finalState.Units.Select(unit => unit.FactionId).Distinct(StringComparer.Ordinal).OrderBy(id => id, StringComparer.Ordinal))
+        {
+            var snapshot = PerceptionRules.Evaluate(encounter.Definition.Map, finalState, factionId);
+            var visibleEnemies = snapshot.VisibleUnitIds.Where(id => !StringComparer.Ordinal.Equals(finalState.FindUnit(id)!.FactionId, factionId)).OrderBy(id => id).ToArray();
+            var prior = previous.FirstOrDefault(item => StringComparer.Ordinal.Equals(item.FactionId, factionId));
+            var priorVisible = (prior?.VisibleEnemyUnitIds ?? Array.Empty<Guid>()).ToHashSet();
+            var contacts = (prior?.Contacts ?? Array.Empty<KnownContact>()).ToDictionary(contact => contact.UnitId);
+            foreach (var unitId in visibleEnemies)
+            {
+                var target = finalState.FindUnit(unitId)!;
+                contacts[unitId] = new KnownContact(unitId, target.Position, completedRounds);
+                if (!priorVisible.Contains(unitId))
+                    events.Add(new DomainEvent(events.Count, configuration.TicksPerRound, DomainEventType.ContactRevealed, factionId, unitId, Detail: $"contact={unitId}; position=({target.Position.X},{target.Position.Y}); observed-round={completedRounds}", ToPosition: target.Position));
+            }
+            foreach (var unitId in priorVisible.Except(visibleEnemies).OrderBy(id => id))
+            {
+                var contact = contacts[unitId];
+                events.Add(new DomainEvent(events.Count, configuration.TicksPerRound, DomainEventType.ContactLost, factionId, unitId, Detail: $"contact={unitId}; last-known=({contact.LastKnownPosition.X},{contact.LastKnownPosition.Y}); observed-round={contact.LastObservedRound}", ToPosition: contact.LastKnownPosition));
+            }
+            knowledge.Add(new FactionKnowledgeState(factionId, visibleEnemies, contacts.Values.OrderBy(contact => contact.UnitId).ToArray()));
+        }
+        return (knowledge, resolution with { Events = events });
     }
 }
 
