@@ -2,6 +2,14 @@
 
 This log records accepted rule/schema changes that may affect replay, scenario, or presentation compatibility. The detailed evidence remains in the linked rulebook chapters, traceability matrix, tests, and golden replays.
 
+## 2026-07-22 — Deterministic PvE move-then-attack
+
+- The conventional PvE planner may now queue a one-tile move followed by a direct attack on its currently observed target when both actions fit the action-point budget and the attack is legal from the planned destination.
+- The move uses ordinary terrain timing and the attack starts only after that timing completes; the shared resolver remains authoritative, so the follow-up may still fail if intervening state changes invalidate it.
+- The graybox auto-plan control retains and previews the complete sequence for the selected player unit.
+
+Compatibility note: this changes AI-issued command bundles in positions where a one-tile reposition makes a target legal. It adds no state-schema fields and preserves deterministic planning for identical inputs.
+
 ## 2026-07-22 — Seeded weapon accuracy
 
 - Added `AttackProfile.AccuracyPercent` (0–100 inclusive; default 100) and provisional starter-content values of 75% for service rifle and 85% for marksman rifle.

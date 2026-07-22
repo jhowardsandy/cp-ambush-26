@@ -27,6 +27,7 @@
 | INV-SKL-002 | accepted | `rulebook/inventory-and-skills.md` | Deterministic med-kit consumption and over-subscription rejection | Add consumable action replay after presentation integration. |
 | INV-AMM-001 | accepted | `rulebook/inventory-and-skills.md` | Legal-miss consumption, attack over-reservation, and triggered-overwatch ammunition tests | Add multi-round low-ammo replay during hardening. |
 | PVE-PLAN-001 | accepted | `rulebook/pve-planning.md` | Deterministic attack/move, cover preference, medic triage, and 4v4 repeatability tests | Four-round 4v4 acceptance fixture records matching per-round checksums. |
+| PVE-PLAN-002 | accepted | `rulebook/pve-planning.md` | `Pve_planner_queues_a_deterministic_move_then_attack_when_one_step_makes_the_target_legal` | Add sequence timing to a future full-round PvE replay fixture. |
 | DOC-CTL-001 | accepted | `rulebook/doctrine-control.md` | Support-follow, hold doctrine, and ranged reposition tests | Add a player-auto-order replay after encounter-plan serialization is extracted. |
 | VIS-LOS-001 | accepted | `rulebook/visibility.md` | Blocking and symmetry line-of-sight tests | Add visibility golden fixtures after faction knowledge is introduced. |
 | VIS-RNG-001 | accepted | `rulebook/visibility.md` | Range boundary, opaque blocker, active observer, and friendly-visibility tests | Add a visibility golden replay after snapshots are scheduled into round resolution. |

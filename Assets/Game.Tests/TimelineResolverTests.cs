@@ -1091,6 +1091,19 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Pve_planner_queues_a_deterministic_move_then_attack_when_one_step_makes_the_target_legal()
+    {
+        var state = State(new GridPosition(0, 0), new GridPosition(3, 0));
+        var plan = PvePlanner.Plan("blue", state, new GridMapDefinition("pve-move-attack-map", 4, 1), new AttackProfile("rifle", 1, 2, 5));
+
+        var actions = plan.Commands.Actions.Where(action => action.UnitId == BlueUnit).ToArray();
+        Assert.That(actions.Select(action => action.Type), Is.EqualTo(new[] { TacticalActionType.Move, TacticalActionType.Attack }));
+        Assert.That(MovementRules.PathFor(actions[0]), Is.EqualTo(new[] { new GridPosition(1, 0) }));
+        Assert.That(actions[1].StartTick, Is.EqualTo(actions[0].DurationTicks));
+        Assert.That(plan.Decisions.Single(decision => decision.UnitId == BlueUnit).Decision, Is.EqualTo("move-attack"));
+    }
+
+    [Test]
     public void Pve_planner_prefers_advancing_cover_when_distance_is_equal()
     {
         var state = State(new GridPosition(0, 0), new GridPosition(3, 2));
