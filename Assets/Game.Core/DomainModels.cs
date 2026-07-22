@@ -62,7 +62,7 @@ public sealed record TacticalAction(
 public sealed record EffectDefinition(string Id, int VitalityDelta, int ActionPointCost = 2, string? RequiredSkillId = null, string? RequiredInventoryItemId = null, int InventoryQuantityCost = 0, EffectTargetPolicy TargetPolicy = EffectTargetPolicy.Any, int MinimumRange = 0, int MaximumRange = Int32.MaxValue, bool RequiresLineOfSight = false);
 
 /// <summary>Data-defined attack. Direct delivery targets one observable unit; area delivery targets a map tile and affects active opposing units within its Manhattan radius.</summary>
-public sealed record AttackProfile(string Id, int MinimumRange, int MaximumRange, int Damage, bool RequiresLineOfSight = true, int ActionPointCost = 2, string? RequiredSkillId = null, string? RequiredInventoryItemId = null, int InventoryQuantityCost = 0, int AccuracyPercent = 100, string? AmmunitionItemId = null, int AmmunitionQuantityCost = 0, bool RequiresProneForOverwatch = false, AttackDeliveryType Delivery = AttackDeliveryType.Direct, int AreaRadius = 0);
+public sealed record AttackProfile(string Id, int MinimumRange, int MaximumRange, int Damage, bool RequiresLineOfSight = true, int ActionPointCost = 2, string? RequiredSkillId = null, string? RequiredInventoryItemId = null, int InventoryQuantityCost = 0, int AccuracyPercent = 100, string? AmmunitionItemId = null, int AmmunitionQuantityCost = 0, bool RequiresProneForOverwatch = false, AttackDeliveryType Delivery = AttackDeliveryType.Direct, int AreaRadius = 0, int AreaFalloffDamagePerTile = 0);
 
 public sealed record CommandBundle(string FactionId, IReadOnlyList<TacticalAction> Actions);
 

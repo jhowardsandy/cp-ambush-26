@@ -87,6 +87,12 @@ Read the mission briefing before drafting any order. Complete either the hold ob
 
 Expected: a new player can state both winning paths before play. Completion names the winning faction and resolver-provided objective result; it does not claim that a presentation animation or AI intent decided the outcome.
 
+### RC-HUM-012: Tile-targeted grenade
+
+Select Blue Rifleman 1, press **Grenade target**, and click a tile within four tiles of the unit. Inspect the resulting Round-plan row; then submit when the target is legal.
+
+Expected: the plan names the target tile and radius 1, consumes 3 AP, and a legal attempt spends the one grenade. The result affects only opposing active units in the radius, follows normal target-tile cover/armor calculations, and remains explained by ordinary resolver events. Non-Riflemen and a Rifleman with no grenade show no usable grenade target control.
+
 ## Session log template
 
 | Field | Record |

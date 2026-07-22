@@ -27,14 +27,15 @@ public static class AreaAttackRules
 
         var impacts = units.Where(unit => unit.ActivityState == UnitActivityState.Active && !StringComparer.Ordinal.Equals(unit.FactionId, attacker.FactionId))
             .Where(unit => GridDistance.Manhattan(unit.Position, targetPosition) <= profile.AreaRadius)
+            .Where(unit => VisibilityRules.HasLineOfSight(map, targetPosition, unit.Position))
             .OrderBy(unit => unit.FactionId, StringComparer.Ordinal).ThenBy(unit => unit.Id)
-            .Select(unit => new AreaAttackImpact(unit.Id, AttackRules.ResolveAreaImpact(unit, profile, map, accuracyRoll)))
+            .Select(unit => new AreaAttackImpact(unit.Id, GridDistance.Manhattan(unit.Position, targetPosition), AttackRules.ResolveAreaImpact(unit, profile, map, GridDistance.Manhattan(unit.Position, targetPosition), accuracyRoll)))
             .ToArray();
         return new AreaAttackResolution(distance, impacts);
     }
 }
 
-public sealed record AreaAttackImpact(Guid TargetUnitId, AttackResolution Resolution);
+public sealed record AreaAttackImpact(Guid TargetUnitId, int DistanceFromCenter, AttackResolution Resolution);
 public sealed record AreaAttackResolution(int Distance, IReadOnlyList<AreaAttackImpact> Impacts, string? FailureDetail = null);
 
 }
