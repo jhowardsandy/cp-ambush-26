@@ -944,6 +944,32 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Pve_marksman_repositions_when_a_target_is_inside_its_minimum_range()
+    {
+        var marksman = StarterMilitaryContent.Marksman.CreateInitialState(BlueUnit, "blue", new GridPosition(1, 1), Facing.East);
+        var enemy = StarterMilitaryContent.Rifleman.CreateInitialState(RedUnit, "red", new GridPosition(2, 1), Facing.West);
+
+        var plan = PvePlanner.Plan("blue", new GameState(new[] { marksman, enemy }), new GridMapDefinition("marksman-retreat-map", 4, 3),
+            new[] { StarterMilitaryContent.ServiceRifle, StarterMilitaryContent.MarksmanRifle }, unitDefinitions: new[] { StarterMilitaryContent.Rifleman, StarterMilitaryContent.Marksman });
+
+        Assert.That(plan.Decisions.Single().Decision, Is.EqualTo("reposition"));
+        Assert.That(MovementRules.PathFor(plan.Commands.Actions.Single()).Single(), Is.EqualTo(new GridPosition(1, 2)));
+    }
+
+    [Test]
+    public void Pve_hold_policy_keeps_an_objective_occupier_in_place_when_no_shot_is_legal()
+    {
+        var rifleman = StarterMilitaryContent.Rifleman.CreateInitialState(BlueUnit, "blue", new GridPosition(1, 0), Facing.East);
+        var enemy = StarterMilitaryContent.Rifleman.CreateInitialState(RedUnit, "red", new GridPosition(5, 0), Facing.West);
+
+        var plan = PvePlanner.Plan("blue", new GameState(new[] { rifleman, enemy }), new GridMapDefinition("hold-policy-map", 6, 1), StarterMilitaryContent.ServiceRifle,
+            unitDefinitions: new[] { StarterMilitaryContent.Rifleman }, policy: new PvePlanningPolicy(new[] { new GridPosition(1, 0) }, HoldWhenOccupied: true));
+
+        Assert.That(plan.Commands.Actions, Is.Empty);
+        Assert.That(plan.Decisions.Single().Decision, Is.EqualTo("hold"));
+    }
+
+    [Test]
     public void Pve_planner_scouts_toward_an_authored_objective_without_hidden_target_knowledge()
     {
         var blue = new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East, UnitActivityState.Active, VisionRange: 1);

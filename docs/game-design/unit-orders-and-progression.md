@@ -39,7 +39,7 @@ Role tags are candidate data for priority targeting and AI planning; they are no
 
 ### Starter roster update: Marksman
 
-The first contrasting ranged role is now implemented as transparent military content, not a core class. The Marksman has 8 vitality, vision range 7, the `marksman-training` and `overwatch` skills, and carries a named `marksman-rifle`. That profile has range 1–5, damage 4, and a 3-AP cost. By comparison, the Rifleman has range 1–3, damage 5, and the service-rifle profile; the Combat Medic has shorter service-rifle support plus field medicine and two med kits.
+The first contrasting ranged role is now implemented as transparent military content, not a core class. The Marksman has 8 vitality, vision range 7, the `marksman-training` and `overwatch` skills, and carries a named `marksman-rifle`. That profile has range 2–5, damage 4, and a 3-AP cost. By comparison, the Rifleman has range 1–3, damage 5, and the service-rifle profile; the Combat Medic has shorter service-rifle support plus field medicine and two med kits.
 
 The resolver validates each profile’s declared skill and required carried item. The PvE planner and Unity planning surface select the profile declared by the actor’s `UnitDefinition`, rather than assuming a shared weapon. This is the content pattern future snipers, scouts, archers, mages, artillery, tanks, and fantasy equivalents will use.
 

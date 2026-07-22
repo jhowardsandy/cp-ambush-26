@@ -332,8 +332,8 @@ namespace TacticalStrategyGame.Presentation.Unity
             for (var round = 0; round < maximumDemoRounds && _encounter.Outcome?.IsComplete != true; round++)
             {
                 _message = $"Auto-play demo: planning round {_encounter.CompletedRounds + 1}.";
-                var blue = PvePlanner.Plan("blue", _encounter.CurrentState, _scenario.Map, AttackProfiles, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives);
-                yield return StartCoroutine(Resolve(blue.Commands));
+                var blue = PvePlanner.Plan("blue", _encounter.CurrentState, _scenario.Map, AttackProfiles, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives, BlueHoldPolicy);
+                yield return StartCoroutine(Resolve(blue.Commands, blue.Decisions));
                 if (_encounter.Outcome?.IsComplete != true)
                     yield return new WaitForSeconds(.65f);
             }
@@ -347,14 +347,17 @@ namespace TacticalStrategyGame.Presentation.Unity
             yield return Resolve(new CommandBundle("blue", _blueOrders.Values.SelectMany(actions => actions).ToArray()));
         }
 
-        private IEnumerator Resolve(CommandBundle blueCommands)
+        private IEnumerator Resolve(CommandBundle blueCommands, IReadOnlyList<PveDecision>? blueDecisions = null)
         {
             _resolving = true; _armedOverwatch.Clear(); var before = _encounter.CurrentState; var red = PvePlanner.Plan("red", before, _scenario.Map, AttackProfiles, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives);
             var overwatchActions = blueCommands.Actions.Concat(red.Commands.Actions)
                 .Where(action => action.Type == TacticalActionType.EnterOverwatch && action.Facing.HasValue)
                 .ToDictionary(action => action.ActionId);
             var result = EncounterResolver.ResolveRound(_encounter, new[] { blueCommands, red.Commands }, new RoundConfiguration(10), (uint)(20260721 + _encounter.CompletedRounds), effects: new[] { FieldMedKit }, attackProfiles: AttackProfiles);
-            _blueOrders.Clear(); _lines.Clear(); Render(before);
+            _blueOrders.Clear(); _lines.Clear();
+            foreach (var decision in blueDecisions ?? Array.Empty<PveDecision>()) _lines.Add($"PLAN BLUE {UnitNumber(decision.UnitId)} {decision.Decision}: {decision.Explanation}");
+            foreach (var decision in red.Decisions) _lines.Add($"PLAN RED {UnitNumber(decision.UnitId)} {decision.Decision}: {decision.Explanation}");
+            Render(before);
             foreach (var group in result.Resolution.Events.GroupBy(@event => @event.Tick).OrderBy(group => group.Key))
             {
                 foreach (var @event in group)
@@ -402,6 +405,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         private IReadOnlyList<GridPosition> ScoutObjectives => _scenario.Map.AreaById("contact-rally")?.Tiles
             ?? _scenario.Map.AreaById("central-crossing")?.Tiles
             ?? Array.Empty<GridPosition>();
+        private PvePlanningPolicy BlueHoldPolicy => new(_scenario.Map.AreaById("central-crossing")?.Tiles, HoldWhenOccupied: true);
         private AttackProfile AttackProfileFor(UnitState unit)
         {
             var definition = _scenario.UnitDefinitions!.Single(candidate => candidate.Id == unit.UnitDefinitionId);

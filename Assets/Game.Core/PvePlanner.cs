@@ -10,6 +10,9 @@ public sealed record PveDecision(Guid UnitId, string Decision, string Explanatio
 
 public sealed record PvePlan(CommandBundle Commands, IReadOnlyList<PveDecision> Decisions);
 
+/// <summary>Scenario-supplied intent for conventional AI; it is known content, never hidden-opponent information.</summary>
+public sealed record PvePlanningPolicy(IReadOnlyList<GridPosition>? HoldObjectiveTiles = null, bool HoldWhenOccupied = false);
+
 /// <summary>First deterministic conventional enemy planner. It produces ordinary command bundles; it never resolves outcomes itself.</summary>
 public static class PvePlanner
 {
@@ -28,8 +31,9 @@ public static class PvePlanner
         AttackProfile profile,
         EffectDefinition? healingEffect = null,
         IReadOnlyList<UnitDefinition>? unitDefinitions = null,
-        IReadOnlyList<GridPosition>? scoutObjectives = null)
-        => Plan(factionId, state, map, new[] { profile }, healingEffect, unitDefinitions, scoutObjectives);
+        IReadOnlyList<GridPosition>? scoutObjectives = null,
+        PvePlanningPolicy? policy = null)
+        => Plan(factionId, state, map, new[] { profile }, healingEffect, unitDefinitions, scoutObjectives, policy);
 
     /// <summary>Plans with unit-content-selected attack profiles; a unit only considers profiles listed by its definition.</summary>
     public static PvePlan Plan(
@@ -39,7 +43,8 @@ public static class PvePlanner
         IReadOnlyList<AttackProfile> profiles,
         EffectDefinition? healingEffect = null,
         IReadOnlyList<UnitDefinition>? unitDefinitions = null,
-        IReadOnlyList<GridPosition>? scoutObjectives = null)
+        IReadOnlyList<GridPosition>? scoutObjectives = null,
+        PvePlanningPolicy? policy = null)
     {
         if (profiles == null || profiles.Count == 0) throw new ArgumentException("At least one attack profile is required.", nameof(profiles));
         var actions = new List<TacticalAction>();
@@ -85,10 +90,33 @@ public static class PvePlanner
                 continue;
             }
 
-            var candidates = MovementPreference.Select(delta => new GridPosition(unit.Position.X + delta.X, unit.Position.Y + delta.Y))
-                .Where(candidate => map.Contains(candidate) && map.CellAt(candidate).IsPassable && !reservedDestinations.Contains(candidate))
-                .Where(candidate => map.CellAt(candidate).ActionPointCost <= unit.ActionPointBudget)
-                .ToArray();
+            var candidates = LegalAdjacentCandidates(unit, map, reservedDestinations);
+            var distanceToTarget = GridDistance.Manhattan(unit.Position, target.Position);
+            var isRanged = (definition?.RoleTags ?? Array.Empty<string>()).Any(tag => StringComparer.Ordinal.Equals(tag, "ranged"));
+            if (isRanged && distanceToTarget < profile.MinimumRange)
+            {
+                var retreat = candidates.Where(candidate => GridDistance.Manhattan(candidate, target.Position) > distanceToTarget)
+                    .OrderByDescending(candidate => map.CellAt(candidate).CoverValue)
+                    .ThenByDescending(candidate => GridDistance.Manhattan(candidate, target.Position))
+                    .ThenBy(candidate => Array.IndexOf(MovementPreference, new GridPosition(candidate.X - unit.Position.X, candidate.Y - unit.Position.Y)))
+                    .FirstOrDefault();
+                if (retreat is not null)
+                {
+                    reservedDestinations.Add(retreat);
+                    actions.Add(new TacticalAction(unit.Id, unit.Id, TacticalActionType.Move, 0, map.CellAt(retreat).MovementTicks, Path: new[] { retreat }));
+                    decisions.Add(new PveDecision(unit.Id, "reposition", $"Target {target.Id} is inside {profile.Id} minimum range {profile.MinimumRange}; reposition to ({retreat.X},{retreat.Y}) with cover {map.CellAt(retreat).CoverValue}."));
+                    continue;
+                }
+                decisions.Add(new PveDecision(unit.Id, "hold", $"Target {target.Id} is inside {profile.Id} minimum range {profile.MinimumRange}, but no legal retreat tile exists."));
+                continue;
+            }
+
+            if (policy?.HoldWhenOccupied == true && (policy.HoldObjectiveTiles ?? Array.Empty<GridPosition>()).Contains(unit.Position))
+            {
+                decisions.Add(new PveDecision(unit.Id, "hold", "Occupying the authored hold objective; retain position until a legal action is available."));
+                continue;
+            }
+
             var advancing = candidates.Where(candidate => GridDistance.Manhattan(candidate, target.Position) < GridDistance.Manhattan(unit.Position, target.Position)).ToArray();
             var destination = advancing.OrderByDescending(candidate => map.CellAt(candidate).CoverValue)
                 .ThenBy(candidate => GridDistance.Manhattan(candidate, target.Position)).ThenBy(candidate => Array.IndexOf(MovementPreference, new GridPosition(candidate.X - unit.Position.X, candidate.Y - unit.Position.Y))).FirstOrDefault()
@@ -126,6 +154,12 @@ public static class PvePlanner
             .ThenBy(candidate => Array.IndexOf(MovementPreference, new GridPosition(candidate.X - unit.Position.X, candidate.Y - unit.Position.Y)))
             .FirstOrDefault();
     }
+
+    private static GridPosition[] LegalAdjacentCandidates(UnitState unit, GridMapDefinition map, ISet<GridPosition> reservedDestinations) =>
+        MovementPreference.Select(delta => new GridPosition(unit.Position.X + delta.X, unit.Position.Y + delta.Y))
+            .Where(candidate => map.Contains(candidate) && map.CellAt(candidate).IsPassable && !reservedDestinations.Contains(candidate))
+            .Where(candidate => map.CellAt(candidate).ActionPointCost <= unit.ActionPointBudget)
+            .ToArray();
 
     private static AttackProfile ProfileFor(UnitState unit, UnitDefinition? definition, IReadOnlyList<AttackProfile> profiles)
     {

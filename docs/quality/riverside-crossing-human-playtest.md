@@ -7,7 +7,7 @@ Purpose: validate that a new player can understand and intentionally use accepte
 ## Before each session
 
 1. In Unity, use **CP Ambush → Create or Open Graybox PvE 4v4** and enter Play mode.
-2. Confirm four Blue and four Red units: two capsule Riflemen and two sphere Combat Medics per side.
+2. Confirm four Blue and four Red units: one capsule Rifleman, one cylinder Marksman, and two sphere Combat Medics per side.
 3. Confirm Blue labels show role/vitality, Medics show `kit:2`, the **Round plan** is empty, and no console errors are present.
 4. Press **Reset** before every case. Record Unity version, source commit, playtester, date, and result below.
 
@@ -23,7 +23,7 @@ Purpose: validate that a new player can understand and intentionally use accepte
 
 Select each Blue unit. Identify its role, vitality, and—when it is a Medic—med-kit count. Identify a visible and a `HIDDEN` Red label.
 
-Expected: Blue selection is obvious; Riflemen and Medics remain distinguishable; red observation state is understandable as development feedback, not final fog of war.
+Expected: Blue selection is obvious; Riflemen, Marksmen, and Medics remain distinguishable; the Marksman shows its own role/longer reach; red observation state is understandable as development feedback, not final fog of war.
 
 ### RC-HUM-002: Suggested route, plan preview, and AP/tick budget
 

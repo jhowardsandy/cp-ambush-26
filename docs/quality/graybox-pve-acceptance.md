@@ -14,7 +14,7 @@ Evidence: `Graybox_four_v_four_pve_encounter_is_repeatable_across_multiple_round
 
 ## Manual mixed-roster scene check
 
-In the player-operated scene, each side must visibly contain two capsule Riflemen and two sphere Combat Medics. A damaged Blue Medic can draft `Medic heal self`; successful resolution restores vitality and decrements the displayed med-kit count by one. This is presentation validation of core rules already covered by the deterministic inventory tests.
+In the player-operated scene, each side must visibly contain one capsule Rifleman, one cylinder Marksman, and two sphere Combat Medics. The Marksman label/range behavior must be distinct from the Rifleman. A damaged Blue Medic can draft `Medic heal self`; successful resolution restores vitality and decrements the displayed med-kit count by one. This is presentation validation of core rules already covered by the deterministic inventory tests.
 
 ## GBA-SEQ-001: Player order sequence
 
