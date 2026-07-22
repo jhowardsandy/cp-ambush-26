@@ -630,6 +630,31 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Encounter_knowledge_records_reveal_then_loss_with_the_last_known_position()
+    {
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East, UnitActivityState.Active, VisionRange: 1),
+            new UnitState(RedUnit, "red", new GridPosition(1, 0), Facing.West, UnitActivityState.Active, VisionRange: 1)
+        });
+        var definition = new EncounterDefinition("contact-memory", new GridMapDefinition("contact-memory-map", 4, 1));
+        var encounter = new EncounterState(definition, state);
+
+        var first = EncounterResolver.ResolveRound(encounter, Array.Empty<CommandBundle>(), new RoundConfiguration(3), 1u);
+        var retreat = new TacticalAction(FirstAction, RedUnit, TacticalActionType.Move, 0, 2, Path: new[] { new GridPosition(2, 0), new GridPosition(3, 0) });
+        var second = EncounterResolver.ResolveRound(first.NextState, new[] { Bundle("red", retreat) }, new RoundConfiguration(3), 2u);
+
+        var firstKnowledge = first.NextState.FactionKnowledge!.Single(item => item.FactionId == "blue");
+        Assert.That(firstKnowledge.VisibleEnemyUnitIds, Is.EqualTo(new[] { RedUnit }));
+        Assert.That(first.Resolution.Events.Any(@event => @event.Type == DomainEventType.ContactRevealed && @event.FactionId == "blue" && @event.UnitId == RedUnit), Is.True);
+        var secondKnowledge = second.NextState.FactionKnowledge!.Single(item => item.FactionId == "blue");
+        Assert.That(secondKnowledge.VisibleEnemyUnitIds, Is.Empty);
+        Assert.That(secondKnowledge.Contacts.Single(contact => contact.UnitId == RedUnit), Is.EqualTo(new KnownContact(RedUnit, new GridPosition(1, 0), 1)));
+        Assert.That(second.Resolution.Events.Single(@event => @event.Type == DomainEventType.ContactLost && @event.FactionId == "blue" && @event.UnitId == RedUnit).Detail,
+            Does.Contain("last-known=(1,0); observed-round=1"));
+    }
+
+    [Test]
     public void Encounter_carries_a_valid_round_result_forward_for_next_round_orders()
     {
         var initialState = new GameState(new[]

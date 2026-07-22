@@ -36,3 +36,13 @@ Examples:
 | 1, range 1 | yes | no | not visible |
 
 Evidence: `Faction_visibility_reveals_an_enemy_within_range_and_clear_line_of_sight`, `Faction_visibility_does_not_reveal_an_enemy_behind_a_blocker_or_outside_range`, and `Faction_visibility_always_includes_friendly_units_but_an_incapacitated_observer_reveals_no_enemy`.
+
+## VIS-MEM-001: Encounter contact memory
+
+Status: accepted.
+
+After every valid encounter round, each faction receives a knowledge snapshot: currently visible enemies plus durable contacts with their last observed position and round. A newly visible enemy emits `ContactRevealed`; an enemy that was visible in the prior snapshot but is no longer visible emits `ContactLost` with its prior last-known position. Lost contacts remain remembered but are not currently visible and do not grant PvE hidden-target knowledge.
+
+The snapshot updates only at the completed-round planning boundary. Invalid rounds preserve the prior encounter state and knowledge. Contact events are faction-scoped and replayable; the final unit state remains the sole battlefield truth.
+
+Evidence: `Encounter_knowledge_records_reveal_then_loss_with_the_last_known_position`.

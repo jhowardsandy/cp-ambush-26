@@ -59,7 +59,7 @@ The portable `iron-timeline-squad-skirmish-01` fixture now provides the initial 
 These are the seven currently bounded, rule-first slices. They are not a promise to finish the engine before further playtesting; each can be reordered when a scenario exposes a higher-value rule question.
 
 1. **Posture interaction:** make one stance effect explicit (start with crouch changing concealment or cover) with AP/timing and calculation tests.
-2. **Faction memory:** retain observed contacts, emit reveal/loss events, and expose a presentation-ready fog-of-war snapshot without giving PvE hidden knowledge.
+2. **Faction memory:** **implemented** — retain observed contacts, emit reveal/loss events, and expose a presentation-ready knowledge snapshot without giving PvE hidden knowledge.
 3. **Reaction expansion:** formalize trigger priority, interruption/resume, and scoped/posture prerequisites before adding more overwatch variants.
 4. **Rescue/extraction objectives:** add discoverable rescue targets and extraction completion using named map areas and authoritative progress events.
 5. **Scenario scripting/reinforcements:** data-defined scheduled spawns, capture-to-disable spawn points, and deterministic scenario triggers.
