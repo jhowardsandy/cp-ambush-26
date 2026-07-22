@@ -7,6 +7,7 @@ namespace TacticalStrategyGame.Core
 public static class StarterMilitaryContent
 {
     public static readonly AttackProfile ServiceRifle = new("service-rifle", 1, 3, 5, RequiredSkillId: "rifle-training", RequiredInventoryItemId: "service-rifle");
+    public static readonly AttackProfile MarksmanRifle = new("marksman-rifle", 1, 5, 4, ActionPointCost: 3, RequiredSkillId: "marksman-training", RequiredInventoryItemId: "marksman-rifle");
     public static readonly EffectDefinition FieldMedKit = new("field-med-kit", 4, RequiredSkillId: "field-medicine", RequiredInventoryItemId: "med-kit", InventoryQuantityCost: 1, TargetPolicy: EffectTargetPolicy.Friendly, MaximumRange: 1, RequiresLineOfSight: true);
 
     public static readonly UnitDefinition Rifleman = new(
@@ -27,6 +28,15 @@ public static class StarterMilitaryContent
         EffectIds: new[] { FieldMedKit.Id },
         SkillIds: new[] { "rifle-training", "field-medicine" },
         StartingInventory: new[] { new InventoryItemDefinition("service-rifle", 1), new InventoryItemDefinition("med-kit", 2) });
+
+    public static readonly UnitDefinition Marksman = new(
+        "marksman",
+        MaxHitPoints: 8,
+        VisionRange: 7,
+        RoleTags: new[] { "ranged", "marksman" },
+        AttackProfileIds: new[] { MarksmanRifle.Id },
+        SkillIds: new[] { "marksman-training", "overwatch" },
+        StartingInventory: new[] { new InventoryItemDefinition("marksman-rifle", 1), new InventoryItemDefinition("field-dressing", 1) });
 }
 
 }

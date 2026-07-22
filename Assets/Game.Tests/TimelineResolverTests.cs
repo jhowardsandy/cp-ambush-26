@@ -928,6 +928,22 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Pve_planner_uses_the_attack_profile_declared_by_a_marksman_unit()
+    {
+        var marksmanId = Guid.Parse("66666666-6666-6666-6666-666666666666");
+        var enemyId = Guid.Parse("77777777-7777-7777-7777-777777777777");
+        var marksman = StarterMilitaryContent.Marksman.CreateInitialState(marksmanId, "blue", new GridPosition(0, 0), Facing.East);
+        var enemy = StarterMilitaryContent.Rifleman.CreateInitialState(enemyId, "red", new GridPosition(4, 0), Facing.West);
+
+        var plan = PvePlanner.Plan("blue", new GameState(new[] { marksman, enemy }), new GridMapDefinition("marksman-pve-map", 6, 1),
+            new[] { StarterMilitaryContent.ServiceRifle, StarterMilitaryContent.MarksmanRifle }, unitDefinitions: new[] { StarterMilitaryContent.Rifleman, StarterMilitaryContent.Marksman });
+
+        var action = plan.Commands.Actions.Single();
+        Assert.That(action.Type, Is.EqualTo(TacticalActionType.Attack));
+        Assert.That(action.AttackProfileId, Is.EqualTo(StarterMilitaryContent.MarksmanRifle.Id));
+    }
+
+    [Test]
     public void Pve_planner_scouts_toward_an_authored_objective_without_hidden_target_knowledge()
     {
         var blue = new UnitState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East, UnitActivityState.Active, VisionRange: 1);

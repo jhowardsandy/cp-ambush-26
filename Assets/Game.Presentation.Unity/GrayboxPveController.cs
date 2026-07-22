@@ -28,7 +28,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         private bool _manualRoute;
         private string _message = string.Empty;
         private string _roundSummary = "No round resolved yet.";
-        private static readonly AttackProfile Rifle = StarterMilitaryContent.ServiceRifle;
+        private static readonly IReadOnlyList<AttackProfile> AttackProfiles = new[] { StarterMilitaryContent.ServiceRifle, StarterMilitaryContent.MarksmanRifle };
         private static readonly EffectDefinition FieldMedKit = StarterMilitaryContent.FieldMedKit;
 
         private void Start()
@@ -53,9 +53,9 @@ namespace TacticalStrategyGame.Presentation.Unity
             var units = new[]
             {
                 Unit("blue", 1, 1, 1, StarterMilitaryContent.Rifleman), Unit("blue", 2, 3, 1, StarterMilitaryContent.CombatMedic),
-                Unit("blue", 3, 1, 3, StarterMilitaryContent.Rifleman), Unit("blue", 4, 4, 2, StarterMilitaryContent.CombatMedic),
+                Unit("blue", 3, 1, 3, StarterMilitaryContent.Marksman), Unit("blue", 4, 4, 2, StarterMilitaryContent.CombatMedic),
                 Unit("red", 1, 14, 10, StarterMilitaryContent.Rifleman), Unit("red", 2, 12, 10, StarterMilitaryContent.CombatMedic),
-                Unit("red", 3, 14, 8, StarterMilitaryContent.Rifleman), Unit("red", 4, 11, 9, StarterMilitaryContent.CombatMedic)
+                Unit("red", 3, 14, 8, StarterMilitaryContent.Marksman), Unit("red", 4, 11, 9, StarterMilitaryContent.CombatMedic)
             };
             _scenario = new ScenarioDefinition("riverside-crossing-4v4-01", new GridMapDefinition("riverside-crossing-16x12", 16, 12, new[]
             {
@@ -77,11 +77,11 @@ namespace TacticalStrategyGame.Presentation.Unity
                 new ObjectiveDefinition("hold-central-crossing", ObjectiveType.HoldAreaForRounds, "blue", "central-crossing", RequiredControlRounds: 3),
                 new ObjectiveDefinition("eliminate-red", ObjectiveType.IncapacitateAllOpposingUnits, "blue")
             },
-                UnitDefinitions: new[] { StarterMilitaryContent.Rifleman, StarterMilitaryContent.CombatMedic },
+                UnitDefinitions: new[] { StarterMilitaryContent.Rifleman, StarterMilitaryContent.CombatMedic, StarterMilitaryContent.Marksman },
                 FactionDefinitions: new[]
                 {
-                    new FactionDefinition("blue", new[] { StarterMilitaryContent.Rifleman.Id, StarterMilitaryContent.CombatMedic.Id }),
-                    new FactionDefinition("red", new[] { StarterMilitaryContent.Rifleman.Id, StarterMilitaryContent.CombatMedic.Id })
+                    new FactionDefinition("blue", new[] { StarterMilitaryContent.Rifleman.Id, StarterMilitaryContent.CombatMedic.Id, StarterMilitaryContent.Marksman.Id }),
+                    new FactionDefinition("red", new[] { StarterMilitaryContent.Rifleman.Id, StarterMilitaryContent.CombatMedic.Id, StarterMilitaryContent.Marksman.Id })
                 });
         }
 
@@ -110,7 +110,8 @@ namespace TacticalStrategyGame.Presentation.Unity
             }
             foreach (var unit in _scenario.InitialState.Units)
             {
-                var view = GameObject.CreatePrimitive(unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? PrimitiveType.Sphere : PrimitiveType.Capsule);
+                var primitive = unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? PrimitiveType.Sphere : unit.UnitDefinitionId == StarterMilitaryContent.Marksman.Id ? PrimitiveType.Cylinder : PrimitiveType.Capsule;
+                var view = GameObject.CreatePrimitive(primitive);
                 view.transform.SetParent(transform, false); view.transform.localScale = Vector3.one * .42f;
                 view.GetComponent<Renderer>().material.color = UnitColor(unit);
                 _views.Add(unit.Id, view);
@@ -214,10 +215,11 @@ namespace TacticalStrategyGame.Presentation.Unity
             var unit = _encounter.CurrentState.FindUnit(_selectedBlue)!;
             var target = _encounter.CurrentState.FindUnit(_selectedRed)!;
             if (unit.ActivityState != UnitActivityState.Active || target.ActivityState != UnitActivityState.Active) { _message = "Both units must be active."; return; }
-            QueueAction(unit, TacticalActionType.Attack, 1, targetUnitId: target.Id, attackProfileId: Rifle.Id);
+            var profile = AttackProfileFor(unit);
+            QueueAction(unit, TacticalActionType.Attack, 1, targetUnitId: target.Id, attackProfileId: profile.Id);
             var observation = VisibilityRules.Observe(_scenario.Map, unit, target);
             _message = observation.IsObservable
-                ? $"Queued attack: Blue {UnitNumber(unit.Id)} targets observable Red {UnitNumber(target.Id)}. Range and sight resolve later."
+                ? $"Queued {profile.Id} attack: Blue {UnitNumber(unit.Id)} targets observable Red {UnitNumber(target.Id)}. Range and sight resolve later."
                 : $"Queued speculative attack: Red {UnitNumber(target.Id)} is currently concealed/out of vision; observation is checked at resolution.";
         }
 
@@ -250,11 +252,11 @@ namespace TacticalStrategyGame.Presentation.Unity
             var definition = _scenario.UnitDefinitions!.Single(candidate => candidate.Id == unit.UnitDefinitionId);
             if (!(definition.SkillIds ?? Array.Empty<string>()).Contains("overwatch", StringComparer.Ordinal))
             {
-                _message = "Only a Rifleman has the overwatch skill in this starter roster.";
+                _message = "This unit does not have the overwatch skill.";
                 return;
             }
-            QueueAction(unit, TacticalActionType.EnterOverwatch, 1, attackProfileId: Rifle.Id, facing: facing);
-            _message = $"Queued overwatch for Blue {UnitNumber(unit.Id)}: 90° {facing} watch cone; one reaction shot if an enemy enters it.";
+            QueueAction(unit, TacticalActionType.EnterOverwatch, 1, attackProfileId: AttackProfileFor(unit).Id, facing: facing);
+            _message = $"Queued {RoleName(unit)} overwatch for Blue {UnitNumber(unit.Id)}: 90° {facing} watch cone; one reaction shot if an enemy enters it.";
         }
 
         private List<TacticalAction> PlannedActions(Guid unitId)
@@ -330,7 +332,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             for (var round = 0; round < maximumDemoRounds && _encounter.Outcome?.IsComplete != true; round++)
             {
                 _message = $"Auto-play demo: planning round {_encounter.CompletedRounds + 1}.";
-                var blue = PvePlanner.Plan("blue", _encounter.CurrentState, _scenario.Map, Rifle, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives);
+                var blue = PvePlanner.Plan("blue", _encounter.CurrentState, _scenario.Map, AttackProfiles, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives);
                 yield return StartCoroutine(Resolve(blue.Commands));
                 if (_encounter.Outcome?.IsComplete != true)
                     yield return new WaitForSeconds(.65f);
@@ -347,11 +349,11 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private IEnumerator Resolve(CommandBundle blueCommands)
         {
-            _resolving = true; _armedOverwatch.Clear(); var before = _encounter.CurrentState; var red = PvePlanner.Plan("red", before, _scenario.Map, Rifle, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives);
+            _resolving = true; _armedOverwatch.Clear(); var before = _encounter.CurrentState; var red = PvePlanner.Plan("red", before, _scenario.Map, AttackProfiles, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives);
             var overwatchActions = blueCommands.Actions.Concat(red.Commands.Actions)
                 .Where(action => action.Type == TacticalActionType.EnterOverwatch && action.Facing.HasValue)
                 .ToDictionary(action => action.ActionId);
-            var result = EncounterResolver.ResolveRound(_encounter, new[] { blueCommands, red.Commands }, new RoundConfiguration(10), (uint)(20260721 + _encounter.CompletedRounds), effects: new[] { FieldMedKit }, attackProfiles: new[] { Rifle });
+            var result = EncounterResolver.ResolveRound(_encounter, new[] { blueCommands, red.Commands }, new RoundConfiguration(10), (uint)(20260721 + _encounter.CompletedRounds), effects: new[] { FieldMedKit }, attackProfiles: AttackProfiles);
             _blueOrders.Clear(); _lines.Clear(); Render(before);
             foreach (var group in result.Resolution.Events.GroupBy(@event => @event.Tick).OrderBy(group => group.Key))
             {
@@ -400,12 +402,17 @@ namespace TacticalStrategyGame.Presentation.Unity
         private IReadOnlyList<GridPosition> ScoutObjectives => _scenario.Map.AreaById("contact-rally")?.Tiles
             ?? _scenario.Map.AreaById("central-crossing")?.Tiles
             ?? Array.Empty<GridPosition>();
-        private static string RoleName(UnitState unit) => unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? "MEDIC" : "RIFLE";
+        private AttackProfile AttackProfileFor(UnitState unit)
+        {
+            var definition = _scenario.UnitDefinitions!.Single(candidate => candidate.Id == unit.UnitDefinitionId);
+            return AttackProfiles.First(profile => (definition.AttackProfileIds ?? Array.Empty<string>()).Contains(profile.Id, StringComparer.Ordinal));
+        }
+        private static string RoleName(UnitState unit) => unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? "MEDIC" : unit.UnitDefinitionId == StarterMilitaryContent.Marksman.Id ? "MARKSMAN" : "RIFLE";
         private bool IsObservableByBlue(UnitState target, GameState state) => state.Units.Where(unit => unit.FactionId == "blue" && unit.ActivityState == UnitActivityState.Active)
             .Any(observer => VisibilityRules.Observe(_scenario.Map, observer, target).IsObservable);
         private static Color UnitColor(UnitState unit) => unit.FactionId == "blue"
-            ? unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? new Color(.25f, .9f, .65f) : new Color(.2f, .62f, 1f)
-            : unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? new Color(1f, .55f, .25f) : new Color(1f, .3f, .25f);
+            ? unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? new Color(.25f, .9f, .65f) : unit.UnitDefinitionId == StarterMilitaryContent.Marksman.Id ? new Color(.62f, .45f, 1f) : new Color(.2f, .62f, 1f)
+            : unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? new Color(1f, .55f, .25f) : unit.UnitDefinitionId == StarterMilitaryContent.Marksman.Id ? new Color(.9f, .3f, .78f) : new Color(1f, .3f, .25f);
 
         private void ApplyVitalityFeedback(DomainEvent @event, Guid? targetId, string label, Color color)
         {
@@ -559,7 +566,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             for (var y = 0; y < _scenario.Map.Height; y++)
             {
                 var tile = new GridPosition(x, y);
-                if (GridDistance.Manhattan(unit.Position, tile) > Rifle.MaximumRange || !IsInsideWatchCone(unit.Position, facing, tile)) continue;
+                if (GridDistance.Manhattan(unit.Position, tile) > AttackProfileFor(unit).MaximumRange || !IsInsideWatchCone(unit.Position, facing, tile)) continue;
                 var screen = camera.WorldToScreenPoint(new Vector3(x, .12f, y));
                 GUI.DrawTexture(new Rect(screen.x - tileSize / 2, Screen.height - screen.y - tileSize / 2, tileSize, tileSize), Texture2D.whiteTexture);
             }
@@ -601,7 +608,7 @@ namespace TacticalStrategyGame.Presentation.Unity
         {
             if (!_blueOrders.TryGetValue(unit.Id, out var actions) || actions.Count == 0) return "No order — waits";
             var descriptions = actions.Select(action => ActionDescription(action)).ToArray();
-            var spent = actions.Sum(action => ActionPointRules.CostFor(action, _scenario.Map, new[] { FieldMedKit }, new[] { Rifle }));
+            var spent = actions.Sum(action => ActionPointRules.CostFor(action, _scenario.Map, new[] { FieldMedKit }, AttackProfiles));
             var finalTick = actions.Max(action => action.StartTick + action.DurationTicks);
             var conflicts = PlannedMovementConflicts();
             var hasConflict = actions.Where(action => action.Type == TacticalActionType.Move).SelectMany(action => MovementRules.PathFor(action).Select((position, index) => (position, MoveArrivalTick(action, index)))).Any(intent => conflicts.Contains(intent));
@@ -646,7 +653,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (GUI.Button(new Rect(425, 104, 115, 24), "Medic heal target")) DraftHealTarget();
             GUI.Label(new Rect(550, 106, 300, 20), $"Heal target: Blue {UnitNumber(_selectedHealTarget)}");
             if (GUI.Button(new Rect(850, 104, 140, 24), _manualRoute ? "Manual route: ON" : "Manual route: OFF")) _manualRoute = !_manualRoute;
-            GUI.Label(new Rect(24, 134, 250, 20), "Overwatch zone (Rifleman only):");
+            GUI.Label(new Rect(24, 134, 250, 20), "Overwatch zone (eligible unit):");
             if (GUI.Button(new Rect(280, 132, 45, 24), "N")) DraftOverwatch(Facing.North);
             if (GUI.Button(new Rect(335, 132, 45, 24), "E")) DraftOverwatch(Facing.East);
             if (GUI.Button(new Rect(390, 132, 45, 24), "S")) DraftOverwatch(Facing.South);

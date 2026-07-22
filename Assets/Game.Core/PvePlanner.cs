@@ -29,7 +29,19 @@ public static class PvePlanner
         EffectDefinition? healingEffect = null,
         IReadOnlyList<UnitDefinition>? unitDefinitions = null,
         IReadOnlyList<GridPosition>? scoutObjectives = null)
+        => Plan(factionId, state, map, new[] { profile }, healingEffect, unitDefinitions, scoutObjectives);
+
+    /// <summary>Plans with unit-content-selected attack profiles; a unit only considers profiles listed by its definition.</summary>
+    public static PvePlan Plan(
+        string factionId,
+        GameState state,
+        GridMapDefinition map,
+        IReadOnlyList<AttackProfile> profiles,
+        EffectDefinition? healingEffect = null,
+        IReadOnlyList<UnitDefinition>? unitDefinitions = null,
+        IReadOnlyList<GridPosition>? scoutObjectives = null)
     {
+        if (profiles == null || profiles.Count == 0) throw new ArgumentException("At least one attack profile is required.", nameof(profiles));
         var actions = new List<TacticalAction>();
         var decisions = new List<PveDecision>();
         var reservedDestinations = new HashSet<GridPosition>(state.Units.Select(unit => unit.Position));
@@ -38,6 +50,7 @@ public static class PvePlanner
                      .OrderBy(unit => unit.Id))
         {
             var definition = (unitDefinitions ?? Array.Empty<UnitDefinition>()).FirstOrDefault(candidate => StringComparer.Ordinal.Equals(candidate.Id, unit.UnitDefinitionId));
+            var profile = ProfileFor(unit, definition, profiles);
             var healTarget = FindHealTarget(unit, state, map, healingEffect, definition);
             if (healTarget is not null && healingEffect is not null)
             {
@@ -112,6 +125,13 @@ public static class PvePlanner
             .ThenBy(candidate => GridDistance.Manhattan(candidate, objective))
             .ThenBy(candidate => Array.IndexOf(MovementPreference, new GridPosition(candidate.X - unit.Position.X, candidate.Y - unit.Position.Y)))
             .FirstOrDefault();
+    }
+
+    private static AttackProfile ProfileFor(UnitState unit, UnitDefinition? definition, IReadOnlyList<AttackProfile> profiles)
+    {
+        var permittedIds = definition?.AttackProfileIds ?? Array.Empty<string>();
+        return profiles.FirstOrDefault(profile => permittedIds.Any(id => StringComparer.Ordinal.Equals(id, profile.Id)))
+            ?? profiles[0];
     }
 
     private static UnitState? FindHealTarget(UnitState unit, GameState state, GridMapDefinition map, EffectDefinition? effect, UnitDefinition? definition)

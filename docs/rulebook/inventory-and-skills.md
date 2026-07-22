@@ -34,11 +34,12 @@ Tests/fixtures: `Skill_and_inventory_gated_medical_effect_consumes_a_med_kit_det
 
 ## Initial transparent catalog
 
-The first two provisional military archetypes are intentionally small and data-driven:
+The first provisional military archetypes are intentionally small and data-driven:
 
 | Archetype | Vitality | Skills | Starting inventory |
 | --- | ---: | --- | --- |
 | Rifleman | 10 | rifle training, overwatch | service rifle ×1, field dressing ×1 |
 | Combat Medic | 9 | rifle training, field medicine | service rifle ×1, med kit ×2 |
+| Marksman | 8 | marksman training, overwatch | marksman rifle ×1, field dressing ×1 |
 
-Both use the provisional service-rifle profile (range 1–3, guaranteed 5 damage in the current combat slice). Combat Medic's field med kit restores 4 vitality, costs one med kit, targets an active friendly unit at range 0–1, and requires line of sight at its completion tick. These are vertical-slice content values, not final balance.
+Rifleman and Combat Medic use the provisional service-rifle profile (range 1–3, guaranteed 5 damage, 2 AP). Marksman uses the marksman-rifle profile (range 1–5, guaranteed 4 damage, 3 AP). Combat Medic's field med kit restores 4 vitality, costs one med kit, targets an active friendly unit at range 0–1, and requires line of sight at its completion tick. These are vertical-slice content values, not final balance.

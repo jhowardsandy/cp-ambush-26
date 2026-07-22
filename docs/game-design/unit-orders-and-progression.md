@@ -37,6 +37,12 @@ Units should be content-defined from composable data: base vitality, movement, v
 
 Role tags are candidate data for priority targeting and AI planning; they are not a reason to hard-code a special unit class into the core.
 
+### Starter roster update: Marksman
+
+The first contrasting ranged role is now implemented as transparent military content, not a core class. The Marksman has 8 vitality, vision range 7, the `marksman-training` and `overwatch` skills, and carries a named `marksman-rifle`. That profile has range 1–5, damage 4, and a 3-AP cost. By comparison, the Rifleman has range 1–3, damage 5, and the service-rifle profile; the Combat Medic has shorter service-rifle support plus field medicine and two med kits.
+
+The resolver validates each profile’s declared skill and required carried item. The PvE planner and Unity planning surface select the profile declared by the actor’s `UnitDefinition`, rather than assuming a shared weapon. This is the content pattern future snipers, scouts, archers, mages, artillery, tanks, and fantasy equivalents will use.
+
 ## Proposed tactical doctrines (behavior stances)
 
 Alongside a player’s explicit orders, a unit may eventually carry a selected **tactical doctrine**: a data-defined preference that guides conditional orders, PvE, and optional assisted planning. We deliberately use *doctrine* rather than *alignment*: a future fantasy setting may need alignment for moral, cultural, or narrative meaning, while a doctrine answers only “how should this unit behave tactically?”
