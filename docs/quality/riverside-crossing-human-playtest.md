@@ -67,6 +67,8 @@ Submit at least three purposeful rounds involving two or more Blue units. Review
 
 Expected: units with no drafted order wait; Red receives ordinary deterministic orders; playback progresses through ordered tick events; incapacitated units are distinct; each completed round shows a checksum. Auto-play resets first, runs no more than 12 rounds, and stops early on objective completion.
 
+Pause during resolution and cycle playback speed. Expected: events stop/resume at the current presentation boundary and playback speed changes only animation/event pacing, never the event order, outcome, or checksum.
+
 ### RC-HUM-009: Hold Central Crossing objective
 
 Move at least one active Blue unit into the named central-crossing tiles while no active Red unit occupies them. Submit consecutive rounds while preserving that uncontested state.
