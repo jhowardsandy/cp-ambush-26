@@ -9,12 +9,21 @@ public static class VisibilityRules
     public static ObservationResult Observe(GridMapDefinition map, UnitState observer, UnitState target)
     {
         var distance = GridDistance.Manhattan(observer.Position, target.Position);
-        var concealment = TerrainProtectionRules.At(map, target.Position).ConcealmentValue;
+        var terrainConcealment = TerrainProtectionRules.At(map, target.Position).ConcealmentValue;
+        var postureConcealment = ConcealmentFromPosture(target.Posture);
+        var concealment = terrainConcealment + postureConcealment;
         var effectiveRange = System.Math.Max(0, observer.VisionRange - concealment);
         return distance <= effectiveRange
-            ? new ObservationResult(true, distance, effectiveRange, concealment)
-            : new ObservationResult(false, distance, effectiveRange, concealment, $"Target distance {distance} exceeds observable range {effectiveRange} after concealment {concealment}.");
+            ? new ObservationResult(true, distance, effectiveRange, concealment, TerrainConcealment: terrainConcealment, PostureConcealment: postureConcealment)
+            : new ObservationResult(false, distance, effectiveRange, concealment, $"Target distance {distance} exceeds observable range {effectiveRange} after concealment {concealment} (terrain {terrainConcealment}; posture {postureConcealment}).", terrainConcealment, postureConcealment);
     }
+
+    public static int ConcealmentFromPosture(UnitPosture posture) => posture switch
+    {
+        UnitPosture.Crouched => 1,
+        UnitPosture.Prone => 2,
+        _ => 0
+    };
     public static bool HasLineOfSight(GridMapDefinition map, GridPosition origin, GridPosition target)
     {
         if (!map.Contains(origin) || !map.Contains(target))
@@ -53,6 +62,6 @@ public static class VisibilityRules
     }
 }
 
-public sealed record ObservationResult(bool IsObservable, int Distance, int EffectiveRange, int Concealment, string? FailureDetail = null);
+public sealed record ObservationResult(bool IsObservable, int Distance, int EffectiveRange, int Concealment, string? FailureDetail = null, int TerrainConcealment = 0, int PostureConcealment = 0);
 
 }
