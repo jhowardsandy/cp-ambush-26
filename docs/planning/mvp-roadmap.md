@@ -48,7 +48,7 @@ The MVP proves the engine, not a large campaign or a finished art direction.
 1. **Combat depth—next:** keep accuracy modifiers such as posture, range bands, concealment, and skills deferred until their own calculation contracts are accepted; then add alternate delivery types only with their own timeline/area contracts.
 2. **Perception and posture:** add one explicit posture interaction, then faction memory/reveal/loss events and finished fog-of-war presentation; defer elevation until its grid policy is accepted.
 3. **Scenario/objective expansion:** add extraction or rescue plus a small scenario-scripting/reinforcement foundation before increasing campaign scope.
-4. **PvE maturation:** extend objective/role/doctrine planning to multi-action plans, overwatch policy, target priorities, and tuning only with explicit decision contracts.
+4. **PvE maturation:** extend the implemented one-step move-then-attack planning to overwatch policy, target priorities, longer sequences, and tuning only with explicit decision contracts.
 5. **Player experience:** pause/speed controls, richer plan editing and replay inspection, accessibility, basic original terrain/unit art, sound, and animation passes.
 6. **Hardening and release proof:** scenario batches, seed corpus, balance harness, packaged build, release notes, and recorded playtests.
 
@@ -63,7 +63,7 @@ These are the seven currently bounded, rule-first slices. They are not a promise
 3. **Reaction expansion:** formalize trigger priority, interruption/resume, and scoped/posture prerequisites before adding more overwatch variants.
 4. **Rescue/extraction objectives:** add discoverable rescue targets and extraction completion using named map areas and authoritative progress events.
 5. **Scenario scripting/reinforcements:** data-defined scheduled spawns, capture-to-disable spawn points, and deterministic scenario triggers.
-6. **PvE tactical maturation:** multi-action plans, overwatch policy, target priority, role coordination, and explainable policy tests.
+6. **PvE tactical maturation:** overwatch policy, target priority, role coordination, longer multi-action plans, and explainable policy tests.
 7. **Alternate delivery foundation:** accept a generic projectile/area-effect contract for grenades, artillery, fireballs, arrows, and similar setting content before adding visual physics.
 
 Cross-cutting work proceeds beside those slices: richer planning/replay inspection, scenario acceptance batches and seed corpus, balance harness, accessibility, art/audio/animation, campaign progression, and eventual PvP coordination. Those are substantial, but they are not all core-rule slices.

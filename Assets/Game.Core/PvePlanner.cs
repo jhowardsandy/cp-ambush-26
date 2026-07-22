@@ -141,7 +141,25 @@ public static class PvePlanner
 
             if ((policy?.HoldWhenOccupied == true || doctrine?.Doctrine == TacticalDoctrine.HoldObjective) && (policy?.HoldObjectiveTiles ?? Array.Empty<GridPosition>()).Contains(unit.Position))
             {
-                decisions.Add(new PveDecision(unit.Id, "hold", "Occupying the authored hold objective; retain position until a legal action is available."));
+                decisions.Add(new PveDecision(unit.Id, "hold", "Occupying the authored hold objective; retain position until a legal immediate attack is available."));
+                continue;
+            }
+
+            var moveThenAttack = candidates
+                .Select(candidate => new { Position = candidate, Unit = unit with { Position = candidate } })
+                .Where(candidate => map.CellAt(candidate.Position).ActionPointCost + profile.ActionPointCost <= unit.ActionPointBudget)
+                .Where(candidate => AttackRules.Resolve(candidate.Unit, target, profile, map).FailureDetail is null)
+                .OrderByDescending(candidate => map.CellAt(candidate.Position).CoverValue)
+                .ThenBy(candidate => GridDistance.Manhattan(candidate.Position, target.Position))
+                .ThenBy(candidate => Array.IndexOf(MovementPreference, new GridPosition(candidate.Position.X - unit.Position.X, candidate.Position.Y - unit.Position.Y)))
+                .FirstOrDefault();
+            if (moveThenAttack is not null)
+            {
+                var moveTicks = map.CellAt(moveThenAttack.Position).MovementTicks;
+                reservedDestinations.Add(moveThenAttack.Position);
+                actions.Add(new TacticalAction(unit.Id, unit.Id, TacticalActionType.Move, 0, moveTicks, Path: new[] { moveThenAttack.Position }));
+                actions.Add(new TacticalAction(SecondaryActionId(unit.Id), unit.Id, TacticalActionType.Attack, moveTicks, 1, TargetUnitId: target.Id, AttackProfileId: profile.Id));
+                decisions.Add(new PveDecision(unit.Id, "move-attack", $"Move to ({moveThenAttack.Position.X},{moveThenAttack.Position.Y}) then attack observed target {target.Id}; combined AP is within budget."));
                 continue;
             }
 
@@ -198,6 +216,13 @@ public static class PvePlanner
 
     private static bool HasRequiredAmmunition(UnitState unit, AttackProfile profile) =>
         String.IsNullOrWhiteSpace(profile.AmmunitionItemId) || InventoryRules.QuantityOf(unit, profile.AmmunitionItemId) >= profile.AmmunitionQuantityCost;
+
+    private static Guid SecondaryActionId(Guid unitId)
+    {
+        var bytes = unitId.ToByteArray();
+        bytes[^1] ^= 0xa5;
+        return new Guid(bytes);
+    }
 
     private static UnitState? FindFollowTarget(UnitState unit, GameState state, PveDoctrineAssignment doctrine)
     {

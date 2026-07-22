@@ -335,8 +335,12 @@ namespace TacticalStrategyGame.Presentation.Unity
             var plan = PvePlanner.Plan("blue", _encounter.CurrentState, _scenario.Map, AttackProfiles, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives, PlayerDoctrinePolicy);
             var decision = plan.Decisions.Single(candidate => candidate.UnitId == unit.Id);
             _blueOrders.Remove(unit.Id);
-            var action = plan.Commands.Actions.SingleOrDefault(candidate => candidate.UnitId == unit.Id);
-            if (action is not null) _blueOrders[unit.Id] = new List<TacticalAction> { action with { ActionId = PlannedActionId(unit.Id, 1) } };
+            var actions = plan.Commands.Actions.Where(candidate => candidate.UnitId == unit.Id)
+                .OrderBy(candidate => candidate.StartTick)
+                .ThenBy(candidate => candidate.ActionId)
+                .ToArray();
+            if (actions.Length > 0)
+                _blueOrders[unit.Id] = actions.Select((action, index) => action with { ActionId = PlannedActionId(unit.Id, index + 1) }).ToList();
             _doctrineExplanations[unit.Id] = decision.Explanation;
             _message = $"Blue {UnitNumber(unit.Id)} {DoctrineLabel(DoctrineFor(unit.Id))}: {decision.Explanation}";
         }
