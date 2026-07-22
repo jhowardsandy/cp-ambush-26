@@ -21,6 +21,8 @@ public enum DomainEventType
     ActionInterrupted,
     ContactRevealed,
     ContactLost,
+    RescueDiscovered,
+    RescueExtracted,
     ActionCompleted,
     ActionFailed,
     RoundCompleted

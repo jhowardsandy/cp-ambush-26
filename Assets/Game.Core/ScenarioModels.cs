@@ -188,6 +188,8 @@ public static class ScenarioValidator
                 if (objective.RequiredControlRounds <= 0)
                     diagnostics.Add(new("non-positive-control-rounds", "Hold-area objective requires one or more uncontested completed rounds."));
             }
+            if (objective.Type == ObjectiveType.RescueAndExtract && (String.IsNullOrWhiteSpace(objective.AreaId) || String.IsNullOrWhiteSpace(objective.ExtractionAreaId) || !areas.Any(area => StringComparer.Ordinal.Equals(area.Id, objective.AreaId)) || !areas.Any(area => StringComparer.Ordinal.Equals(area.Id, objective.ExtractionAreaId))))
+                diagnostics.Add(new("unknown-rescue-objective-area", "Rescue objective must name existing rescue and extraction areas."));
         }
         if (objectives.GroupBy(objective => objective.Id, StringComparer.Ordinal).Any(group => group.Count() > 1))
             diagnostics.Add(new("duplicate-objective-id", "Objective definition IDs must be unique."));

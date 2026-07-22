@@ -1,5 +1,13 @@
 # Objectives and Encounter Outcomes
 
+## OBJ-RSC-001: Rescue and extraction
+
+Status: accepted.
+
+A rescue objective names a rescue area and extraction area. The first active friendly unit entering the rescue area becomes the rescuer; that same active unit must reach extraction. Valid rounds emit `RescueDiscovered` and `RescueExtracted`; progress is authoritative and replayable.
+
+Evidence: `Rescue_objective_discovers_then_extracts_the_same_active_rescuer`.
+
 ## OBJ-ELM-001: Incapacitate all opposing units
 
 Status: accepted.
