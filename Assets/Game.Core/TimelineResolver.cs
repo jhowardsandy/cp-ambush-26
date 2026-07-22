@@ -82,6 +82,17 @@ public sealed class TimelineResolver
                         hitPointsAfter: targetAfter.HitPoints, activityStateAfter: targetAfter.ActivityState,
                         targetUnitId: targetAfter.Id);
                 }
+                if (completion.AreaAttack is not null)
+                    foreach (var impact in completion.AreaAttack.Impacts)
+                    {
+                        var targetAfter = state.FindUnit(impact.TargetUnitId)!;
+                        var beforeHitPoints = completion.AreaBeforeHitPoints![impact.TargetUnitId];
+                        AddEvent(tick, DomainEventType.AttackResolved, item.FactionId, unit.Id, item.Action.ActionId,
+                            $"{AreaAttackDetail(completion.AttackProfile!, completion.AreaAttack, impact.Resolution, beforeHitPoints, targetAfter.HitPoints)}{completion.InventoryConsumptionDetail}",
+                            fromPosition: unit.Position, toPosition: item.Action.TargetPosition,
+                            hitPointsAfter: targetAfter.HitPoints, activityStateAfter: targetAfter.ActivityState,
+                            targetUnitId: targetAfter.Id);
+                    }
                 if (item.Action.Type == TacticalActionType.ChangePosture && item.Action.Posture is not null)
                     AddEvent(tick, DomainEventType.PostureChanged, item.FactionId, unit.Id, item.Action.ActionId,
                         $"posture={item.Action.Posture}; concealment={VisibilityRules.ConcealmentFromPosture(item.Action.Posture.Value)}", postureAfter: item.Action.Posture);
@@ -238,6 +249,21 @@ public sealed class TimelineResolver
         if (action.Type == TacticalActionType.Attack)
         {
             var profile = attackProfiles!.Single(candidate => StringComparer.Ordinal.Equals(candidate.Id, action.AttackProfileId));
+            if (profile.Delivery == AttackDeliveryType.Area)
+            {
+                var areaPreview = AreaAttackRules.Resolve(unit, action.TargetPosition!, state.Units, profile, map!);
+                if (areaPreview.FailureDetail is not null)
+                    return new CompletionResult(state, FailureDetail: areaPreview.FailureDetail);
+                var areaResolution = AreaAttackRules.Resolve(unit, action.TargetPosition!, state.Units, profile, map!, random.Next(1, 101));
+                var areaBeforeHitPoints = areaResolution.Impacts.ToDictionary(impact => impact.TargetUnitId, impact => state.FindUnit(impact.TargetUnitId)!.HitPoints);
+                var areaAfterAttack = state;
+                foreach (var impact in areaResolution.Impacts)
+                    if (impact.Resolution.Application is not null)
+                        areaAfterAttack = areaAfterAttack.WithUnit(impact.Resolution.Application.Target);
+                var areaAmmunitionDetail = InventoryConsumptionDetail(areaAfterAttack.FindUnit(unit.Id)!, profile.AmmunitionItemId, profile.AmmunitionQuantityCost);
+                return new CompletionResult(ConsumeInventory(areaAfterAttack, unit.Id, profile.AmmunitionItemId, profile.AmmunitionQuantityCost), AttackProfile: profile,
+                    AreaAttack: areaResolution, AreaBeforeHitPoints: areaBeforeHitPoints, InventoryConsumptionDetail: areaAmmunitionDetail);
+            }
             var target = state.FindUnit(action.TargetUnitId!.Value)!;
             var preview = AttackRules.Resolve(unit, target, profile, map!);
             if (preview.FailureDetail is not null)
@@ -263,6 +289,9 @@ public sealed class TimelineResolver
 
     private static string AttackDetail(string kind, AttackProfile profile, AttackResolution resolution, int beforeHitPoints, int afterHitPoints) =>
         $"{kind}={profile.Id}; distance={resolution.Distance}; accuracy={resolution.AccuracyPercent}; roll={resolution.AccuracyRoll}; result={(resolution.Hit ? "hit" : "miss")}; damage={profile.Damage}; cover={resolution.CoverMitigation}; armor={resolution.ArmorMitigation}; effective={resolution.EffectiveDamage}; before={beforeHitPoints}; applied={resolution.Application?.AppliedVitalityDelta ?? 0}; after={afterHitPoints}";
+
+    private static string AreaAttackDetail(AttackProfile profile, AreaAttackResolution area, AttackResolution resolution, int beforeHitPoints, int afterHitPoints) =>
+        $"area-attack={profile.Id}; target-distance={area.Distance}; radius={profile.AreaRadius}; accuracy={resolution.AccuracyPercent}; roll={resolution.AccuracyRoll}; result={(resolution.Hit ? "hit" : "miss")}; damage={profile.Damage}; cover={resolution.CoverMitigation}; armor={resolution.ArmorMitigation}; effective={resolution.EffectiveDamage}; before={beforeHitPoints}; applied={resolution.Application?.AppliedVitalityDelta ?? 0}; after={afterHitPoints}";
 
     private static IReadOnlyList<ValidationDiagnostic> Validate(SimulationRequest request)
     {
@@ -299,6 +328,10 @@ public sealed class TimelineResolver
                 diagnostics.Add(new("non-positive-attack-damage", "Attack profile damage must be positive."));
             if (profile.AccuracyPercent < 0 || profile.AccuracyPercent > 100)
                 diagnostics.Add(new("invalid-attack-accuracy", "Attack profile accuracy must be between 0 and 100 inclusive."));
+            if (profile.AreaRadius < 0)
+                diagnostics.Add(new("negative-area-radius", "Area attack radius cannot be negative."));
+            if (profile.Delivery == AttackDeliveryType.Direct && profile.AreaRadius != 0)
+                diagnostics.Add(new("direct-attack-area-radius", "Direct attack profiles must use area radius 0."));
             ValidateRequirement(profile.RequiredSkillId, profile.RequiredInventoryItemId, profile.InventoryQuantityCost, "attack profile", diagnostics);
             ValidateRequirement(null, profile.AmmunitionItemId, profile.AmmunitionQuantityCost, "attack ammunition", diagnostics);
         }
@@ -434,17 +467,29 @@ public sealed class TimelineResolver
     {
         if (map == null)
             diagnostics.Add(new("attack-requires-map", "Attack requires a scenario map for range and line-of-sight evaluation.", action.ActionId));
+        if (String.IsNullOrWhiteSpace(action.AttackProfileId))
+            diagnostics.Add(new("missing-attack-profile-id", "Attack requires an attack profile ID.", action.ActionId));
+        var profile = profiles.FirstOrDefault(candidate => StringComparer.Ordinal.Equals(candidate.Id, action.AttackProfileId));
+        if (!String.IsNullOrWhiteSpace(action.AttackProfileId) && profile is null)
+            diagnostics.Add(new("unknown-attack-profile-id", "Attack references an unknown attack profile.", action.ActionId));
+        if (profile?.Delivery == AttackDeliveryType.Area)
+        {
+            if (action.TargetPosition is null)
+                diagnostics.Add(new("missing-area-attack-target", "Area attack requires a target map position.", action.ActionId));
+            else if (map is not null && !map.Contains(action.TargetPosition))
+                diagnostics.Add(new("area-attack-target-out-of-bounds", "Area attack target must be inside the scenario map.", action.ActionId));
+            if (action.TargetUnitId is not null)
+                diagnostics.Add(new("area-attack-target-unit", "Area attacks target a map position, not a unit ID.", action.ActionId));
+            return;
+        }
         if (action.TargetUnitId is null)
-            diagnostics.Add(new("missing-attack-target", "Attack requires a target unit.", action.ActionId));
+            diagnostics.Add(new("missing-attack-target", "Direct attack requires a target unit.", action.ActionId));
         else if (!units.TryGetValue(action.TargetUnitId.Value, out var target))
             diagnostics.Add(new("unknown-attack-target", "Attack target must be a unit in the initial state.", action.ActionId));
         else if (attacker is not null && StringComparer.Ordinal.Equals(attacker.FactionId, target.FactionId))
             diagnostics.Add(new("friendly-attack-target", "Attack target must belong to an opposing faction.", action.ActionId));
-
-        if (String.IsNullOrWhiteSpace(action.AttackProfileId))
-            diagnostics.Add(new("missing-attack-profile-id", "Attack requires an attack profile ID.", action.ActionId));
-        else if (!profiles.Any(profile => StringComparer.Ordinal.Equals(profile.Id, action.AttackProfileId)))
-            diagnostics.Add(new("unknown-attack-profile-id", "Attack references an unknown attack profile.", action.ActionId));
+        if (action.TargetPosition is not null)
+            diagnostics.Add(new("direct-attack-target-position", "Direct attacks target a unit, not a map position.", action.ActionId));
     }
 
     private static void ValidateEffectAction(TacticalAction action, UnitState? source, IReadOnlyDictionary<Guid, UnitState> units, IReadOnlyList<EffectDefinition> effects, GridMapDefinition? map, ICollection<ValidationDiagnostic> diagnostics)
@@ -491,6 +536,8 @@ public sealed class TimelineResolver
             diagnostics.Add(new("overwatch-requires-profile", "EnterOverwatch requires an attack profile.", action.ActionId));
         else if (!profiles.Any(profile => StringComparer.Ordinal.Equals(profile.Id, action.AttackProfileId)))
             diagnostics.Add(new("unknown-overwatch-profile-id", "EnterOverwatch references an unknown attack profile.", action.ActionId));
+        else if (profiles.Single(profile => StringComparer.Ordinal.Equals(profile.Id, action.AttackProfileId)).Delivery != AttackDeliveryType.Direct)
+            diagnostics.Add(new("area-overwatch-unsupported", "Overwatch currently requires a direct-delivery attack profile.", action.ActionId));
         var definition = definitions?.FirstOrDefault(candidate => unit is not null && StringComparer.Ordinal.Equals(candidate.Id, unit.UnitDefinitionId));
         if (definition is not null && !(definition.SkillIds ?? Array.Empty<string>()).Contains("overwatch", StringComparer.Ordinal))
             diagnostics.Add(new("missing-overwatch-skill", "Unit does not have the overwatch skill.", action.ActionId));
@@ -534,7 +581,7 @@ public sealed class TimelineResolver
         public GridPosition Destination => MovementRules.PathFor(Scheduled.Action)[StepIndex];
     }
 
-    private sealed record CompletionResult(GameState State, EffectApplication? Effect = null, EffectDefinition? EffectDefinition = null, int BeforeHitPoints = 0, AttackResolution? Attack = null, AttackProfile? AttackProfile = null, string? FailureDetail = null, string InventoryConsumptionDetail = "");
+    private sealed record CompletionResult(GameState State, EffectApplication? Effect = null, EffectDefinition? EffectDefinition = null, int BeforeHitPoints = 0, AttackResolution? Attack = null, AttackProfile? AttackProfile = null, string? FailureDetail = null, string InventoryConsumptionDetail = "", AreaAttackResolution? AreaAttack = null, IReadOnlyDictionary<Guid, int>? AreaBeforeHitPoints = null);
 
     private sealed class ScheduledActionComparer : IComparer<ScheduledAction>
     {

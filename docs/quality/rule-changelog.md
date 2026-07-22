@@ -2,6 +2,14 @@
 
 This log records accepted rule/schema changes that may affect replay, scenario, or presentation compatibility. The detailed evidence remains in the linked rulebook chapters, traceability matrix, tests, and golden replays.
 
+## 2026-07-22 — Data-defined area attack delivery
+
+- Added `AttackDeliveryType` and optional `AttackProfile` delivery/radius fields. Existing profiles remain direct delivery with radius zero.
+- Area attacks target a map tile, resolve active opposing units in a deterministic Manhattan radius, use one seeded attempt roll, and apply ordinary target-tile cover and armor per affected unit.
+- Area attempts spend configured ammunition once when legal. Area overwatch, friendly fire, travel/ballistics, persistent hazards, and non-Manhattan shapes remain explicit future rules.
+
+Compatibility note: profile/action schemas gained optional fields; direct-fire scenario content stays compatible. Replays that use the new area delivery need its updated content version and event expectations.
+
 ## 2026-07-22 — Deterministic PvE move-then-attack
 
 - The conventional PvE planner may now queue a one-tile move followed by a direct attack on its currently observed target when both actions fit the action-point budget and the attack is legal from the planned destination.

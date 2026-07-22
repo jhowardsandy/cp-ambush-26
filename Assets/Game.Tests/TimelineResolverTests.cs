@@ -716,6 +716,45 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Area_attack_targets_a_tile_and_applies_one_seeded_result_to_each_enemy_in_radius()
+    {
+        var secondRed = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var state = new GameState(new[]
+        {
+            new UnitState(BlueUnit, "blue", new GridPosition(0, 1), Facing.East, UnitActivityState.Active),
+            new UnitState(RedUnit, "red", new GridPosition(2, 1), Facing.West, UnitActivityState.Active, HitPoints: 5),
+            new UnitState(secondRed, "red", new GridPosition(3, 1), Facing.West, UnitActivityState.Active, HitPoints: 5)
+        });
+        var scenario = new ScenarioDefinition("area-attack", new GridMapDefinition("area-attack-map", 5, 3), state);
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 0, 1, AttackProfileId: "grenade", TargetPosition: new GridPosition(2, 1));
+        var profile = new AttackProfile("grenade", 1, 4, 5, Delivery: AttackDeliveryType.Area, AreaRadius: 1);
+
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(3), 1234u, attackProfiles: new[] { profile }));
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.FinalState.FindUnit(RedUnit)!.ActivityState, Is.EqualTo(UnitActivityState.Incapacitated));
+        Assert.That(result.FinalState.FindUnit(secondRed)!.ActivityState, Is.EqualTo(UnitActivityState.Incapacitated));
+        var impacts = result.Events.Where(@event => @event.Type == DomainEventType.AttackResolved).ToArray();
+        Assert.That(impacts.Select(impact => impact.TargetUnitId), Is.EqualTo(new[] { RedUnit, secondRed }));
+        Assert.That(impacts.All(impact => impact.ToPosition == new GridPosition(2, 1)), Is.True);
+        Assert.That(impacts.All(impact => impact.Detail!.Contains("area-attack=grenade; target-distance=2; radius=1")), Is.True);
+    }
+
+    [Test]
+    public void Area_attack_rejects_a_unit_target_or_missing_target_tile()
+    {
+        var state = State(new GridPosition(0, 0), new GridPosition(2, 0));
+        var scenario = new ScenarioDefinition("invalid-area-attack", new GridMapDefinition("invalid-area-attack-map", 3, 1), state);
+        var profile = new AttackProfile("grenade", 1, 3, 5, Delivery: AttackDeliveryType.Area, AreaRadius: 1);
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 0, 1, TargetUnitId: RedUnit, AttackProfileId: "grenade");
+
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(3), 1u, attackProfiles: new[] { profile }));
+
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("missing-area-attack-target"));
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("area-attack-target-unit"));
+    }
+
+    [Test]
     public void Legal_attack_with_zero_accuracy_misses_without_damaging_its_target()
     {
         var state = State(new GridPosition(0, 0), new GridPosition(2, 0));

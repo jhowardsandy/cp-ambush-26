@@ -210,8 +210,8 @@ public static class PvePlanner
     private static AttackProfile ProfileFor(UnitState unit, UnitDefinition? definition, IReadOnlyList<AttackProfile> profiles)
     {
         var permittedIds = definition?.AttackProfileIds ?? Array.Empty<string>();
-        return profiles.FirstOrDefault(profile => permittedIds.Any(id => StringComparer.Ordinal.Equals(id, profile.Id)))
-            ?? profiles[0];
+        return profiles.FirstOrDefault(profile => profile.Delivery == AttackDeliveryType.Direct && permittedIds.Any(id => StringComparer.Ordinal.Equals(id, profile.Id)))
+            ?? profiles.First(profile => profile.Delivery == AttackDeliveryType.Direct);
     }
 
     private static bool HasRequiredAmmunition(UnitState unit, AttackProfile profile) =>
