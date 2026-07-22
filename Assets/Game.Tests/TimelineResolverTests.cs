@@ -1261,6 +1261,19 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Rescue_objective_discovers_then_extracts_the_same_active_rescuer()
+    {
+        var state = new GameState(new[] { new UnitState(BlueUnit, "blue", new GridPosition(1, 0), Facing.East, UnitActivityState.Active), new UnitState(RedUnit, "red", new GridPosition(3, 0), Facing.West, UnitActivityState.Active) });
+        var definition = new EncounterDefinition("rescue", new GridMapDefinition("rescue-map", 4, 1, Areas: new[] { new MapAreaDefinition("rescue-site", new[] { new GridPosition(1, 0) }), new MapAreaDefinition("extract", new[] { new GridPosition(0, 0) }) }), Objectives: new[] { new ObjectiveDefinition("rescue-target", ObjectiveType.RescueAndExtract, "blue", "rescue-site", ExtractionAreaId: "extract") });
+        var first = EncounterResolver.ResolveRound(new EncounterState(definition, state), Array.Empty<CommandBundle>(), new RoundConfiguration(2), 1u);
+        var move = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Move, 0, 1, Path: new[] { new GridPosition(0, 0) });
+        var second = EncounterResolver.ResolveRound(first.NextState, new[] { Bundle("blue", move) }, new RoundConfiguration(2), 2u);
+        Assert.That(first.Resolution.Events.Any(@event => @event.Type == DomainEventType.RescueDiscovered), Is.True);
+        Assert.That(second.NextState.Outcome!.IsComplete, Is.True);
+        Assert.That(second.Resolution.Events.Any(@event => @event.Type == DomainEventType.RescueExtracted), Is.True);
+    }
+
+    [Test]
     public void Eliminate_all_opponents_objective_remains_incomplete_while_an_enemy_is_active()
     {
         var state = DefaultState();

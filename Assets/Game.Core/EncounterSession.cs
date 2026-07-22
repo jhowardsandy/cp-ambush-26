@@ -50,6 +50,7 @@ public static class EncounterResolver
             return new EncounterRoundResult(encounter, resolution);
 
         var completedRounds = encounter.CompletedRounds + 1;
+        resolution = AppendRescueEvents(encounter, evaluation!.Progress, configuration, resolution);
         var knowledge = UpdateKnowledge(encounter, resolution.FinalState, completedRounds, configuration, resolution);
         var nextState = encounter with { CurrentState = resolution.FinalState, CompletedRounds = completedRounds, Outcome = outcome, ObjectiveProgress = evaluation!.Progress, FactionKnowledge = knowledge.Knowledge };
         return new EncounterRoundResult(nextState, knowledge.Resolution);
@@ -82,6 +83,21 @@ public static class EncounterResolver
             knowledge.Add(new FactionKnowledgeState(factionId, visibleEnemies, contacts.Values.OrderBy(contact => contact.UnitId).ToArray()));
         }
         return (knowledge, resolution with { Events = events });
+    }
+
+    private static SimulationResult AppendRescueEvents(EncounterState encounter, IReadOnlyList<ObjectiveProgress> progress, RoundConfiguration configuration, SimulationResult resolution)
+    {
+        var events = resolution.Events.ToList();
+        foreach (var objective in encounter.Definition.Objectives?.Where(item => item.Type == ObjectiveType.RescueAndExtract) ?? Array.Empty<ObjectiveDefinition>())
+        {
+            var prior = encounter.ObjectiveProgress?.FirstOrDefault(item => item.ObjectiveId == objective.Id)?.RescuerUnitId;
+            var current = progress.FirstOrDefault(item => item.ObjectiveId == objective.Id)?.RescuerUnitId;
+            if (!prior.HasValue && current.HasValue)
+                events.Add(new DomainEvent(events.Count, configuration.TicksPerRound, DomainEventType.RescueDiscovered, objective.WinningFactionId, current, Detail: $"objective={objective.Id}; rescue-area={objective.AreaId}; rescuer={current}"));
+            if (resolution.FinalState.FindUnit(current ?? Guid.Empty) is { } rescuer && encounter.Definition.Map.AreaById(objective.ExtractionAreaId ?? String.Empty)?.Tiles.Contains(rescuer.Position) == true)
+                events.Add(new DomainEvent(events.Count, configuration.TicksPerRound, DomainEventType.RescueExtracted, objective.WinningFactionId, rescuer.Id, Detail: $"objective={objective.Id}; extraction-area={objective.ExtractionAreaId}; rescuer={rescuer.Id}"));
+        }
+        return resolution with { Events = events };
     }
 }
 
