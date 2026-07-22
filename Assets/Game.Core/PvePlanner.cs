@@ -111,7 +111,7 @@ public static class PvePlanner
                 continue;
             }
 
-            if (profile.ActionPointCost <= unit.ActionPointBudget && AttackRules.Resolve(unit, target, profile, map).FailureDetail is null)
+            if (profile.ActionPointCost <= unit.ActionPointBudget && HasRequiredAmmunition(unit, profile) && AttackRules.Resolve(unit, target, profile, map).FailureDetail is null)
             {
                 actions.Add(new TacticalAction(unit.Id, unit.Id, TacticalActionType.Attack, 0, 1, TargetUnitId: target.Id, AttackProfileId: profile.Id));
                 decisions.Add(new PveDecision(unit.Id, "attack", $"Nearest legal target is {target.Id} at distance {GridDistance.Manhattan(unit.Position, target.Position)}."));
@@ -195,6 +195,9 @@ public static class PvePlanner
         return profiles.FirstOrDefault(profile => permittedIds.Any(id => StringComparer.Ordinal.Equals(id, profile.Id)))
             ?? profiles[0];
     }
+
+    private static bool HasRequiredAmmunition(UnitState unit, AttackProfile profile) =>
+        String.IsNullOrWhiteSpace(profile.AmmunitionItemId) || InventoryRules.QuantityOf(unit, profile.AmmunitionItemId) >= profile.AmmunitionQuantityCost;
 
     private static UnitState? FindFollowTarget(UnitState unit, GameState state, PveDoctrineAssignment doctrine)
     {

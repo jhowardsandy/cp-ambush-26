@@ -10,6 +10,14 @@ This log records accepted rule/schema changes that may affect replay, scenario, 
 
 Compatibility note: this changes event detail and combat outcome behavior for profiles that specify accuracy below 100. Replay fixtures should retain their original content version/seed; profile callers that omit accuracy preserve the prior guaranteed-hit behavior.
 
+## 2026-07-22 — Ammunition accounting
+
+- Added optional `AttackProfile` ammunition item and per-attempt quantity fields, preserving profiles that omit ammunition.
+- Direct attacks and triggered overwatch reactions reserve and consume ammunition independently of weapon entitlement and hit/miss; untriggered overwatch and illegal completion-time attacks do not spend it.
+- Added starter loadouts, event detail, Unity ammo labels, and legal-miss/over-reservation/overwatch-consumption regression coverage.
+
+Compatibility note: starter military content now requires its declared ammunition. Scenario and replay content using those profiles must carry matching ammo inventory; standalone profiles that omit ammunition remain compatible.
+
 ## 2026-07-20 — Initial deterministic engine foundation
 
 - Added timeline ordering/validation, cardinal terrain-aware movement, and strict same-tick occupancy policy.

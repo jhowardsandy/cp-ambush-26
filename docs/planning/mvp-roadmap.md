@@ -36,16 +36,16 @@ The MVP proves the engine, not a large campaign or a finished art direction.
 | 0. Foundation | **Complete** | Keep compatibility and replay guarantees intact as the core grows. |
 | 1. Spatial movement | **Strong foundation** | Movement modifiers, richer reservations, larger-map performance, and additional golden/property coverage. |
 | 2. Perception | **Foundation implemented** | Per-unit data-defined vision, faction memory, reveal/loss events, fog-of-war presentation, facing/elevation, and concealment. |
-| 3. Combat kernel | **Direct fire + seeded accuracy implemented** | Data-defined unit/weapon catalogs, armor, ammunition, alternate delivery types, and balance coverage. |
+| 3. Combat kernel | **Direct fire + seeded accuracy + ammunition implemented** | Data-defined unit/weapon catalogs, armor, alternate delivery types, and balance coverage. |
 | 4. Reactions | **First slice implemented** | One-shot overwatch works; expand trigger/priority/interruption, posture/scoped, and resource policy only through accepted rules. |
 | 5. Scenario loop | **Playable graybox implemented** | Riverside Crossing 4v4 has elimination plus hold-area objectives, terrain, PvE, auto-play, acceptance coverage, and a human protocol. Add deployment, extraction/rescue, and scenario scripting. |
 | 6. Planning and playback | **Playable graybox implemented** | Multi-unit route/action sequences, target selection, previews, feedback, event log, and inspectable per-unit doctrine auto-orders work. Add posture controls, richer plan editing, pause/speed, and replay inspection. |
-| 7. MVP hardening | **Started** | 77 deterministic tests, rulebook, traceability, acceptance fixture, and human protocol exist. Add seed corpus, balance harness, accessibility, recorded playtests, and release checks. |
+| 7. MVP hardening | **Started** | 83 deterministic tests, rulebook, traceability, acceptance fixture, and human protocol exist. Add seed corpus, balance harness, accessibility, recorded playtests, and release checks. |
 | 8. MVP release candidate | **Not started** | Build/distribution validation, release notes, and playtest-led defect closure. |
 
 ## Next stretch: from proof surface to playable vertical slice
 
-1. **Combat depth—next:** add ammunition and armor as separate transparent slices; keep accuracy modifiers such as posture, range bands, concealment, and skills deferred until their own calculation contracts are accepted.
+1. **Combat depth—next:** add armor as a separate transparent mitigation slice; keep accuracy modifiers such as posture, range bands, concealment, and skills deferred until their own calculation contracts are accepted.
 2. **Perception and posture:** add one explicit posture interaction, then faction memory/reveal/loss events and finished fog-of-war presentation; defer elevation until its grid policy is accepted.
 3. **Scenario/objective expansion:** add extraction or rescue plus a small scenario-scripting/reinforcement foundation before increasing campaign scope.
 4. **PvE maturation:** extend objective/role/doctrine planning to multi-action plans, overwatch policy, target priorities, and tuning only with explicit decision contracts.

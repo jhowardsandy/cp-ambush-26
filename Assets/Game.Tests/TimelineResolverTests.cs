@@ -431,6 +431,7 @@ public sealed class TimelineResolverTests
 
         Assert.That(units.Select(unit => unit.Id), Is.EqualTo(new[] { "rifleman", "combat-medic" }));
         Assert.That(InventoryRules.QuantityOf(rifleman, "service-rifle"), Is.EqualTo(1));
+        Assert.That(InventoryRules.QuantityOf(rifleman, "rifle-ammo"), Is.EqualTo(8));
         Assert.That(InventoryRules.QuantityOf(medic, "med-kit"), Is.EqualTo(2));
         Assert.That(StarterMilitaryContent.FieldMedKit.RequiredSkillId, Is.EqualTo("field-medicine"));
         Assert.That(ScenarioValidator.Validate(scenario), Is.Empty);
@@ -690,6 +691,43 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Legal_attack_attempt_spends_its_named_ammunition_even_when_it_misses()
+    {
+        var rifleman = new UnitDefinition("training-rifleman", 10, 5, AttackProfileIds: new[] { "training-rifle" }, SkillIds: new[] { "rifle-training" },
+            StartingInventory: new[] { new InventoryItemDefinition("training-rifle", 1), new InventoryItemDefinition("training-ammo", 1) });
+        var blue = rifleman.CreateInitialState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East);
+        var state = new GameState(new[] { blue, new UnitState(RedUnit, "red", new GridPosition(2, 0), Facing.West, UnitActivityState.Active) });
+        var scenario = new ScenarioDefinition("ammunition-miss", new GridMapDefinition("ammunition-miss-map", 3, 1), state, UnitDefinitions: new[] { rifleman });
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 0, 1, TargetUnitId: RedUnit, AttackProfileId: "training-rifle");
+        var profile = new AttackProfile("training-rifle", 1, 3, 5, RequiredSkillId: "rifle-training", RequiredInventoryItemId: "training-rifle", AccuracyPercent: 0, AmmunitionItemId: "training-ammo", AmmunitionQuantityCost: 1);
+
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(3), 1234u, attackProfiles: new[] { profile }));
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(InventoryRules.QuantityOf(result.FinalState.FindUnit(BlueUnit)!, "training-ammo"), Is.EqualTo(0));
+        Assert.That(result.Events.Single(@event => @event.Type == DomainEventType.AttackResolved).Detail,
+            Does.Contain("result=miss; damage=5; cover=0; effective=0; before=10; applied=0; after=10; item=training-ammo; spent=1; remaining=0"));
+    }
+
+    [Test]
+    public void Planned_attack_attempts_cannot_reserve_more_ammunition_than_a_unit_carries()
+    {
+        var rifleman = new UnitDefinition("training-rifleman", 10, 5, AttackProfileIds: new[] { "training-rifle" }, SkillIds: new[] { "rifle-training" },
+            StartingInventory: new[] { new InventoryItemDefinition("training-rifle", 1), new InventoryItemDefinition("training-ammo", 1) });
+        var blue = rifleman.CreateInitialState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East) with { ActionPointBudget = 4 };
+        var state = new GameState(new[] { blue, new UnitState(RedUnit, "red", new GridPosition(2, 0), Facing.West, UnitActivityState.Active) });
+        var scenario = new ScenarioDefinition("ammunition-reservation", new GridMapDefinition("ammunition-reservation-map", 3, 1), state, UnitDefinitions: new[] { rifleman });
+        var first = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 0, 1, TargetUnitId: RedUnit, AttackProfileId: "training-rifle");
+        var second = new TacticalAction(SecondAction, BlueUnit, TacticalActionType.Attack, 1, 1, TargetUnitId: RedUnit, AttackProfileId: "training-rifle");
+        var profile = new AttackProfile("training-rifle", 1, 3, 5, RequiredSkillId: "rifle-training", RequiredInventoryItemId: "training-rifle", AmmunitionItemId: "training-ammo", AmmunitionQuantityCost: 1);
+
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", first, second) }, new RoundConfiguration(3), 1234u, attackProfiles: new[] { profile }));
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("inventory-quantity-exceeded"));
+    }
+
+    [Test]
     public void Seeded_accuracy_rolls_make_identical_requests_replay_identically()
     {
         var state = State(new GridPosition(0, 0), new GridPosition(2, 0));
@@ -895,6 +933,24 @@ public sealed class TimelineResolverTests
         Assert.That(result.Events.Select(@event => @event.Type), Does.Contain(DomainEventType.ReactionAttackResolved));
         Assert.That(result.FinalState.FindUnit(RedUnit)!.HitPoints, Is.EqualTo(5));
         Assert.That(result.FinalState.FindUnit(BlueUnit)!.Overwatch, Is.Null);
+    }
+
+    [Test]
+    public void Triggered_overwatch_consumes_one_ammunition_even_when_the_reaction_misses()
+    {
+        var blue = StarterMilitaryContent.Rifleman.CreateInitialState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East);
+        var state = new GameState(new[] { blue, new UnitState(RedUnit, "red", new GridPosition(3, 0), Facing.West, UnitActivityState.Active) });
+        var scenario = new ScenarioDefinition("overwatch-ammunition", new GridMapDefinition("overwatch-ammunition-map", 4, 1), state,
+            UnitDefinitions: new[] { StarterMilitaryContent.Rifleman });
+        var overwatch = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.EnterOverwatch, 0, 1, Facing: Facing.East, AttackProfileId: StarterMilitaryContent.ServiceRifle.Id);
+        var move = new TacticalAction(SecondAction, RedUnit, TacticalActionType.Move, 1, 1, Path: new[] { new GridPosition(2, 0) });
+
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", overwatch), Bundle("red", move) }, new RoundConfiguration(3), 1234u,
+            attackProfiles: new[] { StarterMilitaryContent.ServiceRifle }));
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.Events.Any(@event => @event.Type == DomainEventType.ReactionAttackResolved && @event.Detail!.Contains("item=rifle-ammo; spent=1; remaining=7")), Is.True);
+        Assert.That(InventoryRules.QuantityOf(result.FinalState.FindUnit(BlueUnit)!, "rifle-ammo"), Is.EqualTo(7));
     }
 
     [Test]

@@ -8,6 +8,6 @@ Status: accepted.
 
 Each armed unit fires at most once. The resolver orders armed watchers by faction ID then unit ID; a watcher chooses the first legal entering enemy by that same deterministic identity order. The reaction uses the ordinary direct-attack calculation and emits `ReactionAttackResolved`. Arming and the reaction are both recorded as events. Overwatch expires at the end of the round whether it fired or not.
 
-The reaction uses the same seeded accuracy roll as an ordinary direct attack. A legal miss still spends the watcher's one reaction for the round and is recorded as `result=miss`. This first rule still has no posture/scoped requirement, concealment modifier, ammunition, target selector customization, multi-shot capability, or interruption/resume behavior. Those are explicit follow-up rules.
+The reaction uses the same seeded accuracy roll and ammunition-attempt accounting as an ordinary direct attack. A legal miss still spends the watcher's one reaction and one profile-defined ammunition quantity for the round and is recorded as `result=miss`. An untriggered watch spends no ammunition. This first rule still has no posture/scoped requirement, concealment modifier, target selector customization, multi-shot capability, or interruption/resume behavior. Those are explicit follow-up rules.
 
 Evidence: `Overwatch_fires_once_when_an_enemy_enters_the_armed_watch_cone`; `Overwatch_requires_the_overwatch_skill_when_a_unit_catalog_is_present`.

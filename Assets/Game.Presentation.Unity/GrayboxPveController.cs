@@ -746,7 +746,10 @@ namespace TacticalStrategyGame.Presentation.Unity
             {
                 var screen = Camera.main!.WorldToScreenPoint(_views[unit.Id].transform.position + Vector3.up * .65f);
                 var medKits = InventoryRules.QuantityOf(unit, "med-kit");
+                var ammunitionItem = AttackProfileFor(unit).AmmunitionItemId;
+                var ammunition = String.IsNullOrWhiteSpace(ammunitionItem) ? 0 : InventoryRules.QuantityOf(unit, ammunitionItem);
                 var inventory = medKits > 0 || unit.UnitDefinitionId == StarterMilitaryContent.CombatMedic.Id ? $" kit:{medKits}" : string.Empty;
+                inventory += !String.IsNullOrWhiteSpace(ammunitionItem) ? $" ammo:{ammunition}" : string.Empty;
                 var visibility = unit.FactionId == "red" ? IsObservableByBlue(unit, _encounter.CurrentState) ? " OBS" : " HIDDEN" : string.Empty;
                 var hitPoints = _displayHitPoints.TryGetValue(unit.Id, out var displayHitPoints) ? displayHitPoints : unit.HitPoints;
                 GUI.Label(new Rect(screen.x - 70, Screen.height - screen.y, 180, 20), $"{unit.FactionId.ToUpperInvariant()} {UnitNumber(unit.Id)} {RoleName(unit)} {hitPoints}/{unit.MaxHitPoints}{inventory}{visibility}");

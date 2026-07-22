@@ -14,7 +14,7 @@ Every `AttackProfile` carries `AccuracyPercent`, an inclusive integer from 0 thr
 
 The resolver uses one stream in deterministic timeline order: seeded movement contention at its relevant tick, then overwatch reactions after movement entries, then scheduled action completions. Therefore an identical request—including seed, content, order set, and timeline—replays identically. The emitted attack/reaction detail records `accuracy`, `roll`, `result`, cover, effective damage, and applied vitality so a player can inspect the calculation.
 
-The starter military catalog is deliberately provisional: service rifle 75%, marksman rifle 85%. Profiles that omit the optional field retain 100% accuracy, which preserves guaranteed-hit fixtures and is useful for deterministic instructional scenarios. Armor, evasion, ammunition, facing, projectile travel time, area effects, and concealment modifiers remain later rules.
+The starter military catalog is deliberately provisional: service rifle 75%, marksman rifle 85%. Profiles that omit the optional field retain 100% accuracy, which preserves guaranteed-hit fixtures and is useful for deterministic instructional scenarios. Armor, evasion, facing, projectile travel time, area effects, and concealment modifiers remain later rules. Ammunition is a separate accepted inventory rule in `inventory-and-skills.md`.
 
 `AttackResolved` is emitted before `ActionCompleted`, with attacker/target IDs, start/end positions, range distance, accuracy, roll, result, damage, before/applied/after vitality, and target activity state. If the target is no longer legal at completion (for example, blocked line of sight), the resolver emits `ActionFailed` and does not complete the attack.
 
@@ -31,6 +31,6 @@ Calculation examples:
 
 The third example is an intentional planning outcome, not an invalid submitted plan: both factions committed orders, movement resolved first, and the target had left the legal range by the attack completion tick. This shared-timeline uncertainty is central to the game: a player's intent is resolved against the authoritative battlefield state at that moment, rather than being silently retargeted by the presentation.
 
-Invalid cases: missing/unknown profile, missing/unknown target, friendly target, invalid profile range/damage/accuracy, or attack without a scenario map reject the submitted plan.
+Invalid cases: missing/unknown profile, missing/unknown target, friendly target, invalid profile range/damage/accuracy/ammunition cost, insufficient ammunition, or attack without a scenario map reject the submitted plan.
 
 Evidence: `Direct_attack_within_range_and_line_of_sight_damages_and_incapacities_target`, `Legal_attack_with_zero_accuracy_misses_without_damaging_its_target`, `Seeded_accuracy_rolls_make_identical_requests_replay_identically`, `Attack_profile_accuracy_must_be_a_percentage`, `Target_cover_mitigates_direct_attack_damage_but_never_below_one`, `Direct_attack_fails_at_resolution_when_line_of_sight_is_blocked`, `Direct_attack_fails_when_target_moves_out_of_range_before_attack_completes`, `Direct_attack_succeeds_when_target_moves_into_range_before_attack_completes`, and `Direct_attack_rejects_missing_profile_and_friendly_target`.

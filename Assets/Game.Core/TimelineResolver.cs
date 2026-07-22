@@ -77,7 +77,7 @@ public sealed class TimelineResolver
                 {
                     var targetAfter = state.FindUnit(item.Action.TargetUnitId!.Value)!;
                     AddEvent(tick, DomainEventType.AttackResolved, item.FactionId, unit.Id, item.Action.ActionId,
-                        AttackDetail("attack", completion.AttackProfile!, completion.Attack, completion.BeforeHitPoints, targetAfter.HitPoints),
+                        $"{AttackDetail("attack", completion.AttackProfile!, completion.Attack, completion.BeforeHitPoints, targetAfter.HitPoints)}{completion.InventoryConsumptionDetail}",
                         fromPosition: unit.Position, toPosition: targetAfter.Position,
                         hitPointsAfter: targetAfter.HitPoints, activityStateAfter: targetAfter.ActivityState,
                         targetUnitId: targetAfter.Id);
@@ -170,8 +170,10 @@ public sealed class TimelineResolver
                 var resolution = AttackRules.Resolve(watcher, target, profile, request.Scenario!.Map, random.Next(1, 101));
                 var targetAfter = resolution.Application?.Target ?? target;
                 state = state.WithUnit(targetAfter).WithUnit(watcher with { Overwatch = watcher.Overwatch! with { HasFired = true } });
+                var ammunitionDetail = InventoryConsumptionDetail(state.FindUnit(watcher.Id)!, profile.AmmunitionItemId, profile.AmmunitionQuantityCost);
+                state = ConsumeInventory(state, watcher.Id, profile.AmmunitionItemId, profile.AmmunitionQuantityCost);
                 AddEvent(tick, DomainEventType.ReactionAttackResolved, watcher.FactionId, watcher.Id, watcher.Overwatch!.ActionId,
-                    $"{AttackDetail("reaction", profile, resolution, target.HitPoints, targetAfter.HitPoints)}; target={target.Id}",
+                    $"{AttackDetail("reaction", profile, resolution, target.HitPoints, targetAfter.HitPoints)}; target={target.Id}{ammunitionDetail}",
                     fromPosition: watcher.Position, toPosition: target.Position, hitPointsAfter: targetAfter.HitPoints, activityStateAfter: targetAfter.ActivityState,
                     targetUnitId: target.Id);
             }
@@ -231,7 +233,9 @@ public sealed class TimelineResolver
                 return new CompletionResult(state, FailureDetail: preview.FailureDetail);
             var resolution = AttackRules.Resolve(unit, target, profile, map!, random.Next(1, 101));
             var afterAttack = state.WithUnit(resolution.Application?.Target ?? target);
-            return new CompletionResult(ConsumeInventory(afterAttack, unit.Id, profile.RequiredInventoryItemId, profile.InventoryQuantityCost), Attack: resolution, AttackProfile: profile, BeforeHitPoints: target.HitPoints);
+            var ammunitionDetail = InventoryConsumptionDetail(afterAttack.FindUnit(unit.Id)!, profile.AmmunitionItemId, profile.AmmunitionQuantityCost);
+            return new CompletionResult(ConsumeInventory(afterAttack, unit.Id, profile.AmmunitionItemId, profile.AmmunitionQuantityCost), Attack: resolution, AttackProfile: profile, BeforeHitPoints: target.HitPoints,
+                InventoryConsumptionDetail: ammunitionDetail);
         }
 
         return new CompletionResult(state);
@@ -285,6 +289,7 @@ public sealed class TimelineResolver
             if (profile.AccuracyPercent < 0 || profile.AccuracyPercent > 100)
                 diagnostics.Add(new("invalid-attack-accuracy", "Attack profile accuracy must be between 0 and 100 inclusive."));
             ValidateRequirement(profile.RequiredSkillId, profile.RequiredInventoryItemId, profile.InventoryQuantityCost, "attack profile", diagnostics);
+            ValidateRequirement(null, profile.AmmunitionItemId, profile.AmmunitionQuantityCost, "attack ammunition", diagnostics);
         }
         if (attackProfiles.GroupBy(profile => profile.Id, StringComparer.Ordinal).Any(group => group.Count() > 1))
             diagnostics.Add(new("duplicate-attack-profile-id", "Attack profile IDs must be unique."));
@@ -359,8 +364,8 @@ public sealed class TimelineResolver
 
     private static void ValidateActionEntitlement(TacticalAction action, UnitState? unit, IReadOnlyList<UnitDefinition>? definitions, IReadOnlyList<EffectDefinition> effects, IReadOnlyList<AttackProfile> profiles, ICollection<ValidationDiagnostic> diagnostics)
     {
-        if (unit is null || action.Type is not (TacticalActionType.Attack or TacticalActionType.ApplyEffect)) return;
-        var requirement = action.Type == TacticalActionType.Attack
+        if (unit is null || action.Type is not (TacticalActionType.Attack or TacticalActionType.EnterOverwatch or TacticalActionType.ApplyEffect)) return;
+        var requirement = action.Type is TacticalActionType.Attack or TacticalActionType.EnterOverwatch
             ? profiles.FirstOrDefault(profile => StringComparer.Ordinal.Equals(profile.Id, action.AttackProfileId))
             : null;
         var effect = action.Type == TacticalActionType.ApplyEffect
@@ -368,7 +373,8 @@ public sealed class TimelineResolver
             : null;
         var skillId = requirement?.RequiredSkillId ?? effect?.RequiredSkillId;
         var itemId = requirement?.RequiredInventoryItemId ?? effect?.RequiredInventoryItemId;
-        if (String.IsNullOrWhiteSpace(skillId) && String.IsNullOrWhiteSpace(itemId)) return;
+        var ammunitionItemId = requirement?.AmmunitionItemId;
+        if (String.IsNullOrWhiteSpace(skillId) && String.IsNullOrWhiteSpace(itemId) && String.IsNullOrWhiteSpace(ammunitionItemId)) return;
 
         var definition = definitions?.FirstOrDefault(candidate => StringComparer.Ordinal.Equals(candidate.Id, unit.UnitDefinitionId));
         if (definition is null)
@@ -380,26 +386,37 @@ public sealed class TimelineResolver
             diagnostics.Add(new("missing-required-skill", $"Unit does not have required skill '{skillId}'.", action.ActionId));
         if (!String.IsNullOrWhiteSpace(itemId) && InventoryRules.QuantityOf(unit, itemId) == 0)
             diagnostics.Add(new("missing-required-inventory-item", $"Unit does not carry required inventory item '{itemId}'.", action.ActionId));
+        if (!String.IsNullOrWhiteSpace(ammunitionItemId) && InventoryRules.QuantityOf(unit, ammunitionItemId) < requirement!.AmmunitionQuantityCost)
+            diagnostics.Add(new("missing-required-ammunition", $"Unit does not carry enough ammunition '{ammunitionItemId}'.", action.ActionId));
     }
 
     private static void ValidatePlannedInventory(IGrouping<Guid, TacticalAction> actions, UnitState unit, IReadOnlyList<EffectDefinition> effects, IReadOnlyList<AttackProfile> profiles, ICollection<ValidationDiagnostic> diagnostics)
     {
         var requested = actions
-            .Select(action => action.Type == TacticalActionType.Attack
-                ? profiles.FirstOrDefault(profile => StringComparer.Ordinal.Equals(profile.Id, action.AttackProfileId))?.RequiredInventoryItemId is { } attackItem
-                    ? new InventoryItemDefinition(attackItem, profiles.First(profile => StringComparer.Ordinal.Equals(profile.Id, action.AttackProfileId)).InventoryQuantityCost)
-                    : null
-                : action.Type == TacticalActionType.ApplyEffect
-                    ? effects.FirstOrDefault(effect => StringComparer.Ordinal.Equals(effect.Id, action.EffectId))?.RequiredInventoryItemId is { } effectItem
-                        ? new InventoryItemDefinition(effectItem, effects.First(effect => StringComparer.Ordinal.Equals(effect.Id, action.EffectId)).InventoryQuantityCost)
-                        : null
-                    : null)
-            .Where(item => item is not null && item.Quantity > 0)
-            .Cast<InventoryItemDefinition>()
+            .SelectMany(action => InventoryCostsFor(action, effects, profiles))
+            .Where(item => item.Quantity > 0)
             .GroupBy(item => item.ItemId, StringComparer.Ordinal);
         foreach (var item in requested)
             if (item.Sum(entry => entry.Quantity) > InventoryRules.QuantityOf(unit, item.Key))
                 diagnostics.Add(new("inventory-quantity-exceeded", $"Planned actions require {item.Sum(entry => entry.Quantity)} '{item.Key}' but the unit has {InventoryRules.QuantityOf(unit, item.Key)}.", actions.First().ActionId));
+    }
+
+    private static IEnumerable<InventoryItemDefinition> InventoryCostsFor(TacticalAction action, IReadOnlyList<EffectDefinition> effects, IReadOnlyList<AttackProfile> profiles)
+    {
+        if (action.Type is TacticalActionType.Attack or TacticalActionType.EnterOverwatch)
+        {
+            var profile = profiles.FirstOrDefault(candidate => StringComparer.Ordinal.Equals(candidate.Id, action.AttackProfileId));
+            if (profile?.RequiredInventoryItemId is { } requiredItem && profile.InventoryQuantityCost > 0)
+                yield return new InventoryItemDefinition(requiredItem, profile.InventoryQuantityCost);
+            if (profile?.AmmunitionItemId is { } ammunitionItem && profile.AmmunitionQuantityCost > 0)
+                yield return new InventoryItemDefinition(ammunitionItem, profile.AmmunitionQuantityCost);
+            yield break;
+        }
+
+        if (action.Type != TacticalActionType.ApplyEffect) yield break;
+        var effect = effects.FirstOrDefault(candidate => StringComparer.Ordinal.Equals(candidate.Id, action.EffectId));
+        if (effect?.RequiredInventoryItemId is { } effectItem && effect.InventoryQuantityCost > 0)
+            yield return new InventoryItemDefinition(effectItem, effect.InventoryQuantityCost);
     }
 
     private static void ValidateAttackAction(TacticalAction action, UnitState? attacker, IReadOnlyDictionary<Guid, UnitState> units, IReadOnlyList<AttackProfile> profiles, GridMapDefinition? map, ICollection<ValidationDiagnostic> diagnostics)
