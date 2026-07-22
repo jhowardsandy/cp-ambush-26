@@ -7,7 +7,7 @@ namespace TacticalStrategyGame.Core
 public static class StarterMilitaryContent
 {
     public static readonly AttackProfile ServiceRifle = new("service-rifle", 1, 3, 5, RequiredSkillId: "rifle-training", RequiredInventoryItemId: "service-rifle", AccuracyPercent: 75, AmmunitionItemId: "rifle-ammo", AmmunitionQuantityCost: 1);
-    public static readonly AttackProfile MarksmanRifle = new("marksman-rifle", 2, 5, 4, ActionPointCost: 3, RequiredSkillId: "marksman-training", RequiredInventoryItemId: "marksman-rifle", AccuracyPercent: 85, AmmunitionItemId: "marksman-ammo", AmmunitionQuantityCost: 1);
+    public static readonly AttackProfile MarksmanRifle = new("marksman-rifle", 2, 5, 4, ActionPointCost: 3, RequiredSkillId: "marksman-training", RequiredInventoryItemId: "marksman-rifle", AccuracyPercent: 85, AmmunitionItemId: "marksman-ammo", AmmunitionQuantityCost: 1, RequiresProneForOverwatch: true);
     public static readonly EffectDefinition FieldMedKit = new("field-med-kit", 4, RequiredSkillId: "field-medicine", RequiredInventoryItemId: "med-kit", InventoryQuantityCost: 1, TargetPolicy: EffectTargetPolicy.Friendly, MaximumRange: 1, RequiresLineOfSight: true);
 
     public static readonly UnitDefinition Rifleman = new(

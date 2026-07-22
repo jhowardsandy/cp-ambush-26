@@ -176,6 +176,12 @@ public sealed class TimelineResolver
                     $"{AttackDetail("reaction", profile, resolution, target.HitPoints, targetAfter.HitPoints)}; target={target.Id}{ammunitionDetail}",
                     fromPosition: watcher.Position, toPosition: target.Position, hitPointsAfter: targetAfter.HitPoints, activityStateAfter: targetAfter.ActivityState,
                     targetUnitId: target.Id);
+                if (targetAfter.ActivityState == UnitActivityState.Incapacitated)
+                    foreach (var interrupted in scheduled.Where(item => item.Action.UnitId == target.Id && startedActions.Contains(item.Action.ActionId) && !completedActions.Contains(item.Action.ActionId) && !failedActions.Contains(item.Action.ActionId)))
+                    {
+                        failedActions.Add(interrupted.Action.ActionId);
+                        AddEvent(tick, DomainEventType.ActionInterrupted, interrupted.FactionId, target.Id, interrupted.Action.ActionId, "Overwatch incapacitated the unit; unfinished action interrupted.");
+                    }
             }
         }
 
@@ -209,7 +215,12 @@ public sealed class TimelineResolver
             return new CompletionResult(state.WithUnit(unit with { Posture = action.Posture.Value }));
 
         if (action.Type == TacticalActionType.EnterOverwatch && action.Facing is not null)
+        {
+            var profile = attackProfiles!.Single(candidate => StringComparer.Ordinal.Equals(candidate.Id, action.AttackProfileId));
+            if (profile.RequiresProneForOverwatch && unit.Posture != UnitPosture.Prone)
+                return new CompletionResult(state, FailureDetail: $"{profile.Id} requires prone posture before entering overwatch.");
             return new CompletionResult(state.WithUnit(unit with { Overwatch = new OverwatchState(action.ActionId, action.Facing.Value, action.AttackProfileId!) }));
+        }
 
         if (action.Type == TacticalActionType.ApplyEffect)
         {

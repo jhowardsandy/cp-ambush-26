@@ -60,7 +60,7 @@ public sealed record TacticalAction(
 public sealed record EffectDefinition(string Id, int VitalityDelta, int ActionPointCost = 2, string? RequiredSkillId = null, string? RequiredInventoryItemId = null, int InventoryQuantityCost = 0, EffectTargetPolicy TargetPolicy = EffectTargetPolicy.Any, int MinimumRange = 0, int MaximumRange = Int32.MaxValue, bool RequiresLineOfSight = false);
 
 /// <summary>Data-defined direct attack. Accuracy is an inclusive percentage evaluated from the seeded round RNG after legality checks; ammunition is a separately named consumable.</summary>
-public sealed record AttackProfile(string Id, int MinimumRange, int MaximumRange, int Damage, bool RequiresLineOfSight = true, int ActionPointCost = 2, string? RequiredSkillId = null, string? RequiredInventoryItemId = null, int InventoryQuantityCost = 0, int AccuracyPercent = 100, string? AmmunitionItemId = null, int AmmunitionQuantityCost = 0);
+public sealed record AttackProfile(string Id, int MinimumRange, int MaximumRange, int Damage, bool RequiresLineOfSight = true, int ActionPointCost = 2, string? RequiredSkillId = null, string? RequiredInventoryItemId = null, int InventoryQuantityCost = 0, int AccuracyPercent = 100, string? AmmunitionItemId = null, int AmmunitionQuantityCost = 0, bool RequiresProneForOverwatch = false);
 
 public sealed record CommandBundle(string FactionId, IReadOnlyList<TacticalAction> Actions);
 
