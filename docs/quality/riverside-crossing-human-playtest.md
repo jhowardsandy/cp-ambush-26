@@ -29,7 +29,7 @@ Expected: Blue selection is obvious; Riflemen, Marksmen, and Medics remain disti
 
 Select Blue 1. Click an open map tile several cells away. Inspect the cyan numbered route and Blue 1 Round-plan row. Add **Attack red**, then use **Undo** once.
 
-Expected: the route is cardinal and avoids blockers/current occupants; the plan shows destination, action sequence, AP spent, and final tick out of 10 before submission. Undo removes the latest action or final movement tile without changing another unit’s plan.
+Expected: the route is cardinal and avoids blockers/current occupants; the selected-unit strip and plan show remaining/spent AP and final tick out of 10 before submission. An over-budget route extension or action is refused with its AP calculation. Undo removes the latest action or final movement tile without changing another unit’s plan.
 
 ### RC-HUM-003: Manual route and terrain understanding
 
