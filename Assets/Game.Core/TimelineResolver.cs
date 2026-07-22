@@ -58,7 +58,7 @@ public sealed class TimelineResolver
                     continue;
 
                 var unit = state.FindUnit(item.Action.UnitId)!;
-                var completion = ApplyCompletion(state, unit, item.Action, request.Effects, request.AttackProfiles, request.Scenario?.Map);
+                var completion = ApplyCompletion(state, unit, item.Action, request.Effects, request.AttackProfiles, request.Scenario?.Map, random);
                 if (completion.FailureDetail is not null)
                 {
                     failedActions.Add(item.Action.ActionId);
@@ -75,11 +75,12 @@ public sealed class TimelineResolver
                 }
                 if (completion.Attack is not null)
                 {
+                    var targetAfter = state.FindUnit(item.Action.TargetUnitId!.Value)!;
                     AddEvent(tick, DomainEventType.AttackResolved, item.FactionId, unit.Id, item.Action.ActionId,
-                        $"attack={completion.AttackProfile!.Id}; distance={completion.Attack.Distance}; damage={completion.AttackProfile.Damage}; cover={completion.Attack.CoverMitigation}; effective={completion.Attack.EffectiveDamage}; before={completion.BeforeHitPoints}; applied={completion.Attack.Application!.AppliedVitalityDelta}; after={completion.Attack.Application.Target.HitPoints}",
-                        fromPosition: unit.Position, toPosition: completion.Attack.Application.Target.Position,
-                        hitPointsAfter: completion.Attack.Application.Target.HitPoints, activityStateAfter: completion.Attack.Application.Target.ActivityState,
-                        targetUnitId: completion.Attack.Application.Target.Id);
+                        AttackDetail("attack", completion.AttackProfile!, completion.Attack, completion.BeforeHitPoints, targetAfter.HitPoints),
+                        fromPosition: unit.Position, toPosition: targetAfter.Position,
+                        hitPointsAfter: targetAfter.HitPoints, activityStateAfter: targetAfter.ActivityState,
+                        targetUnitId: targetAfter.Id);
                 }
                 if (item.Action.Type == TacticalActionType.ChangePosture && item.Action.Posture is not null)
                     AddEvent(tick, DomainEventType.PostureChanged, item.FactionId, unit.Id, item.Action.ActionId,
@@ -166,11 +167,12 @@ public sealed class TimelineResolver
                 if (target is null)
                     continue;
 
-                var resolution = AttackRules.Resolve(watcher, target, profile, request.Scenario!.Map);
-                state = state.WithUnit(resolution.Application!.Target).WithUnit(watcher with { Overwatch = watcher.Overwatch! with { HasFired = true } });
+                var resolution = AttackRules.Resolve(watcher, target, profile, request.Scenario!.Map, random.Next(1, 101));
+                var targetAfter = resolution.Application?.Target ?? target;
+                state = state.WithUnit(targetAfter).WithUnit(watcher with { Overwatch = watcher.Overwatch! with { HasFired = true } });
                 AddEvent(tick, DomainEventType.ReactionAttackResolved, watcher.FactionId, watcher.Id, watcher.Overwatch!.ActionId,
-                    $"reaction={profile.Id}; target={target.Id}; distance={resolution.Distance}; damage={profile.Damage}; cover={resolution.CoverMitigation}; effective={resolution.EffectiveDamage}; before={target.HitPoints}; applied={resolution.Application.AppliedVitalityDelta}; after={resolution.Application.Target.HitPoints}",
-                    fromPosition: watcher.Position, toPosition: target.Position, hitPointsAfter: resolution.Application.Target.HitPoints, activityStateAfter: resolution.Application.Target.ActivityState,
+                    $"{AttackDetail("reaction", profile, resolution, target.HitPoints, targetAfter.HitPoints)}; target={target.Id}",
+                    fromPosition: watcher.Position, toPosition: target.Position, hitPointsAfter: targetAfter.HitPoints, activityStateAfter: targetAfter.ActivityState,
                     targetUnitId: target.Id);
             }
         }
@@ -196,7 +198,7 @@ public sealed class TimelineResolver
             events.Add(new DomainEvent(sequence++, tick, type, factionId, unitId, actionId, detail, fromPosition, toPosition, hitPointsAfter, activityStateAfter, targetUnitId, postureAfter));
     }
 
-    private static CompletionResult ApplyCompletion(GameState state, UnitState unit, TacticalAction action, IReadOnlyList<EffectDefinition>? effects, IReadOnlyList<AttackProfile>? attackProfiles, GridMapDefinition? map)
+    private static CompletionResult ApplyCompletion(GameState state, UnitState unit, TacticalAction action, IReadOnlyList<EffectDefinition>? effects, IReadOnlyList<AttackProfile>? attackProfiles, GridMapDefinition? map, Random random)
     {
         if (action.Type == TacticalActionType.Rotate && action.Facing is not null)
             return new CompletionResult(state.WithUnit(unit with { Facing = action.Facing.Value }));
@@ -224,10 +226,11 @@ public sealed class TimelineResolver
         {
             var profile = attackProfiles!.Single(candidate => StringComparer.Ordinal.Equals(candidate.Id, action.AttackProfileId));
             var target = state.FindUnit(action.TargetUnitId!.Value)!;
-            var resolution = AttackRules.Resolve(unit, target, profile, map!);
-            if (resolution.FailureDetail is not null)
-                return new CompletionResult(state, FailureDetail: resolution.FailureDetail);
-            var afterAttack = state.WithUnit(resolution.Application!.Target);
+            var preview = AttackRules.Resolve(unit, target, profile, map!);
+            if (preview.FailureDetail is not null)
+                return new CompletionResult(state, FailureDetail: preview.FailureDetail);
+            var resolution = AttackRules.Resolve(unit, target, profile, map!, random.Next(1, 101));
+            var afterAttack = state.WithUnit(resolution.Application?.Target ?? target);
             return new CompletionResult(ConsumeInventory(afterAttack, unit.Id, profile.RequiredInventoryItemId, profile.InventoryQuantityCost), Attack: resolution, AttackProfile: profile, BeforeHitPoints: target.HitPoints);
         }
 
@@ -242,6 +245,9 @@ public sealed class TimelineResolver
 
     private static string InventoryConsumptionDetail(UnitState unit, string? itemId, int quantity) =>
         String.IsNullOrWhiteSpace(itemId) || quantity <= 0 ? String.Empty : $"; item={itemId}; spent={quantity}; remaining={InventoryRules.QuantityOf(unit, itemId) - quantity}";
+
+    private static string AttackDetail(string kind, AttackProfile profile, AttackResolution resolution, int beforeHitPoints, int afterHitPoints) =>
+        $"{kind}={profile.Id}; distance={resolution.Distance}; accuracy={resolution.AccuracyPercent}; roll={resolution.AccuracyRoll}; result={(resolution.Hit ? "hit" : "miss")}; damage={profile.Damage}; cover={resolution.CoverMitigation}; effective={resolution.EffectiveDamage}; before={beforeHitPoints}; applied={resolution.Application?.AppliedVitalityDelta ?? 0}; after={afterHitPoints}";
 
     private static IReadOnlyList<ValidationDiagnostic> Validate(SimulationRequest request)
     {
@@ -276,6 +282,8 @@ public sealed class TimelineResolver
                 diagnostics.Add(new("invalid-attack-range", "Attack profile ranges must be non-negative and ordered."));
             if (profile.Damage <= 0)
                 diagnostics.Add(new("non-positive-attack-damage", "Attack profile damage must be positive."));
+            if (profile.AccuracyPercent < 0 || profile.AccuracyPercent > 100)
+                diagnostics.Add(new("invalid-attack-accuracy", "Attack profile accuracy must be between 0 and 100 inclusive."));
             ValidateRequirement(profile.RequiredSkillId, profile.RequiredInventoryItemId, profile.InventoryQuantityCost, "attack profile", diagnostics);
         }
         if (attackProfiles.GroupBy(profile => profile.Id, StringComparer.Ordinal).Any(group => group.Count() > 1))

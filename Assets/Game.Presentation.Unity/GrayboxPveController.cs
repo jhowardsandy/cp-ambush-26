@@ -414,7 +414,10 @@ namespace TacticalStrategyGame.Presentation.Unity
                     {
                         if (@event.FromPosition is not null && @event.ToPosition is not null)
                             yield return AnimateProjectile(@event.FromPosition, @event.ToPosition, @event.Type == DomainEventType.ReactionAttackResolved ? new Color(1f, .36f, .1f) : new Color(1f, .82f, .22f));
-                        ApplyVitalityFeedback(@event, @event.TargetUnitId, "DAMAGE", new Color(1f, .25f, .2f));
+                        if (@event.Detail?.Contains("result=miss", StringComparison.Ordinal) == true && @event.TargetUnitId.HasValue)
+                            AddFeedback(@event.TargetUnitId.Value, "MISS", new Color(.9f, .9f, .9f));
+                        else
+                            ApplyVitalityFeedback(@event, @event.TargetUnitId, "DAMAGE", new Color(1f, .25f, .2f));
                     }
                     else if (@event.Type == DomainEventType.EffectApplied)
                         ApplyVitalityFeedback(@event, @event.UnitId, "HEAL", new Color(.25f, 1f, .58f));

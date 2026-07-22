@@ -13,6 +13,7 @@
 | MOV-TRN-001 | accepted | `rulebook/movement-and-occupancy.md` | Terrain timing and impassable-path tests | `GR-MOV-001` terrain-delay golden replay. |
 | TRN-PRT-001 | accepted | `rulebook/terrain-protection.md` | Portable cover/concealment and invalid-content test | Scenario JSON round-trip coverage. |
 | ATK-COV-001 | accepted | `rulebook/direct-attacks.md` | Cover mitigation and minimum-one-damage test | Add a cover-focused Riverside Crossing replay. |
+| ATK-ACC-001 | accepted | `rulebook/direct-attacks.md` | Zero-accuracy miss, seeded replay, invalid percentage, and direct-fire hit tests | `GR-ATK-001` now records seeded attack result detail; expand to a multi-shot seed corpus during hardening. |
 | RXN-OW-001 | accepted | `rulebook/overwatch.md` | One-shot movement-triggered reaction test | Add an overwatch replay fixture after scenario fixture extraction. |
 | SCN-MAP-001 | accepted | `technical-design/content-schema.md` | Scenario map dimension and starting-position validation test | Scenario definition survives replay serialization. |
 | SCN-MAP-002 | accepted | `technical-design/content-schema.md` | Movement-out-of-bounds scenario test | Add map-boundary golden fixture with the fixture harness. |
@@ -31,5 +32,5 @@
 | OBJ-ELM-001 | accepted | `rulebook/objectives.md` | Objective completion, incomplete state, completed-encounter protection, and scenario JSON tests | Add a completed-encounter golden replay after encounter fixtures are extracted. |
 | OBJ-HLD-001 | accepted | `rulebook/objectives.md` | Required-round completion and contested reset tests | Add Riverside hold-area multi-round replay. |
 | VIS-* | proposed | Future visibility chapter | Not implemented | Not implemented |
-| ATK-* | proposed | Future combat chapter | Not implemented | Not implemented |
+| ATK-ARM-* | proposed | Future combat chapter | Not implemented | Not implemented |
 | UPG-* | deferred | Future progression chapter | Not implemented | Not implemented |

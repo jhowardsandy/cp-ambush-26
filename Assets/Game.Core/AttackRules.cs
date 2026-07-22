@@ -1,12 +1,14 @@
 #nullable enable
 
+using System;
+
 namespace TacticalStrategyGame.Core
 {
 
-/// <summary>Pure direct-attack resolution. Cover mitigation is deterministic; accuracy, armor, and projectile travel remain future rules.</summary>
+/// <summary>Pure direct-attack resolution. A supplied seeded roll evaluates accuracy; callers without a roll receive a legal-attack preview.</summary>
 public static class AttackRules
 {
-    public static AttackResolution Resolve(UnitState attacker, UnitState target, AttackProfile profile, GridMapDefinition map)
+    public static AttackResolution Resolve(UnitState attacker, UnitState target, AttackProfile profile, GridMapDefinition map, int? accuracyRoll = null)
     {
         var distance = GridDistance.Manhattan(attacker.Position, target.Position);
         var observation = VisibilityRules.Observe(map, attacker, target);
@@ -19,13 +21,20 @@ public static class AttackRules
         if (target.ActivityState != UnitActivityState.Active)
             return new AttackResolution(distance, null, "Target is not active.");
 
+        if (accuracyRoll is not null && (accuracyRoll < 1 || accuracyRoll > 100))
+            throw new ArgumentOutOfRangeException(nameof(accuracyRoll), "Accuracy rolls must be between 1 and 100 inclusive.");
+        if (accuracyRoll is not null && accuracyRoll > profile.AccuracyPercent)
+            return new AttackResolution(distance, null, CoverMitigation: TerrainProtectionRules.At(map, target.Position).CoverValue,
+                AccuracyPercent: profile.AccuracyPercent, AccuracyRoll: accuracyRoll, Hit: false);
+
         var coverMitigation = TerrainProtectionRules.At(map, target.Position).CoverValue;
         var effectiveDamage = System.Math.Max(1, profile.Damage - coverMitigation);
         var application = EffectRules.Apply(target, new EffectDefinition(profile.Id, -effectiveDamage));
-        return new AttackResolution(distance, application, CoverMitigation: coverMitigation, EffectiveDamage: effectiveDamage);
+        return new AttackResolution(distance, application, CoverMitigation: coverMitigation, EffectiveDamage: effectiveDamage,
+            AccuracyPercent: profile.AccuracyPercent, AccuracyRoll: accuracyRoll, Hit: true);
     }
 }
 
-public sealed record AttackResolution(int Distance, EffectApplication? Application, string? FailureDetail = null, int CoverMitigation = 0, int EffectiveDamage = 0);
+public sealed record AttackResolution(int Distance, EffectApplication? Application, string? FailureDetail = null, int CoverMitigation = 0, int EffectiveDamage = 0, int AccuracyPercent = 100, int? AccuracyRoll = null, bool Hit = true);
 
 }

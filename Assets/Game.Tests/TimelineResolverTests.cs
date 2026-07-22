@@ -665,7 +665,56 @@ public sealed class TimelineResolverTests
         Assert.That(attack.TargetUnitId, Is.EqualTo(RedUnit));
         Assert.That(attack.FromPosition, Is.EqualTo(new GridPosition(0, 0)));
         Assert.That(attack.ToPosition, Is.EqualTo(new GridPosition(3, 0)));
-        Assert.That(attack.Detail, Is.EqualTo("attack=training-rifle; distance=3; damage=5; cover=0; effective=5; before=4; applied=-4; after=0"));
+        Assert.That(attack.Detail, Is.EqualTo("attack=training-rifle; distance=3; accuracy=100; roll=40; result=hit; damage=5; cover=0; effective=5; before=4; applied=-4; after=0"));
+    }
+
+    [Test]
+    public void Legal_attack_with_zero_accuracy_misses_without_damaging_its_target()
+    {
+        var state = State(new GridPosition(0, 0), new GridPosition(2, 0));
+        var scenario = new ScenarioDefinition("guaranteed-miss", new GridMapDefinition("guaranteed-miss-map", 3, 1), state);
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 0, 1, TargetUnitId: RedUnit, AttackProfileId: "training-rifle");
+        var request = ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(3), 1234u,
+            attackProfiles: new[] { new AttackProfile("training-rifle", 1, 3, 5, AccuracyPercent: 0) });
+
+        var result = new TimelineResolver().Resolve(request);
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.FinalState.FindUnit(RedUnit)!.HitPoints, Is.EqualTo(10));
+        var attack = result.Events.Single(@event => @event.Type == DomainEventType.AttackResolved);
+        Assert.That(attack.Detail, Does.Contain("accuracy=0; roll="));
+        Assert.That(attack.Detail, Does.Contain("result=miss"));
+        Assert.That(attack.Detail, Does.Contain("applied=0; after=10"));
+        Assert.That(result.Events.Where(@event => @event.ActionId == FirstAction).Select(@event => @event.Type),
+            Is.EqualTo(new[] { DomainEventType.ActionStarted, DomainEventType.AttackResolved, DomainEventType.ActionCompleted }));
+    }
+
+    [Test]
+    public void Seeded_accuracy_rolls_make_identical_requests_replay_identically()
+    {
+        var state = State(new GridPosition(0, 0), new GridPosition(2, 0));
+        var scenario = new ScenarioDefinition("seeded-accuracy", new GridMapDefinition("seeded-accuracy-map", 3, 1), state);
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 0, 1, TargetUnitId: RedUnit, AttackProfileId: "training-rifle");
+        var request = ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(3), 20260722u,
+            attackProfiles: new[] { new AttackProfile("training-rifle", 1, 3, 5, AccuracyPercent: 50) });
+
+        var first = new TimelineResolver().Resolve(request);
+        var second = new TimelineResolver().Resolve(request);
+
+        Assert.That(second.FinalStateChecksum, Is.EqualTo(first.FinalStateChecksum));
+        Assert.That(second.Events, Is.EqualTo(first.Events));
+    }
+
+    [Test]
+    public void Attack_profile_accuracy_must_be_a_percentage()
+    {
+        var action = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.Attack, 0, 1, TargetUnitId: RedUnit, AttackProfileId: "invalid-rifle");
+        var scenario = new ScenarioDefinition("invalid-accuracy", new GridMapDefinition("invalid-accuracy-map", 4, 1), DefaultState());
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", action) }, new RoundConfiguration(3), 1234u,
+            attackProfiles: new[] { new AttackProfile("invalid-rifle", 1, 3, 5, AccuracyPercent: 101) }));
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Diagnostics.Select(diagnostic => diagnostic.Code), Does.Contain("invalid-attack-accuracy"));
     }
 
     [Test]
@@ -728,7 +777,7 @@ public sealed class TimelineResolverTests
         Assert.That(result.Events.Where(@event => @event.ActionId == FirstAction).Select(@event => @event.Type),
             Is.EqualTo(new[] { DomainEventType.ActionStarted, DomainEventType.AttackResolved, DomainEventType.ActionCompleted }));
         Assert.That(result.Events.Single(@event => @event.ActionId == FirstAction && @event.Type == DomainEventType.AttackResolved).Detail,
-            Is.EqualTo("attack=short-rifle; distance=2; damage=5; cover=0; effective=5; before=10; applied=-5; after=5"));
+            Is.EqualTo("attack=short-rifle; distance=2; accuracy=100; roll=40; result=hit; damage=5; cover=0; effective=5; before=10; applied=-5; after=5"));
     }
 
     [Test]
@@ -762,7 +811,7 @@ public sealed class TimelineResolverTests
 
         Assert.That(result.FinalState.FindUnit(RedUnit)!.HitPoints, Is.EqualTo(9));
         Assert.That(result.Events.Single(@event => @event.Type == DomainEventType.AttackResolved).Detail,
-            Is.EqualTo("attack=rifle; distance=2; damage=5; cover=4; effective=1; before=10; applied=-1; after=9"));
+            Is.EqualTo("attack=rifle; distance=2; accuracy=100; roll=40; result=hit; damage=5; cover=4; effective=1; before=10; applied=-1; after=9"));
     }
 
     [Test]
@@ -1033,7 +1082,7 @@ public sealed class TimelineResolverTests
         {
             new { Tick = 0, Type = DomainEventType.RoundStarted, UnitId = (Guid?)null, TargetUnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null },
             new { Tick = 1, Type = DomainEventType.ActionStarted, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)null, ActionId = (Guid?)FirstAction, Detail = (string?)null },
-            new { Tick = 3, Type = DomainEventType.AttackResolved, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)RedUnit, ActionId = (Guid?)FirstAction, Detail = "attack=golden-rifle; distance=3; damage=5; cover=0; effective=5; before=4; applied=-4; after=0" },
+            new { Tick = 3, Type = DomainEventType.AttackResolved, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)RedUnit, ActionId = (Guid?)FirstAction, Detail = "attack=golden-rifle; distance=3; accuracy=100; roll=74; result=hit; damage=5; cover=0; effective=5; before=4; applied=-4; after=0" },
             new { Tick = 3, Type = DomainEventType.ActionCompleted, UnitId = (Guid?)BlueUnit, TargetUnitId = (Guid?)null, ActionId = (Guid?)FirstAction, Detail = (string?)null },
             new { Tick = 4, Type = DomainEventType.RoundCompleted, UnitId = (Guid?)null, TargetUnitId = (Guid?)null, ActionId = (Guid?)null, Detail = (string?)null }
         }));
