@@ -1002,6 +1002,33 @@ public sealed class TimelineResolverTests
     }
 
     [Test]
+    public void Lethal_overwatch_interrupts_an_unfinished_movement_action()
+    {
+        var state = State(new GridPosition(0, 0), new GridPosition(3, 0));
+        var scenario = new ScenarioDefinition("lethal-overwatch", new GridMapDefinition("lethal-overwatch-map", 5, 1), state);
+        var overwatch = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.EnterOverwatch, 0, 1, Facing: Facing.East, AttackProfileId: "rifle");
+        var move = new TacticalAction(SecondAction, RedUnit, TacticalActionType.Move, 1, 2, Path: new[] { new GridPosition(2, 0), new GridPosition(1, 0) });
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", overwatch), Bundle("red", move) }, new RoundConfiguration(4), 1234u,
+            attackProfiles: new[] { new AttackProfile("rifle", 1, 3, 10) }));
+
+        Assert.That(result.FinalState.FindUnit(RedUnit)!.Position, Is.EqualTo(new GridPosition(2, 0)));
+        Assert.That(result.FinalState.FindUnit(RedUnit)!.ActivityState, Is.EqualTo(UnitActivityState.Incapacitated));
+        Assert.That(result.Events.Any(@event => @event.Type == DomainEventType.ActionInterrupted && @event.ActionId == SecondAction), Is.True);
+    }
+
+    [Test]
+    public void Marksman_overwatch_requires_prone_posture_at_completion()
+    {
+        var marksman = StarterMilitaryContent.Marksman.CreateInitialState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East);
+        var state = new GameState(new[] { marksman, new UnitState(RedUnit, "red", new GridPosition(3, 0), Facing.West, UnitActivityState.Active) });
+        var scenario = new ScenarioDefinition("marksman-prone", new GridMapDefinition("marksman-prone-map", 4, 1), state, UnitDefinitions: new[] { StarterMilitaryContent.Marksman });
+        var overwatch = new TacticalAction(FirstAction, BlueUnit, TacticalActionType.EnterOverwatch, 0, 1, Facing: Facing.East, AttackProfileId: StarterMilitaryContent.MarksmanRifle.Id);
+        var result = new TimelineResolver().Resolve(ScenarioFactory.CreateRequest(scenario, new[] { Bundle("blue", overwatch) }, new RoundConfiguration(3), 1234u, attackProfiles: new[] { StarterMilitaryContent.MarksmanRifle }));
+
+        Assert.That(result.Events.Single(@event => @event.Type == DomainEventType.ActionFailed).Detail, Does.Contain("requires prone posture"));
+    }
+
+    [Test]
     public void Triggered_overwatch_consumes_one_ammunition_even_when_the_reaction_misses()
     {
         var blue = StarterMilitaryContent.Rifleman.CreateInitialState(BlueUnit, "blue", new GridPosition(0, 0), Facing.East);

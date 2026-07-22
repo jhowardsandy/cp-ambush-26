@@ -8,6 +8,10 @@ Status: accepted.
 
 Each armed unit fires at most once. The resolver orders armed watchers by faction ID then unit ID; a watcher chooses the first legal entering enemy by that same deterministic identity order. The reaction uses the ordinary direct-attack calculation and emits `ReactionAttackResolved`. Arming and the reaction are both recorded as events. Overwatch expires at the end of the round whether it fired or not.
 
+## RXN-INT-001: Reaction interruption and scoped readiness
+
+Status: accepted. Reactions resolve after each movement-entry event in watcher faction/ID order. A non-lethal reaction does not pause the mover; its planned movement continues. If a reaction incapacitates a mover, every started unfinished action for that unit is interrupted immediately and emits `ActionInterrupted`; the unit remains on its entered tile. The Marksman rifle content requires prone posture when entering overwatch, checked at overwatch completion so a unit may crouch then go prone before arming.
+
 The reaction uses the same seeded accuracy roll and ammunition-attempt accounting as an ordinary direct attack. A legal miss still spends the watcher's one reaction and one profile-defined ammunition quantity for the round and is recorded as `result=miss`. An untriggered watch spends no ammunition. This first rule still has no posture/scoped requirement, concealment modifier, target selector customization, multi-shot capability, or interruption/resume behavior. Those are explicit follow-up rules.
 
-Evidence: `Overwatch_fires_once_when_an_enemy_enters_the_armed_watch_cone`; `Overwatch_requires_the_overwatch_skill_when_a_unit_catalog_is_present`.
+Evidence: `Overwatch_fires_once_when_an_enemy_enters_the_armed_watch_cone`; `Overwatch_requires_the_overwatch_skill_when_a_unit_catalog_is_present`; `Lethal_overwatch_interrupts_an_unfinished_movement_action`; `Marksman_overwatch_requires_prone_posture_at_completion`.

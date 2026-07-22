@@ -40,6 +40,11 @@ Compatibility note: no state-schema or checksum change; replay outcomes can chan
 - Added deterministic faction-scoped `ContactRevealed` and `ContactLost` events; invalid rounds leave knowledge unchanged.
 - PvE remains bound to current observation and cannot target remembered contacts as if they were visible.
 
+## 2026-07-22 — Reaction interruption and scoped readiness
+
+- Formalized watcher priority and non-lethal continuation; lethal overwatch now interrupts unfinished started actions.
+- Added content-defined prone-only overwatch for the Marksman rifle.
+
 ## 2026-07-20 — Initial deterministic engine foundation
 
 - Added timeline ordering/validation, cardinal terrain-aware movement, and strict same-tick occupancy policy.
