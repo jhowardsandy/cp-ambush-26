@@ -23,6 +23,8 @@ public enum DomainEventType
     ContactLost,
     RescueDiscovered,
     RescueExtracted,
+    ReinforcementSpawned,
+    ReinforcementDisabled,
     ActionCompleted,
     ActionFailed,
     RoundCompleted
