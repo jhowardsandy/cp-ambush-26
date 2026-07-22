@@ -542,8 +542,12 @@ namespace TacticalStrategyGame.Presentation.Unity
         {
             var objective = _scenario.Objectives!.First(candidate => candidate.Id == "hold-central-crossing");
             var heldRounds = _encounter.ObjectiveProgress?.FirstOrDefault(progress => progress.ObjectiveId == objective.Id)?.ControlledRounds ?? 0;
-            return $"Objective: Blue holds Central Crossing uncontested {heldRounds}/{objective.RequiredControlRounds} completed rounds (or eliminate Red).";
+            var outcome = _encounter.Outcome?.IsComplete == true ? $" OUTCOME: {_encounter.Outcome.WinningFactionId!.ToUpperInvariant()} wins — {_encounter.Outcome.Detail}" : "";
+            return $"Objective: Blue holds Central Crossing uncontested {heldRounds}/{objective.RequiredControlRounds} completed rounds (or eliminate Red).{outcome}";
         }
+
+        private string ScenarioBriefing() =>
+            "Mission briefing: secure Central Crossing for 3 uncontested completed rounds, or incapacitate every Red unit. Draft Blue orders; Red plans from what it can observe.";
 
         private void DrawFeedback()
         {
@@ -756,6 +760,7 @@ namespace TacticalStrategyGame.Presentation.Unity
             if (GUI.Button(new Rect(628, 158, 130, 24), "Auto-plan selected")) AutoPlanSelected();
             var followLabel = _followTargets.TryGetValue(_selectedBlue, out var followTarget) ? $"Follow: Blue {UnitNumber(followTarget)}" : "Follow: nearest ally";
             GUI.Label(new Rect(768, 162, 220, 20), $"{DoctrineLabel(DoctrineFor(_selectedBlue))}; {followLabel}");
+            GUI.Label(new Rect(24, 186, 970, 20), ScenarioBriefing());
             GUI.Box(new Rect(12, 216, 1000, 112), $"Round plan — {PlannedActionCount} actions across {_blueOrders.Count} Blue units. Doctrine orders are ordinary editable actions; Undo removes the selected unit's last action.");
             for (var i = 0; i < blue.Length; i++)
             {

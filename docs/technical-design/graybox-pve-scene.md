@@ -22,4 +22,6 @@ Before any enemy is observable, both factions receive the authored `contact-rall
 
 The `central-crossing` hold objective is also outlined directly on the board with a translucent `HOLD AREA` overlay; the status line reports Blue's authoritative uncontested completed-round count. The overlay is map-area presentation only and does not evaluate control.
 
+The header keeps the mission briefing visible while orders are drafted: secure the crossing for three uncontested completed rounds or eliminate Red. On completion, the same authoritative objective/outcome detail is shown in the status line. Unity only displays encounter state supplied by the resolver; it never decides a winner.
+
 Each Blue unit also has a selected doctrine control: Aggressive, Hold, Keep range, or Support. **Auto-plan selected** asks the deterministic planner to draft that one unit’s ordinary action and exposes its rationale in the Round plan; **Next follow unit** supplies the optional support target. Manual movement, attack, heal, or overwatch replaces the generated order, retaining player authority.
