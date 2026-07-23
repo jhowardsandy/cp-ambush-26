@@ -8,6 +8,8 @@ This folder is the living, player-readable rulebook. It describes accepted behav
 2. `visibility.md` — objective line of sight and present-time faction visibility.
 3. `effects-and-vitality.md` — deterministic healing/damage vitality effects.
 4. `direct-attacks.md` — guaranteed-hit direct attacks with range and terrain sight.
+5. `encounter-outcomes.md` — terminal-objective precedence, round-limit, and score policy proposals.
+6. `../quality/secure-the-ford-acceptance.md` — deterministic first complete scenario acceptance fixture.
 5. `encounter-rounds.md` — valid round carry-forward and invalid-plan behavior.
 6. `objectives.md` — eliminate-all-opponents victory and future objective directions.
 7. `action-points.md` — per-round action-point budget validation.

@@ -16,6 +16,8 @@ Enrich the initial Rifleman, Combat Medic, and Marksman catalog with inspectable
 
 Turn Riverside Crossing into a stronger tactical decision space: varied deployment pressure, support/marksman/rifleman interactions, objective alternatives, and scenario-controlled reinforcement/rescue hooks. Add acceptance cases for purposeful player plans, not merely auto-play survival.
 
+The first acceptance fixture is **Secure the Ford**: implemented deterministic grenade, spawn-control, and hold-victory proof distinct from free auto-play. Its objective precedence, round-limit, and score policy are defined in `../rulebook/encounter-outcomes.md`.
+
 ## E4 — Planning and playback clarity
 
 Reduce graybox friction: stronger order previews, target/area selection feedback, sequence timeline inspection, pause/speed controls, outcome summary, and replay-oriented event filtering. This includes a player-facing path to exercise area delivery, but animation remains presentation-only.

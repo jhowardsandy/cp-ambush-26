@@ -83,6 +83,11 @@ public sealed class TimelineResolver
                         targetUnitId: targetAfter.Id);
                 }
                 if (completion.AreaAttack is not null)
+                {
+                    if (completion.AreaAttack.Impacts.Count == 0)
+                        AddEvent(tick, DomainEventType.AttackResolved, item.FactionId, unit.Id, item.Action.ActionId,
+                            $"area-attack={completion.AttackProfile!.Id}; target-distance={completion.AreaAttack.Distance}; radius={completion.AttackProfile.AreaRadius}; impacts=0; result=detonated",
+                            fromPosition: unit.Position, toPosition: item.Action.TargetPosition);
                     foreach (var impact in completion.AreaAttack.Impacts)
                     {
                         var targetAfter = state.FindUnit(impact.TargetUnitId)!;
@@ -91,8 +96,9 @@ public sealed class TimelineResolver
                             $"{AreaAttackDetail(completion.AttackProfile!, completion.AreaAttack, impact, beforeHitPoints, targetAfter.HitPoints)}{completion.InventoryConsumptionDetail}",
                             fromPosition: unit.Position, toPosition: item.Action.TargetPosition,
                             hitPointsAfter: targetAfter.HitPoints, activityStateAfter: targetAfter.ActivityState,
-                            targetUnitId: targetAfter.Id);
+                        targetUnitId: targetAfter.Id);
                     }
+                }
                 if (item.Action.Type == TacticalActionType.ChangePosture && item.Action.Posture is not null)
                     AddEvent(tick, DomainEventType.PostureChanged, item.FactionId, unit.Id, item.Action.ActionId,
                         $"posture={item.Action.Posture}; concealment={VisibilityRules.ConcealmentFromPosture(item.Action.Posture.Value)}", postureAfter: item.Action.Posture);
