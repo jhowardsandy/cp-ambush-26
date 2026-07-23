@@ -117,7 +117,10 @@ namespace TacticalStrategyGame.Presentation.Unity
                     tile.transform.position += Vector3.up * .07f;
                     tile.transform.localScale = new Vector3(.88f, .18f, .88f);
                 }
-                tile.GetComponent<Renderer>().material.color = !terrain.IsPassable ? new Color(.34f, .25f, .16f) : terrain.ConcealmentValue > 0 ? new Color(.16f, .42f, .2f) : terrain.CoverValue > 0 ? new Color(.45f, .45f, .38f) : new Color(.22f, .27f, .32f);
+                var material = tile.GetComponent<Renderer>().material;
+                var texture = TerrainTextureFor(terrain);
+                material.mainTexture = texture;
+                material.color = texture is null ? !terrain.IsPassable ? new Color(.34f, .25f, .16f) : terrain.ConcealmentValue > 0 ? new Color(.16f, .42f, .2f) : terrain.CoverValue > 0 ? new Color(.45f, .45f, .38f) : new Color(.22f, .27f, .32f) : Color.white;
             }
             foreach (var unit in _scenario.InitialState.Units)
             {
@@ -131,6 +134,13 @@ namespace TacticalStrategyGame.Presentation.Unity
             var camera = cameraObject.AddComponent<Camera>(); camera.tag = "MainCamera"; camera.orthographic = true; camera.orthographicSize = 5.6f;
             cameraObject.transform.position = new Vector3(7.5f, 12, 5.5f); camera.orthographicSize = 8.1f; cameraObject.transform.rotation = Quaternion.Euler(90, 0, 0);
             new GameObject("Graybox Light").AddComponent<Light>().type = LightType.Directional;
+        }
+
+        private static Texture2D? TerrainTextureFor(TerrainCellDefinition terrain)
+        {
+            return !terrain.IsPassable || terrain.ConcealmentValue > 0 || terrain.CoverValue > 0
+                ? null
+                : Resources.Load<Texture2D>("Terrain/grass-v2");
         }
 
         private void ResetEncounter()
@@ -455,18 +465,36 @@ namespace TacticalStrategyGame.Presentation.Unity
 
         private IEnumerator AutoPlay()
         {
-            const int maximumDemoRounds = 12;
+            const int maximumDemoRounds = 60;
+            var grenadeUsed = false;
             for (var round = 0; round < maximumDemoRounds && _encounter.Outcome?.IsComplete != true; round++)
             {
                 _message = $"Auto-play demo: planning round {_encounter.CompletedRounds + 1}.";
                 var blue = PvePlanner.Plan("blue", _encounter.CurrentState, _scenario.Map, AttackProfiles, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives, BlueHoldPolicy);
-                yield return StartCoroutine(Resolve(blue.Commands, blue.Decisions));
+                var blueActions = blue.Commands.Actions.ToList();
+                var firstRifleman = _scenario.InitialState.Units.First(unit => unit.FactionId == "blue" && unit.UnitDefinitionId == StarterMilitaryContent.Rifleman.Id);
+                var rifleman = _encounter.CurrentState.FindUnit(firstRifleman.Id);
+                var grenadeTarget = rifleman is null ? null : _encounter.CurrentState.Units
+                    .Where(unit => unit.ActivityState == UnitActivityState.Active && unit.FactionId == "red")
+                    .Where(unit => GridDistance.Manhattan(rifleman.Position, unit.Position) >= StarterMilitaryContent.FragmentationGrenade.MinimumRange
+                        && GridDistance.Manhattan(rifleman.Position, unit.Position) <= StarterMilitaryContent.FragmentationGrenade.MaximumRange)
+                    .Where(unit => VisibilityRules.HasLineOfSight(_scenario.Map, rifleman.Position, unit.Position))
+                    .OrderBy(unit => GridDistance.Manhattan(rifleman.Position, unit.Position)).ThenBy(unit => unit.Id).FirstOrDefault();
+                if (!grenadeUsed && rifleman is not null && grenadeTarget is not null && InventoryRules.QuantityOf(rifleman, "fragmentation-grenade") > 0)
+                {
+                    blueActions.RemoveAll(action => action.UnitId == firstRifleman.Id);
+                    blueActions.Add(new TacticalAction(PlannedActionId(firstRifleman.Id, 1), firstRifleman.Id, TacticalActionType.Attack, 0, 1,
+                        AttackProfileId: StarterMilitaryContent.FragmentationGrenade.Id, TargetPosition: grenadeTarget.Position));
+                    grenadeUsed = true;
+                    _message = $"Auto-play demo: Blue Rifleman throws grenade at Red {UnitNumber(grenadeTarget.Id)}.";
+                }
+                yield return StartCoroutine(Resolve(new CommandBundle("blue", blueActions), blue.Decisions));
                 if (_encounter.Outcome?.IsComplete != true)
                     yield return WaitForPlayback(.65f);
             }
             _autoPlaying = false;
             if (_encounter.Outcome?.IsComplete != true)
-                _message = $"Auto-play demo paused after {maximumDemoRounds} rounds. Reset to replay.";
+                _message = $"Auto-play demo safety stop after {maximumDemoRounds} rounds without a winner. Reset to replay.";
         }
 
         private IEnumerator Resolve()
@@ -474,17 +502,20 @@ namespace TacticalStrategyGame.Presentation.Unity
             yield return Resolve(new CommandBundle("blue", _blueOrders.Values.SelectMany(actions => actions).ToArray()));
         }
 
-        private IEnumerator Resolve(CommandBundle blueCommands, IReadOnlyList<PveDecision>? blueDecisions = null)
+        private IEnumerator Resolve(CommandBundle blueCommands, IReadOnlyList<PveDecision>? blueDecisions = null, CommandBundle? redCommands = null)
         {
-            _resolving = true; _armedOverwatch.Clear(); var before = _encounter.CurrentState; var red = PvePlanner.Plan("red", before, _scenario.Map, AttackProfiles, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives);
-            var overwatchActions = blueCommands.Actions.Concat(red.Commands.Actions)
+            _resolving = true; _armedOverwatch.Clear(); var before = _encounter.CurrentState; var red = redCommands is null ? PvePlanner.Plan("red", before, _scenario.Map, AttackProfiles, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives).Commands : redCommands;
+            var overwatchActions = blueCommands.Actions.Concat(red.Actions)
                 .Where(action => action.Type == TacticalActionType.EnterOverwatch && action.Facing.HasValue)
                 .ToDictionary(action => action.ActionId);
-            var result = EncounterResolver.ResolveRound(_encounter, new[] { blueCommands, red.Commands }, new RoundConfiguration(10), (uint)(20260721 + _encounter.CompletedRounds), effects: new[] { FieldMedKit }, attackProfiles: AttackProfiles);
+            var result = EncounterResolver.ResolveRound(_encounter, new[] { blueCommands, red }, new RoundConfiguration(10), (uint)(20260721 + _encounter.CompletedRounds), effects: new[] { FieldMedKit }, attackProfiles: AttackProfiles);
             _blueOrders.Clear(); _lines.Clear();
             foreach (var decision in blueDecisions ?? Array.Empty<PveDecision>()) _lines.Add($"PLAN BLUE {UnitNumber(decision.UnitId)} {decision.Decision}: {decision.Explanation}");
-            foreach (var decision in red.Decisions) _lines.Add($"PLAN RED {UnitNumber(decision.UnitId)} {decision.Decision}: {decision.Explanation}");
+            if (redCommands is null)
+                foreach (var decision in PvePlanner.Plan("red", before, _scenario.Map, AttackProfiles, FieldMedKit, _scenario.UnitDefinitions, ScoutObjectives).Decisions) _lines.Add($"PLAN RED {UnitNumber(decision.UnitId)} {decision.Decision}: {decision.Explanation}");
+            else _lines.Add("PLAN RED: scripted demo hold position.");
             Render(before);
+            var displayedAreaBlasts = new HashSet<Guid>();
             foreach (var group in result.Resolution.Events.GroupBy(@event => @event.Tick).OrderBy(group => group.Key))
             {
                 foreach (var @event in group)
@@ -494,7 +525,10 @@ namespace TacticalStrategyGame.Presentation.Unity
                         _armedOverwatch[@event.UnitId.Value] = overwatch.Facing!.Value;
                     if (@event.Type is DomainEventType.AttackResolved or DomainEventType.ReactionAttackResolved)
                     {
-                        if (@event.FromPosition is not null && @event.ToPosition is not null)
+                        var isAreaAttack = @event.Detail?.StartsWith("area-attack=", StringComparison.Ordinal) == true;
+                        if (isAreaAttack && @event.ActionId.HasValue && displayedAreaBlasts.Add(@event.ActionId.Value) && @event.FromPosition is not null && @event.ToPosition is not null)
+                            yield return AnimateGrenadeBlast(@event.FromPosition, @event.ToPosition);
+                        else if (@event.FromPosition is not null && @event.ToPosition is not null)
                             yield return AnimateProjectile(@event.FromPosition, @event.ToPosition, @event.Type == DomainEventType.ReactionAttackResolved ? new Color(1f, .36f, .1f) : new Color(1f, .82f, .22f));
                         if (@event.Detail?.Contains("result=miss", StringComparison.Ordinal) == true && @event.TargetUnitId.HasValue)
                             AddFeedback(@event.TargetUnitId.Value, "MISS", new Color(.9f, .9f, .9f));
@@ -771,6 +805,22 @@ namespace TacticalStrategyGame.Presentation.Unity
             }
             projectile.transform.position = end;
             Destroy(projectile);
+        }
+
+        private IEnumerator AnimateGrenadeBlast(GridPosition from, GridPosition center)
+        {
+            yield return AnimateProjectile(from, center, new Color(.92f, .72f, .16f));
+            var blast = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            blast.name = "Resolved grenade blast";
+            blast.transform.SetParent(transform, false); blast.transform.position = new Vector3(center.X, .22f, center.Y);
+            blast.GetComponent<Renderer>().material.color = new Color(1f, .28f, .04f);
+            for (var elapsed = 0f; elapsed < .32f; elapsed += Time.deltaTime)
+            {
+                var scale = Mathf.Lerp(.25f, 2.2f, elapsed / .32f);
+                blast.transform.localScale = new Vector3(scale, .12f, scale);
+                yield return null;
+            }
+            Destroy(blast);
         }
 
         private string PlannedOrderDescription(UnitState unit)

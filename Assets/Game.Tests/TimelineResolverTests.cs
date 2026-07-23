@@ -18,6 +18,18 @@ public sealed class TimelineResolverTests
     private static readonly Guid SecondAction = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
     [Test]
+    public void Secure_the_ford_showcase_reaches_blue_hold_victory_with_grenade_and_disabled_reinforcement()
+    {
+        var rounds = SecureTheFordShowcase.Run();
+
+        Assert.That(rounds, Has.Count.EqualTo(3));
+        Assert.That(rounds[0].Resolution.Events.Any(@event => @event.Type == DomainEventType.AttackResolved && @event.Detail!.StartsWith("area-attack=fragmentation-grenade", StringComparison.Ordinal)), Is.True);
+        Assert.That(rounds[1].Resolution.Events.Any(@event => @event.Type == DomainEventType.ReinforcementDisabled), Is.True);
+        Assert.That(rounds[2].NextState.Outcome?.WinningFactionId, Is.EqualTo("blue"));
+        Assert.That(rounds[2].NextState.Outcome?.Detail, Does.Contain("held-rounds=3/3"));
+    }
+
+    [Test]
     public void Orders_same_tick_by_faction_then_unit_then_action_id()
     {
         var request = Request(
